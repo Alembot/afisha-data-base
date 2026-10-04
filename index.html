@@ -424,6 +424,7 @@ async function saveEvent(id,extra){
     }
     if(upd.pipeline_stage===undefined && e.pipeline_stage!==4 && Object.keys(upd).length){upd.pipeline_stage=4;upd.stage_reason=null}
   }
+  {const finalStage=upd.pipeline_stage!==undefined?upd.pipeline_stage:e.pipeline_stage;const wantPfx=(finalStage===1||finalStage===3)?"AFC-":"AFB-";if(e.public_id&&e.public_id.slice(0,4)!==wantPfx){upd.public_id=wantPfx+e.public_id.slice(4)}}
   upd.human_updated_at=new Date().toISOString();upd.human_updated_by=ME||"human";
   if(!Object.keys(upd).length){toast("Изменений нет");return}
   try{
