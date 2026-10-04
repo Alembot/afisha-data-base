@@ -481,8 +481,8 @@ async function loadSources(){
   const {data:sr}=await sb.from("sources").select("*").order("name");SR=sr||[];
   const {data:cfg}=await sb.from("parser_source_configurations").select("*");CFG=cfg||[];
 }
-async function loadAll(){
-  $("#main").innerHTML=`<div class="empty">Загружаю базу…</div>`;
+async function loadAll(first){
+  if(first)$("#main").innerHTML=`<div class="empty">Загружаю базу…</div>`;
   await Promise.all([loadCats(),loadEvents(),loadPlaces(),loadSources()]);
   render();
 }
@@ -501,8 +501,8 @@ sb.auth.onAuthStateChange((event,session)=>{
   if(session&&session.user){
     ME=session.user.email;
     $("#login").hidden=true;$("#app").hidden=false;$("#topbar").hidden=false;
-    loadAll();
-    setInterval(async()=>{try{await loadAll()}catch(e){}},45000);
+    loadAll(true);
+    setInterval(async()=>{try{await loadAll(false)}catch(e){}},45000);
   }else{
     $("#login").hidden=false;$("#app").hidden=true;$("#topbar").hidden=true;
   }
