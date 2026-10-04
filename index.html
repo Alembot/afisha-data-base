@@ -64,6 +64,18 @@ main{flex:1;min-width:0;padding-block:28px 60px;padding-inline:clamp(16px,3.5vw,
 .seg button.on{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
 .chip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;font-size:12.5px;border:1px solid var(--line);background:var(--surface);cursor:pointer}
 .chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.chip.soft{background:var(--accent-soft);border-color:transparent;color:var(--accent-ink);cursor:default}
+.blocks{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.blk{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.blk h3{font-size:15px;font-weight:700;display:flex;justify-content:space-between;gap:8px}
+.blk h3 span{color:var(--ink3);font-weight:500}
+.blk .items{display:flex;flex-wrap:wrap;gap:6px}
+.blk .it{font-size:13px;padding:4px 9px;border-radius:7px;background:var(--surface2)}
+.blk .it b{color:var(--accent-ink);margin-left:4px}
+.doccards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.doccard{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:8px}
+.doccard:hover{border-color:var(--accent)}
+.note{background:var(--info-bg);color:var(--info);border-radius:12px;padding:12px 14px;font-size:14px}
 .search{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 12px;min-width:0;width:260px;max-width:100%;color:var(--ink)}
 .tablewrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:16px}
 table{border-collapse:collapse;width:100%;min-width:900px}
@@ -149,10 +161,11 @@ const MOOD=Object.fromEntries(MOODS.map(m=>[m[0],m]));
 const FW=["Один","На двоих","С друзьями","С семьёй"];
 const STAGES={1:"Новые от робота",2:"Исправлено AI",3:"Нужен человек",4:"В базе"};
 const STAGE_TXT={1:"Робот создал запись и разметил её. AI ещё не проверял.",2:"AI нашёл неточность, исправил по первоисточнику и принял.",3:"AI не уверен или нашёл противоречие. Решает человек.",4:"Запись принята в базу."};
+const DOCS=[["Логика парсера","Поиск, сбор","—","Обновить до 15 категорий","https://docs.google.com/document/d/1gL7TBUF80NERciga1PlWDBpv42VG_wm1HgGPsL8BJFc/edit"],["Методология распознавания событий, мест и связей","Сбор","рабочая","Действует","https://docs.google.com/document/d/1Z9bLoig606rZigDr2QTjAoueGaWUG_NfkTDdSNyPSJU/edit"],["Инструкция для парсера: события","Сбор","—","Обновить до 15 категорий","https://docs.google.com/document/d/1ySJgk87AiXRvxsVpJxBijGdkppWgAS6axdqYb9szoP0/edit"],["Инструкция для парсера: места","Сбор","—","Обновить до 15 категорий","https://docs.google.com/document/d/1XsPSigO1thdSPNRxDTbazKLc_xrCG4CHvwZttcQICMM/edit"],["Инструкция для парсера: категории досуга","Разметка","—","Обновить до 15 категорий","https://docs.google.com/document/d/1E5cJ8nNNXvcqYtmpwDWjWfdoVBOAfaO-rjqynZkweIQ/edit"],["Как проставлять настроение и «Для кого»","Разметка, AI-проверка","1.1","Действует","https://docs.google.com/document/d/1WYN1hXKDr_2hx-ataLE3IlOyCmAqqNeaJ-kcsU40WOY/edit"],["Справочник настроений","Разметка","1.1","Действует","https://docs.google.com/document/d/1sfwyxj-eU3U7E2-7vaSGySl5lJDAanR3dYKs11RlHFM/edit"],["Как выделять performers из события","Сбор","25.09.2026","Действует","https://docs.google.com/document/d/1omGHGE16vy0WxuFO1KOfujsVdPX1zoYDtGDprJSk_RU/edit"],["ТЗ: новый интерфейс Afisha Data Base","Интерфейс","1.0","Действует","https://docs.google.com/document/d/1-sEOe2ZsQR5nnRcQ14jWar92BLEPlbsof0JIbL2GTO8/edit"],["Правила AI-проверки кандидата","AI-проверка","—","Нет документа",""],["Решения и контекст по Afisha Data Base","Все направления","—","Eventer Workspace → afisha","https://alembot.github.io/eventer-workspace/"]];
 
-let CATS=[],EVENT_TYPES=[],PLACE_TYPES=[],SESS={},PLACE_OF={},EV=[],PL=[],SR=[],CFG=[];
+let CATS=[],EVENT_TYPES=[],PLACE_TYPES=[],SESS={},PLACE_OF={},EV=[],PL=[],SR=[],CFG=[],REFCATS=[],REFITEMS=[],PERF=[];
 let ME=null;
-let S={view:"home",arg:null,evMode:"base",evF:{},plF:{},q:"",qtab:3,srT:null};
+let S={view:"home",arg:null,evMode:"base",evF:{},plF:{},q:"",qtab:3,srT:null,dir:null};
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const TZ="Asia/Almaty";
@@ -191,13 +204,13 @@ const ISSUES={noplace:"Без места или точки сбора",noprice:"
 
 function go(view,arg,patch){S.view=view;S.arg=arg??null;if(patch)Object.assign(S,patch);$("#nav").classList.remove("open");render();window.scrollTo(0,0)}
 function navHtml(){const a=active();const n3=EV.filter(e=>e.pipeline_stage===3&&!isArchived(e)).length;const it=(v,t,n)=>`<button class="nv${S.view===v||(v==="events"&&S.view==="event")||(v==="places"&&S.view==="place")?" on":""}" data-go="${v}">${t}${n!=null?`<span class="n">${n}</span>`:""}</button>`;
-return `<div class="brand">афиша<i>.</i>data</div>${it("home","Главная")}<div class="nvs">Реестры</div>${it("events","События",a.length)}${it("places","Места",PL.length)}<div class="nvs">Работа</div>${it("queue","Конвейер проверки",n3)}${it("sources","Источники",SR.length)}<div class="nvs" style="margin-top:auto"></div><button class="nv" id="logoutBtn">Выйти (${esc(ME||"")})</button>`}
+return `<div class="brand">афиша<i>.</i>data</div>${it("home","Главная")}<div class="nvs">Реестры</div>${it("events","События",a.length)}${it("places","Места",PL.length)}<div class="nvs">Работа</div>${it("queue","Конвейер проверки",n3)}${it("sources","Источники",SR.length)}<div class="nvs">Знания</div>${it("dirs","Справочники")}${it("docs","Инструкции")}<div class="nvs" style="margin-top:auto"></div><button class="nv" id="logoutBtn">Выйти (${esc(ME||"")})</button>`}
 
 function render(){
   $("#nav").innerHTML=navHtml();
   $("#logoutBtn").addEventListener("click",()=>sb.auth.signOut());
   const m=$("#main");
-  const V={home,events,places,category,event:eventCard,place:placeCard,queue,sources}[S.view]||home;
+  const V={home,events,places,category,event:eventCard,place:placeCard,queue,sources,dirs,docs}[S.view]||home;
   m.innerHTML=V(S.arg);
 }
 
@@ -422,6 +435,46 @@ function sources(){
   <div class="tablewrap"><table><thead><tr><th>Источник</th><th>Канал</th><th>Подключён</th><th>Статус сбора</th><th></th></tr></thead><tbody>${rows||`<tr><td colspan="5"><div class="empty">Источники загружаются…</div></td></tr>`}</tbody></table></div>`;
 }
 
+function refCount(code,item){
+  if(code==="event_type")return active().filter(e=>e.event_category===item.name).length;
+  if(code==="event_format")return active().filter(e=>e.format===item.name).length;
+  if(code==="event_topic")return active().filter(e=>e.topic===item.name).length;
+  if(code==="event_activity")return active().filter(e=>e.activity===item.name).length;
+  if(code==="place_type")return PL.filter(p=>p.place_type===item.name).length;
+  if(code==="performer_role")return PERF.filter(p=>p.performer_role===item.name).length;
+  if(code==="source_group")return SR.filter(s=>s.source_group_id===item.id).length;
+  if(code==="source_channel")return SR.filter(s=>s.channel_id===item.id).length;
+  if(code==="source_account_type")return SR.filter(s=>s.account_type_id===item.id||s.account_type===item.name).length;
+  return null;
+}
+function dirs(){
+  const cats=REFCATS.slice().sort((a,b)=>a.name.localeCompare(b.name,"ru"));
+  const secs=[...cats.map(c=>[c.code,c.name,REFITEMS.filter(i=>i.catalog_id===c.id).length]),["moods","Настроения",MOODS.length],["fw","Для кого",FW.length],["stages","Стадии конвейера",4]];
+  const c=S.dir||(cats[0]&&cats[0].code)||"moods";
+  const tbl=(h,rows)=>`<div class="tablewrap"><table style="min-width:600px"><thead><tr>${h.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>`;
+  let body="";
+  if(c==="moods")body=tbl(["Код","В базе","Суть","Событий"],MOODS.map(m=>`<tr class="click" data-go="events" data-patch='${esc(JSON.stringify({evMode:"active",evF:{mood:m[0]}}))}'><td class="id">${esc(m[0])}</td><td class="tt">${esc(m[1])}</td><td class="muted">${esc(m[2])}</td><td>${active().filter(e=>(e.moods||[]).includes(m[0])).length}</td></tr>`).join(""));
+  else if(c==="fw")body=tbl(["Значение","Событий"],FW.map(w=>`<tr class="click" data-go="events" data-patch='${esc(JSON.stringify({evMode:"active",evF:{fw:w}}))}'><td class="tt">${esc(w)}</td><td>${active().filter(e=>(e.for_whom||[]).includes(w)).length}</td></tr>`).join(""));
+  else if(c==="stages")body=tbl(["Стадия","Что значит","Событий"],[1,2,3,4].map(k=>`<tr class="click" data-go="queue" data-patch='${JSON.stringify({qtab:k})}'><td><span class="st s${k}">${esc(STAGES[k])}</span></td><td>${esc(STAGE_TXT[k])}</td><td>${active().filter(e=>e.pipeline_stage===k).length}</td></tr>`).join(""));
+  else{
+    const cat=cats.find(x=>x.code===c);
+    const items=REFITEMS.filter(i=>i.catalog_id===(cat&&cat.id)).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0)||a.name.localeCompare(b.name,"ru"));
+    if(!items.length)body=`<div class="note">В справочнике «${esc(cat?cat.name:"")}» пока нет значений.</div>`;
+    else if(items.some(i=>i.leisure_category_id)){
+      const groups={};items.forEach(i=>{const g=catName(i.leisure_category_id)||"Без категории";(groups[g]=groups[g]||[]).push(i)});
+      body=`<div class="blocks">${Object.entries(groups).map(([g,arr])=>`<div class="blk"><h3>${esc(g)}<span>${arr.length}</span></h3><div class="items">${arr.map(i=>{const n=refCount(c,i);return `<span class="it">${esc(i.name)}${n?`<b>${n}</b>`:""}</span>`}).join("")}</div></div>`).join("")}</div>`;
+    }else{
+      body=tbl(["Значение","Используется"],items.map(i=>{const n=refCount(c,i);return `<tr><td class="tt">${esc(i.name)}</td><td>${n==null?"—":n}</td></tr>`}).join(""));
+    }
+  }
+  return `<div class="head"><div><div class="lbl">Знания</div><h1>Справочники</h1><div class="sub">Единый язык разметки для робота, AI и человека: таблицы reference_catalogs / reference_items + настроения, «для кого» и стадии конвейера.</div></div></div>
+  <div class="seg">${secs.map(([k,t,n])=>`<button class="${c===k?"on":""}" data-dir="${esc(k)}">${esc(t)} · ${n}</button>`).join("")}</div>${body}`;
+}
+function docs(){
+  return `<div class="head"><div><div class="lbl">Знания</div><h1>Инструкции</h1><div class="sub">Регламенты парсера и разметки. Решения и контекст по направлению фиксируются отдельно, в Eventer Workspace.</div></div></div>
+  <div class="doccards">${DOCS.map(([t,area,ver,status,url])=>`<div class="doccard"><h3 style="font-size:15px;font-weight:700">${esc(t)}</h3><div class="muted">${esc(area)}</div><div class="row" style="justify-content:space-between;align-items:center"><span class="chip soft">${esc(ver)}</span><span class="muted">${esc(status)}</span></div>${url?`<a href="${esc(url)}" target="_blank" rel="noopener">Открыть →</a>`:""}</div>`).join("")}</div>`;
+}
+
 async function recordHistory(entity_type,entity_id,field_name,old_value,new_value){
   try{await sb.from("record_history").insert({entity_type,entity_id,field_name,old_value,new_value,changed_by:ME||"human"})}catch(e){}
 }
@@ -489,8 +542,9 @@ async function savePlace(id){
 }
 
 document.addEventListener("click",ev=>{
-  const t=ev.target.closest("[data-psave],[data-srcadd],[data-srcst],[data-srcdel],[data-srt],[data-go],[data-pl],[data-f],[data-clear],[data-pclear],[data-qtab],[data-save],[data-stage],[data-archive],[data-2place],[data-mood],[data-fw]");
+  const t=ev.target.closest("[data-psave],[data-srcadd],[data-srcst],[data-srcdel],[data-srt],[data-go],[data-pl],[data-f],[data-clear],[data-pclear],[data-qtab],[data-save],[data-stage],[data-archive],[data-2place],[data-mood],[data-fw],[data-dir]");
   if(!t)return;
+  if(t.dataset.dir!==undefined){ev.preventDefault();S.dir=t.dataset.dir||null;render();return}
   if(t.dataset.psave){savePlace(t.dataset.psave);return}
   if(t.dataset.srcadd){addSources();return}
   if(t.dataset.srcst){const x=SR.find(s=>s.id===t.dataset.srcst);if(x)sb.from("sources").update({is_connected:!x.is_connected}).eq("id",x.id).then(async()=>{await loadSources();render();toast("Статус изменён")});return}
@@ -524,9 +578,14 @@ async function loadSources(){
   const {data:sr}=await sb.from("sources").select("*").order("name");SR=sr||[];
   const {data:cfg}=await sb.from("parser_source_configurations").select("*");CFG=cfg||[];
 }
+async function loadRefs(){
+  const {data:rc}=await sb.from("reference_catalogs").select("*");REFCATS=rc||[];
+  const {data:ri}=await sb.from("reference_items").select("*");REFITEMS=ri||[];
+  const {data:pf}=await sb.from("performers").select("id,performer_role,performer_type");PERF=pf||[];
+}
 async function loadAll(first){
   if(first)$("#main").innerHTML=`<div class="empty">Загружаю базу…</div>`;
-  await Promise.all([loadCats(),loadEvents(),loadPlaces(),loadSources()]);
+  await Promise.all([loadCats(),loadEvents(),loadPlaces(),loadSources(),loadRefs()]);
   render();
 }
 
