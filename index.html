@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Afisha Data Base</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=Unbounded:wght@500;600&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+:root{color-scheme:light;box-sizing:border-box}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+:root{
+  --bg:#F6F4F0; --surface:#FFFFFF; --surface2:#F1EEE9; --line:#E4E0DA; --line2:#EFEBE5;
+  --ink:#1A1A1F; --ink2:#5E5B57; --ink3:#8F8B84;
+  --accent:#B8326B; --accent-ink:#8E2352; --accent-soft:#F8E6EE;
+  --nav:#1A1A1F; --nav-ink:#D9D6D0; --nav-active:#34343C; --nav-muted:#8F8B84;
+  --ok:#1F5C38; --ok-bg:#E8F3EC; --info:#1E4A8C; --info-bg:#EEF2FB; --warn:#7A4E00; --warn-bg:#FDF1E3; --bad:#9A2E1F; --bad-bg:#FBE9E7;
+  --bar:#E3A9C3;
+}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 Onest,system-ui,-apple-system,"Segoe UI",sans-serif;font-variant-numeric:tabular-nums}
+a{color:var(--accent);text-decoration:none}
+button{font:inherit;color:inherit}
+h1,h2,h3{margin:0;text-wrap:balance}
+h1{font-family:Unbounded,Onest,sans-serif;font-weight:600;font-size:clamp(22px,3vw,30px);letter-spacing:-.01em}
+h2{font-size:19px;font-weight:700}
+.lbl{font-size:11.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2)}
+.muted{color:var(--ink2)}
+.app{display:flex;min-height:100%}
+nav.side{width:236px;flex-shrink:0;background:var(--nav);padding:24px 16px;display:flex;flex-direction:column;gap:2px;position:sticky;top:0;height:100vh;overflow:auto}
+.brand{font-family:Unbounded,Onest,sans-serif;font-size:19px;font-weight:600;color:#F6F4F0;margin:0 12px 18px}
+.brand i{font-style:normal;color:#E86FA3}
+.nv{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:10px;color:var(--nav-ink);background:none;border:0;text-align:left;cursor:pointer;width:100%}
+.nv:hover{color:#fff}
+.nv.on{background:var(--nav-active);color:#fff;font-weight:600}
+.nv .n{font-size:12px;color:var(--nav-muted)}
+.nvs{margin:14px 12px 4px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--nav-muted)}
+.topbar{display:none}
+main{flex:1;min-width:0;padding-block:28px 60px;padding-inline:clamp(16px,3.5vw,44px);display:flex;flex-direction:column;gap:22px}
+.head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.head .sub{margin-top:6px;color:var(--ink2);max-width:70ch}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.btn{border:1px solid var(--line);background:var(--surface);padding:9px 14px;border-radius:10px;cursor:pointer;font-weight:500}
+.btn:hover{border-color:var(--accent)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:6px;cursor:pointer;text-align:left}
+.tile:hover{border-color:var(--accent)}
+.tile .v{font-family:Unbounded,Onest,sans-serif;font-size:28px;font-weight:600;line-height:1}
+.tile .t{font-weight:600}
+.tile .s{font-size:13px;color:var(--ink2)}
+.tile.warn{background:var(--warn-bg);border-color:transparent}
+.tile.warn .v{color:var(--warn)}
+.tile.sel{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+.cat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;cursor:pointer;text-align:left;font-weight:600;display:flex;justify-content:space-between;gap:8px}
+.cat:hover{border-color:var(--accent);color:var(--accent-ink)}
+.seg{display:inline-flex;background:var(--surface2);border-radius:10px;padding:3px;gap:2px;flex-wrap:wrap}
+.seg button{border:0;background:none;padding:7px 12px;border-radius:8px;cursor:pointer;color:var(--ink2);font-weight:500}
+.seg button.on{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;font-size:12.5px;border:1px solid var(--line);background:var(--surface);cursor:pointer}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.search{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 12px;min-width:0;width:260px;max-width:100%;color:var(--ink)}
+.tablewrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:16px}
+table{border-collapse:collapse;width:100%;min-width:900px}
+th{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);text-align:left;padding:11px 14px;background:var(--surface2);white-space:nowrap}
+td{padding:11px 14px;border-top:1px solid var(--line2);vertical-align:top;font-size:14px}
+tr.click{cursor:pointer}
+tr.click:hover td{background:var(--surface2)}
+tr.grp td{background:var(--bg);font-weight:700;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink2);padding:9px 14px}
+.id{font-size:12px;color:var(--ink3)}
+.tt{font-weight:600}
+.tg{display:inline-block;font-size:12px;padding:2px 8px;border-radius:6px;background:var(--surface2);margin:1px 2px 1px 0;white-space:nowrap}
+.tg.m{background:var(--accent-soft);color:var(--accent-ink)}
+.st{display:inline-block;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.s1{background:var(--surface2);color:var(--ink2)}.s2{background:var(--info-bg);color:var(--info)}.s3{background:var(--warn-bg);color:var(--warn)}.s4{background:var(--ok-bg);color:var(--ok)}
+.bad{color:var(--bad);font-weight:600}
+.empty{padding:30px;text-align:center;color:var(--ink2)}
+.card{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;align-items:start}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1px;background:var(--line2);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.f{background:var(--surface);padding:12px 14px;display:flex;flex-direction:column;gap:5px}
+.f select,.f input,.f textarea{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:7px 9px;font:inherit;width:100%}
+.f .by{font-size:11.5px;color:var(--ink3)}
+.side-sec{display:flex;flex-direction:column;gap:10px}
+.dark{background:var(--nav);color:#F6F4F0;border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:12px}
+.dark .lbl{color:#CFCAC2}
+.dark .btn{background:transparent;border-color:#5E5B57;color:#fff}
+.dark .btn.pri{background:var(--accent);border-color:var(--accent)}
+.hist{font-size:13px;color:var(--ink2);display:flex;flex-direction:column;gap:6px;max-height:260px;overflow:auto}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:600;z-index:50}
+.back{background:none;border:0;color:var(--ink2);cursor:pointer;padding:0;font-size:14px;align-self:flex-start}
+.idrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.idchip{background:var(--ink);color:var(--bg);font-weight:700;font-size:12px;padding:5px 10px;border-radius:8px;letter-spacing:.02em}
+.catchip{background:var(--accent);color:#fff;font-weight:600;font-size:13px;padding:5px 11px;border-radius:8px;border:0;cursor:pointer}
+.dirchip{background:var(--accent-soft);color:var(--accent-ink);font-weight:600;font-size:13px;padding:5px 11px;border-radius:8px}
+.banner{background:var(--warn-bg);border:1px solid var(--warn);border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;gap:10px;color:var(--ink)}
+.banner h2{color:var(--warn)}
+@media (max-width:980px){.card{grid-template-columns:1fr}}
+@media (max-width:860px){
+  .app{flex-direction:column}
+  nav.side{display:none;position:fixed;inset:0;width:auto;height:100%;z-index:40;padding-top:calc(20px + env(safe-area-inset-top,0px))}
+  nav.side.open{display:flex}
+  .topbar{display:flex;justify-content:space-between;align-items:center;background:var(--nav);color:#fff;padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top,0px));position:sticky;top:0;z-index:30}
+  .topbar .brand{margin:0;font-size:16px}
+  .topbar button{background:var(--nav-active);border:0;color:#fff;border-radius:8px;padding:8px 12px;cursor:pointer}
+  .search{width:100%}
+}
+#login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+#login .box{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:28px;width:100%;max-width:360px;display:flex;flex-direction:column;gap:12px}
+#login input{border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:10px 12px;font:inherit}
+#login .err{color:var(--bad);font-size:13.5px;min-height:1em}
+</style>
+</head>
+<body>
+
+<div id="login" hidden>
+  <div class="box">
+    <div class="brand" style="color:var(--ink)">афиша<i>.</i>data</div>
+    <div class="muted" style="font-size:14px">Общая база. Войдите под рабочим логином.</div>
+    <input id="li_email" type="email" placeholder="почта" autocomplete="username">
+    <input id="li_pass" type="password" placeholder="пароль" autocomplete="current-password">
+    <button class="btn pri" id="li_go" type="button">Войти</button>
+    <div class="err" id="li_err"></div>
+  </div>
+</div>
+
+<div class="topbar" id="topbar" hidden><div class="brand">афиша<i>.</i>data</div><button id="menuBtn" type="button">Меню</button></div>
+<div class="app" id="app" hidden>
+  <nav class="side" id="nav" aria-label="Разделы"></nav>
+  <main id="main"><div class="empty">Загружаю базу…</div></main>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const SUPA_URL="https://quzgkhzkrhdlyztzbgcc.supabase.co";
+const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1emdraHprcmhkbHl6dHpiZ2NjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2OTk1NzIsImV4cCI6MjEwNTI3NTU3Mn0.zA6OVgFkgUgXGwLTzgL9IdB7yMcRNJEIWWq-ZZGYACQ";
+const sb=window.supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
+
+const MOODS=[["MUSIC","Музыка","Мелодии и ритмы"],["MEGAPOLIS","Мегаполис","Мегаполис"],["ADRENALINE","Адреналин","Адреналин"],["FEEL_GOOD","Feel good","Feel good"],["WELLNESS","Wellness","Wellness"],["NIGHT_LIFE","Night Life","Огни ночного города"],["CULTURE","Культура","Культурный код"],["HANDMADE","Handmade","Сделай сам"],["LUXE","Luxe","Luxe"],["ROMANCE","Романтика","Романтика"],["GOURMET","ГурмЭ","ГурмЭ"],["NEAR_CITY","Вокруг города","Вокруг Алматы"],["SHOPPING","Шопинг","Шопинг"]];
+const MOOD=Object.fromEntries(MOODS.map(m=>[m[0],m]));
+const FW=["Один","На двоих","С друзьями","С семьёй"];
+const STAGES={1:"Новые от робота",2:"Исправлено AI",3:"Нужен человек",4:"В базе"};
+const STAGE_TXT={1:"Робот создал запись и разметил её. AI ещё не проверял.",2:"AI нашёл неточность, исправил по первоисточнику и принял.",3:"AI не уверен или нашёл противоречие. Решает человек.",4:"Запись принята в базу."};
+
+let CATS=[],EVENT_TYPES=[],PLACE_TYPES=[],SESS={},PLACE_OF={},EV=[],PL=[],SR=[],CFG=[];
+let ME=null;
+let S={view:"home",arg:null,evMode:"base",evF:{},plF:{},q:"",qtab:3,srT:null};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const TZ="Asia/Almaty";
+const dayKey=d=>new Intl.DateTimeFormat("en-CA",{timeZone:TZ,year:"numeric",month:"2-digit",day:"2-digit"}).format(d);
+const fmtD=iso=>iso?new Intl.DateTimeFormat("ru-RU",{timeZone:TZ,day:"numeric",month:"short"}).format(new Date(iso)).replace(".",""):"—";
+const fmtT=iso=>iso?new Intl.DateTimeFormat("ru-RU",{timeZone:TZ,hour:"2-digit",minute:"2-digit"}).format(new Date(iso)):"";
+const fmtDT=iso=>iso?fmtD(iso)+", "+fmtT(iso):"—";
+const money=n=>n==null?null:Number(n).toLocaleString("ru-RU").replace(/,/g," ")+" ₸";
+function toast(t){const el=$("#toast");el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,2400)}
+
+function catName(id){return (CATS.find(c=>c.id===id)||{}).name||""}
+function catIdByName(n){return (CATS.find(c=>c.name===n)||{}).id||null}
+function startOf(ev){const s=SESS[ev.id];if(!s||!s.length)return null;return s.slice().sort((a,b)=>a.starts_at.localeCompare(b.starts_at))[0]}
+function priceTxt(e){if(e.is_free)return"бесплатно";if(e.price_from==null)return"не указана";return "от "+money(e.price_from)+(e.price_to!=null?" · до "+money(e.price_to):"")}
+function priceBand(e){if(e.is_free)return"Бесплатно";if(e.price_from==null)return"Не указана";if(e.price_from<10000)return"До 10 000 ₸";if(e.price_from<30000)return"10–30 000 ₸";return"От 30 000 ₸"}
+const BANDS=["Бесплатно","До 10 000 ₸","10–30 000 ₸","От 30 000 ₸","Не указана"];
+function isArchived(e){if(e.status==="archived"||e.status==="cancelled")return true;const s=startOf(e);const end=s&&s.ends_at?s.ends_at:(s?s.starts_at:null);if(!end)return false;return new Date(end).getTime()<Date.now()}
+const active=()=>EV.filter(e=>!isArchived(e));
+const inBase=e=>!isArchived(e)&&(e.pipeline_stage===2||e.pipeline_stage===4);
+const waiting=e=>!isArchived(e)&&(e.pipeline_stage===1||e.pipeline_stage===3);
+const placeById=id=>PL.find(p=>p.id===id);
+function issues(e){const r=[];if(!PLACE_OF[e.id]&&!e.meeting_point)r.push("noplace");if(e.price_from==null&&!e.is_free)r.push("noprice");if(!e.moods||!e.moods.length)r.push("nomood");if(!e.for_whom||!e.for_whom.length)r.push("nofw");return r}
+const ISSUES={noplace:"Без места или точки сбора",noprice:"Без цены",nomood:"Без настроения",nofw:"Без «Для кого»"};
+
+function go(view,arg,patch){S.view=view;S.arg=arg??null;if(patch)Object.assign(S,patch);$("#nav").classList.remove("open");render();window.scrollTo(0,0)}
+function navHtml(){const a=active();const n3=EV.filter(e=>e.pipeline_stage===3&&!isArchived(e)).length;const it=(v,t,n)=>`<button class="nv${S.view===v||(v==="events"&&S.view==="event")||(v==="places"&&S.view==="place")?" on":""}" data-go="${v}">${t}${n!=null?`<span class="n">${n}</span>`:""}</button>`;
+return `<div class="brand">афиша<i>.</i>data</div>${it("home","Главная")}<div class="nvs">Реестры</div>${it("events","События",a.length)}${it("places","Места",PL.length)}<div class="nvs">Работа</div>${it("queue","Конвейер проверки",n3)}${it("sources","Источники",SR.length)}<div class="nvs" style="margin-top:auto"></div><button class="nv" id="logoutBtn">Выйти (${esc(ME||"")})</button>`}
+
+function render(){
+  $("#nav").innerHTML=navHtml();
+  $("#logoutBtn").addEventListener("click",()=>sb.auth.signOut());
+  const m=$("#main");
+  const V={home,events,places,category,event:eventCard,place:placeCard,queue,sources}[S.view]||home;
+  m.innerHTML=V(S.arg);
+}
+
+function home(){
+  const a=active(),arch=EV.length-a.length;
+  const st=k=>active().filter(e=>e.pipeline_stage===k).length;
+  const plNoAddr=PL.filter(p=>!p.address).length;
+  const q=Object.keys(ISSUES).map(k=>[k,a.filter(e=>issues(e).includes(k)).length]);
+  return `<div class="head"><div><div class="lbl">Алматы</div><h1>Главная</h1><div class="sub">Все события и места города. Каждая цифра открывает список.</div></div></div>
+  <section class="grid2">
+   <div class="panel" style="display:flex;flex-direction:column;gap:12px"><div class="row" style="justify-content:space-between"><h2>События</h2><a href="#" data-go="events">Реестр →</a></div><div class="tiles">
+    ${tile(a.length,"Собрано","предстоящие","events",{evMode:"active",evF:{}})}${tile(EV.filter(inBase).length,"В базе","прошли проверку","events",{evMode:"base",evF:{}})}${tile(EV.filter(waiting).length,"Ждут человека","ещё не в базе","events",{evMode:"wait",evF:{}},EV.filter(waiting).length?"warn":"")}${tile(arch,"Архив","прошедшие","events",{evMode:"archive",evF:{}})}</div></div>
+   <div class="panel" style="display:flex;flex-direction:column;gap:12px"><div class="row" style="justify-content:space-between"><h2>Места</h2><a href="#" data-go="places">Реестр →</a></div><div class="tiles">
+    ${tile(PL.length,"Всего","","places",{plF:{}})}${tile(PL.filter(p=>p.status==="active").length,"Активные","","places",{plF:{}})}${tile(plNoAddr,"Без адреса","","places",{plF:{noaddr:1}})}</div></div>
+  </section>
+  <section style="display:flex;flex-direction:column;gap:12px"><div class="lbl">Конвейер проверки</div><div class="tiles">
+    ${tile(st(1),"Новые от робота","ждут AI","queue",{qtab:1})}${tile(st(2),"Исправлено AI","AI поправил и принял","queue",{qtab:2})}${tile(st(3),"Нужен человек","решаете вы","queue",{qtab:3},st(3)?"warn":"")}${tile(st(4),"В базе","стадия 4","queue",{qtab:4})}</div></section>
+  <section style="display:flex;flex-direction:column;gap:12px"><div class="lbl">15 категорий досуга</div>
+   <div class="cats">${CATS.map(c=>`<button class="cat" data-go="category" data-arg="${esc(c.id)}"><span>${esc(c.name)}</span><span class="muted">→</span></button>`).join("")}</div></section>
+  <section class="panel" style="display:flex;flex-direction:column;gap:12px"><h2>Качество данных</h2><div class="muted" style="font-size:14px">По действующим событиям. Клик открывает записи с проблемой.</div>
+   <div class="tiles">${q.map(([k,n])=>`<button class="tile${n?" warn":""}" data-go="events" data-patch='${esc(JSON.stringify({evMode:"active",evF:{issue:k}}))}'><span class="v">${n}</span><span class="s">${ISSUES[k]}</span></button>`).join("")}</div></section>`;
+}
+function tile(v,t,s,goV,patch,cls){return `<button class="tile ${cls||""}" data-go="${goV}" data-patch='${esc(JSON.stringify(patch||{}))}'><span class="v">${v}</span><span class="t">${t}</span>${s?`<span class="s">${s}</span>`:""}</button>`}
+
+function evFiltered(){
+  let L=S.evMode==="archive"?EV.filter(isArchived):S.evMode==="all"?EV.slice():S.evMode==="base"?EV.filter(inBase):S.evMode==="wait"?EV.filter(waiting):active();
+  const f=S.evF;
+  if(f.cat)L=L.filter(e=>e.leisure_category_id===f.cat);
+  if(f.mood)L=L.filter(e=>(e.moods||[]).includes(f.mood));
+  if(f.fw)L=L.filter(e=>(e.for_whom||[]).includes(f.fw));
+  if(f.band)L=L.filter(e=>priceBand(e)===f.band);
+  if(f.stage)L=L.filter(e=>e.pipeline_stage===f.stage);
+  if(f.issue)L=L.filter(e=>issues(e).includes(f.issue));
+  if(S.q){const q=S.q.toLowerCase();L=L.filter(e=>(e.title+" "+(e.original_title||"")+" "+(placeById((PLACE_OF[e.id]||{}).id)||{}).name||"").toLowerCase().includes(q))}
+  L.sort((a,b)=>{const sa=startOf(a),sb_=startOf(b);const ta=sa?sa.starts_at:"",tb=sb_?sb_.starts_at:"";return S.evMode==="archive"?tb.localeCompare(ta):ta.localeCompare(tb)});
+  return L;
+}
+function groupOf(iso){if(!iso)return"Без даты";const d=new Date(iso),now=new Date();const k=dayKey(d),t=dayKey(now),tm=dayKey(new Date(now.getTime()+864e5));if(k<t)return"Прошедшие";if(k===t)return"Сегодня";if(k===tm)return"Завтра";const endW=dayKey(new Date(now.getTime()+7*864e5));if(k<=endW)return"На этой неделе";return"Позже"}
+function breakdown(title,items,key,cur){const max=Math.max(1,...items.map(i=>i[1]));return `<div class="panel" style="display:flex;flex-direction:column;gap:10px"><div class="lbl">${title}</div><div style="display:flex;flex-direction:column;gap:6px">${items.map(([k,n,label])=>`<button class="row" style="display:grid;grid-template-columns:minmax(120px,190px) 1fr 34px;gap:10px;align-items:center;background:none;border:0;padding:3px 0;cursor:pointer;text-align:left" data-f="${key}" data-v="${esc(k)}"><span style="${cur===k?'color:var(--accent-ink);font-weight:600':''}">${esc(label||k)}</span><span style="display:block;height:10px;background:var(--surface2);border-radius:5px;overflow:hidden"><span style="display:block;height:100%;background:${cur===k?'var(--accent)':'var(--bar)'};width:${n/max*100}%"></span></span><span style="text-align:right;font-weight:600">${n}</span></button>`).join("")}</div></div>`}
+function stPill(s){return `<span class="st s${s}">${STAGES[s]||"—"}</span>`}
+function moodTags(e){return (e.moods||[]).map(m=>`<span class="tg m">${esc(MOOD[m]?MOOD[m][2]:m)}${m===e.mood_main&&e.moods.length>1?" ★":""}</span>`).join("")||`<span class="bad">нет</span>`}
+function events(){
+  const a=active(),f=S.evF;
+  const tl=(v,t,patch,cls,sel)=>`<button class="tile ${cls||""}${sel?" sel":""}" data-go="events" data-patch='${esc(JSON.stringify(patch))}'><span class="v">${v}</span><span class="t">${t}</span></button>`;
+  const cnt=(arr,fn)=>arr.map(c=>[c.id,a.filter(e=>fn(e,c.id)).length,c.name]);
+  const L=evFiltered();
+  let rows="",g="";
+  for(const e of L){const s=startOf(e);const gg=S.evMode==="archive"?"Архив":groupOf(s?s.starts_at:null);if(gg!==g){g=gg;rows+=`<tr class="grp"><td colspan="8">${g}</td></tr>`}
+    const pl=placeById((PLACE_OF[e.id]||{}).id);
+    rows+=`<tr class="click" data-go="event" data-arg="${e.id}"><td><div class="id">${e.id.slice(0,8)}</div></td><td><div class="tt">${esc(e.title)}</div><div class="id">${esc((pl&&pl.name)||e.meeting_point||"")}</div></td><td>${esc(e.event_category||"")}${e.genre?` · <span class="muted">${esc(e.genre)}</span>`:""}</td><td><a href="#" data-go="category" data-arg="${esc(e.leisure_category_id)}">${esc(catName(e.leisure_category_id))}</a></td><td style="white-space:nowrap">${fmtD(s?s.starts_at:null)}<div class="id">${fmtT(s?s.starts_at:null)}</div></td><td>${pl?esc(pl.name):e.meeting_point?`<span class="muted">Сбор: ${esc(e.meeting_point)}</span>`:`<span class="bad">нет места</span>`}</td><td>${moodTags(e)}</td><td>${stPill(e.pipeline_stage)}</td></tr>`}
+  const fl=Object.entries(f).filter(([k,v])=>v).map(([k,v])=>`<button class="chip on" data-clear="${k}">${k==="issue"?ISSUES[v]:k==="stage"?STAGES[v]:k==="mood"?MOOD[v][2]:k==="cat"?catName(v):v} ✕</button>`).join("");
+  return `<div class="head"><div><div class="lbl">Реестр</div><h1>События</h1><div class="sub">«Собрано» — все предстоящие события. «В базе» — прошли проверку AI или человека. «Ждут человека» — пока не в базе.</div></div></div>
+  <div class="tiles">${tl(a.length,"Собрано",{evMode:"active",evF:{}},"",S.evMode==="active")}${tl(EV.filter(inBase).length,"В базе",{evMode:"base",evF:{}},"",S.evMode==="base")}${tl(EV.filter(waiting).length,"Ждут человека",{evMode:"wait",evF:{}},"warn",S.evMode==="wait")}${tl(EV.filter(isArchived).length,"Архив",{evMode:"archive",evF:{}},"",S.evMode==="archive")}</div>
+  <section class="grid2">
+   ${breakdown("По категориям · действующие",cnt(CATS,(e,id)=>e.leisure_category_id===id).filter(x=>x[1]),"cat",f.cat)}
+   ${breakdown("По настроениям",MOODS.map(m=>[m[0],a.filter(e=>(e.moods||[]).includes(m[0])).length,m[2]]),"mood",f.mood)}
+   ${breakdown("Для кого",FW.map(w=>[w,a.filter(e=>(e.for_whom||[]).includes(w)).length]),"fw",f.fw)}
+   ${breakdown("По цене",BANDS.map(b=>[b,a.filter(e=>priceBand(e)===b).length]),"band",f.band)}
+  </section>
+  <div class="row" style="justify-content:space-between"><div class="seg">${[["base","В базе"],["wait","Ждут человека"],["active","Все предстоящие"],["archive","Архив"]].map(([k,t])=>`<button class="${S.evMode===k?"on":""}" data-ev='${JSON.stringify({evMode:k})}'>${t}</button>`).join("")}</div><input class="search" id="q" type="search" placeholder="Поиск: название, место" value="${esc(S.q)}"></div>
+  ${fl?`<div class="row">${fl}</div>`:""}
+  <div class="tablewrap"><table><thead><tr><th>ID</th><th>Название</th><th>Тип и жанр</th><th>Категория</th><th>Дата</th><th>Место</th><th>Настроения</th><th>Стадия</th></tr></thead><tbody>${rows||`<tr><td colspan="8"><div class="empty">Под эти условия событий нет.</div></td></tr>`}</tbody></table></div>`;
+}
+
+function nextEvent(pid){const L=active().filter(e=>(PLACE_OF[e.id]||{}).id===pid);L.sort((a,b)=>{const sa=startOf(a),sb_=startOf(b);return (sa?sa.starts_at:"").localeCompare(sb_?sb_.starts_at:"")});return L[0]}
+function places(){
+  let L=PL.slice();const f=S.plF;
+  if(f.cat)L=L.filter(p=>p.leisure_category_id===f.cat);if(f.noaddr)L=L.filter(p=>!p.address);
+  L.sort((a,b)=>{const x=nextEvent(a.id),y=nextEvent(b.id);if(x&&y)return (startOf(x)||{}).starts_at.localeCompare((startOf(y)||{}).starts_at||"");if(x)return-1;if(y)return 1;return a.name.localeCompare(b.name,"ru")});
+  const cnt=()=>{const m={};PL.forEach(p=>m[catName(p.leisure_category_id)]=(m[catName(p.leisure_category_id)]||0)+1);return Object.entries(m).sort((a,b)=>b[1]-a[1])};
+  const rows=L.map(p=>{const n=nextEvent(p.id);return `<tr class="click" data-go="place" data-arg="${p.id}"><td><div class="id">${p.id.slice(0,8)}</div></td><td><div class="tt">${esc(p.name)}</div></td><td>${esc(catName(p.leisure_category_id))}</td><td>${esc(p.place_type||"")}</td><td>${p.address?esc(p.address):`<span class="bad">нет адреса</span>`}</td><td>${n?`<div class="tt" style="font-weight:500">${esc(n.title)}</div><div class="id">${fmtDT((startOf(n)||{}).starts_at)}</div>`:`<span class="muted">—</span>`}</td></tr>`}).join("");
+  const fl=Object.entries(f).filter(([k,v])=>v).map(([k,v])=>`<button class="chip on" data-pclear="${k}">${k==="noaddr"?"Без адреса":v} ✕</button>`).join("");
+  return `<div class="head"><div><div class="lbl">Реестр</div><h1>Места</h1><div class="sub">Сначала места с ближайшими событиями, дальше по алфавиту.</div></div></div>
+  <div class="tiles"><button class="tile" data-go="places" data-patch='{}'><span class="v">${PL.length}</span><span class="t">Всего</span></button><button class="tile" data-go="places" data-patch='${esc(JSON.stringify({plF:{noaddr:1}}))}'><span class="v">${PL.filter(p=>!p.address).length}</span><span class="t">Без адреса</span></button></div>
+  <section class="grid2">${breakdown("По категориям",cnt(),"pcat",null)}</section>
+  ${fl?`<div class="row">${fl}</div>`:""}
+  <div class="tablewrap"><table><thead><tr><th>ID</th><th>Место</th><th>Категория</th><th>Тип</th><th>Адрес</th><th>Ближайшее событие</th></tr></thead><tbody>${rows||`<tr><td colspan="6"><div class="empty">Мест нет.</div></td></tr>`}</tbody></table></div>`;
+}
+
+function category(cid){
+  const c=CATS.find(x=>x.id===cid);if(!c)return `<div class="empty">Категория не найдена.</div>`;
+  const pl=PL.filter(p=>p.leisure_category_id===cid);const evs=active().filter(e=>e.leisure_category_id===cid).sort((a,b)=>((startOf(a)||{}).starts_at||"").localeCompare((startOf(b)||{}).starts_at||""));
+  return `<button class="back" data-go="home">← Главная</button><div class="head"><div><div class="lbl">Категория досуга</div><h1>${esc(c.name)}</h1></div></div>
+  <div class="tiles"><button class="tile" data-go="places" data-patch='${esc(JSON.stringify({plF:{cat:cid}}))}'><span class="v">${pl.length}</span><span class="t">Мест</span></button><button class="tile" data-go="events" data-patch='${esc(JSON.stringify({evMode:"active",evF:{cat:cid}}))}'><span class="v">${evs.length}</span><span class="t">Событий</span></button><button class="tile ${evs.filter(e=>e.pipeline_stage===3).length?"warn":""}" data-go="events" data-patch='${esc(JSON.stringify({evMode:"active",evF:{cat:cid,stage:3}}))}'><span class="v">${evs.filter(e=>e.pipeline_stage===3).length}</span><span class="t">Нужен человек</span></button></div>
+  <section class="grid2" style="align-items:start">
+   <div class="panel" style="display:flex;flex-direction:column;gap:10px"><h2>Места</h2>${pl.length?pl.map(p=>`<a href="#" data-go="place" data-arg="${p.id}" class="row" style="justify-content:space-between;color:var(--ink);padding:8px 0;border-top:1px solid var(--line2)"><span>${esc(p.name)}</span></a>`).join(""):`<div class="muted">В этой категории пока нет мест.</div>`}</div>
+   <div class="panel" style="display:flex;flex-direction:column;gap:10px"><h2>События</h2>${evs.length?evs.map(e=>`<a href="#" data-go="event" data-arg="${e.id}" class="row" style="justify-content:space-between;color:var(--ink);padding:8px 0;border-top:1px solid var(--line2);flex-wrap:nowrap"><span><span class="tt">${esc(e.title)}</span></span><span class="muted" style="white-space:nowrap">${fmtDT((startOf(e)||{}).starts_at)}</span></a>`).join(""):`<div class="muted">Событий нет.</div>`}</div>
+  </section>`;
+}
+
+function sel(id,opts,cur,ph){return `<select id="${id}">${ph!=null?`<option value="">${ph}</option>`:""}${opts.map(o=>`<option${o===cur?" selected":""}>${esc(o)}</option>`).join("")}${cur&&!opts.includes(cur)?`<option selected>${esc(cur)}</option>`:""}</select>`}
+function banner(e){return `<div class="banner"><h2>Нужно решение человека</h2><div>${esc(e.stage_reason||"AI не уверен в записи.")}</div><div class="muted" style="font-size:13.5px">Пока вы не решите, события нет в базе. Проверьте и поправьте поля, затем нажмите «Подтвердить».</div><div class="row"><button class="btn pri" data-stage="4" data-id="${e.id}">Подтвердить и принять в базу</button><button class="btn" data-archive="${e.id}">Не проводится — в архив</button></div></div>`}
+function eventCard(id){
+  const e=EV.find(x=>x.id===id);if(!e)return `<div class="empty">Событие не найдено.</div>`;
+  const s=startOf(e);const pl=placeById((PLACE_OF[e.id]||{}).id);
+  return `<button class="back" data-go="events">← События</button>
+  <div class="card"><div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+   ${e.pipeline_stage===3?banner(e):""}
+   <div style="display:flex;flex-direction:column;gap:10px"><div class="idrow"><span class="idchip">${e.id.slice(0,8)}</span><button class="catchip" data-go="category" data-arg="${esc(e.leisure_category_id)}">${esc(catName(e.leisure_category_id))}</button><span class="dirchip" style="background:var(--surface2);color:var(--ink)">${esc(e.event_category||"")}${e.genre?" · "+esc(e.genre):""}</span></div><h1>${esc(e.title)}</h1>
+    ${e.original_title&&e.original_title!==e.title?`<div class="muted" style="font-size:14px">Название из источника: ${esc(e.original_title)}</div>`:""}
+    <div class="row">${(e.moods||[]).map(m=>`<span class="chip ${m===e.mood_main?"on":""}">${esc(MOOD[m]?MOOD[m][2]:m)}${m===e.mood_main?" · главное":""}</span>`).join("")}${(e.for_whom||[]).map(w=>`<span class="chip">${esc(w)}</span>`).join("")}</div>
+    <p style="margin:0;max-width:70ch">${esc(e.description||"")}</p></div>
+   <div class="fields">
+    <label class="f"><span class="lbl">Категория</span>${sel("f_cat",CATS.map(c=>c.name),catName(e.leisure_category_id))}</label>
+    <label class="f"><span class="lbl">Тип события</span><input id="f_type" value="${esc(e.event_category||"")}"></label>
+    <label class="f"><span class="lbl">Жанр</span><input id="f_genre" value="${esc(e.genre||"")}"></label>
+    <label class="f"><span class="lbl">Дата и время</span><input id="f_start" type="datetime-local" value="${s?new Date(new Date(s.starts_at).getTime()+5*3600e3).toISOString().slice(0,16):""}"><span class="by">время Алматы</span></label>
+    <label class="f"><span class="lbl">Место</span>${sel("f_place",PL.map(p=>p.name).sort((a,b)=>a.localeCompare(b,"ru")),pl?pl.name:null,"нет места")}</label>
+    <label class="f"><span class="lbl">Точка сбора</span><input id="f_meet" value="${esc(e.meeting_point||"")}" placeholder="Если без площадки"></label>
+    <label class="f"><span class="lbl">Бесплатно</span><select id="f_free"><option value="0" ${!e.is_free?"selected":""}>Нет</option><option value="1" ${e.is_free?"selected":""}>Да</option></select></label>
+    <label class="f"><span class="lbl">Цена от, ₸</span><input id="f_pfrom" type="number" min="0" value="${e.price_from!=null?e.price_from:""}"><span class="by">${priceTxt(e)}</span></label>
+    <label class="f"><span class="lbl">Возраст</span><input id="f_age" value="${esc(e.age_restriction||"")}"></label>
+    <div class="f" style="grid-column:1/-1"><span class="lbl">Настроения · до трёх, первое — главное</span><div class="row" id="f_moods">${MOODS.map(m=>{const i=(e.moods||[]).indexOf(m[0]);return `<button type="button" class="chip${i>=0?" on":""}" data-mood="${m[0]}">${i===0?"★ ":""}${m[2]}</button>`}).join("")}</div></div>
+    <div class="f" style="grid-column:1/-1"><span class="lbl">Для кого</span><div class="row" id="f_fw">${FW.map(w=>`<button type="button" class="chip${(e.for_whom||[]).includes(w)?" on":""}" data-fw="${esc(w)}">${esc(w)}</button>`).join("")}</div></div>
+    <label class="f"><span class="lbl">Продажа билетов</span><input id="f_booking" value="${esc(e.booking_url||"")}" placeholder="https://…"></label>
+   </div>
+   <div class="row"><button class="btn pri" data-save="${e.id}">Сохранить правки</button><span class="muted" style="font-size:13px">Правка ставит стадию «В базе», если не указано иное.</span></div>
+  </div>
+  <aside class="side-sec">
+   <div class="dark"><div class="lbl">Стадия</div><div style="font-size:20px;font-weight:600">${STAGES[e.pipeline_stage]}</div>${e.stage_reason?`<div style="font-size:14px;color:#E4E0DA">${esc(e.stage_reason)}</div>`:""}<div class="row"><button class="btn pri" data-stage="4" data-id="${e.id}">Принять</button><button class="btn" data-stage="1" data-id="${e.id}">Вернуть AI</button><button class="btn" data-archive="${e.id}">В архив</button></div></div>
+   <div class="panel side-sec"><div class="lbl">Статус</div><div style="font-size:14px">${esc(e.status)}</div></div>
+   <div class="panel side-sec"><div class="lbl">Booking</div>${e.booking_url?`<a href="${esc(e.booking_url)}" target="_blank" rel="noopener">Открыть →</a>`:`<span class="muted" style="font-size:13.5px">Ссылки нет</span>`}</div>
+  </aside></div>`;
+}
+function placeCard(id){
+  const p=placeById(id);if(!p)return `<div class="empty">Место не найдено.</div>`;
+  const evs=EV.filter(e=>(PLACE_OF[e.id]||{}).id===id).sort((a,b)=>((startOf(a)||{}).starts_at||"").localeCompare((startOf(b)||{}).starts_at||""));
+  const act=evs.filter(e=>!isArchived(e));
+  return `<button class="back" data-go="places">← Места</button><div class="card"><div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+   <div style="display:flex;flex-direction:column;gap:8px"><div class="lbl">${p.id.slice(0,8)} · ${esc(catName(p.leisure_category_id))}</div><h1>${esc(p.name)}</h1>${p.social_url?`<a href="${esc(p.social_url)}" target="_blank" rel="noopener">Instagram →</a>`:""}</div>
+   <div class="fields">
+    <div class="f"><span class="lbl">Адрес</span><span>${p.address?esc(p.address):`<span class="bad">не заполнено</span>`}</span></div>
+    <div class="f"><span class="lbl">Район</span><span>${esc(p.district||"—")}</span></div>
+    <label class="f"><span class="lbl">Тип площадки</span><input id="p_type" value="${esc(p.place_type||"")}"></label>
+    <div class="f"><span class="lbl">Статус</span><span>${esc(p.status)}</span></div>
+   </div>
+   <div class="row"><button class="btn pri" data-psave="${p.id}">Сохранить тип</button></div>
+   <div class="panel" style="display:flex;flex-direction:column;gap:8px"><h2>События места</h2>${act.map(e=>`<a href="#" data-go="event" data-arg="${e.id}" class="row" style="justify-content:space-between;color:var(--ink);padding:8px 0;border-top:1px solid var(--line2);flex-wrap:nowrap"><span><span class="tt">${esc(e.title)}</span></span><span class="muted" style="white-space:nowrap">${fmtDT((startOf(e)||{}).starts_at)}</span></a>`).join("")||`<div class="muted">Действующих событий нет.</div>`}</div>
+  </div></div>`;
+}
+
+function queue(){
+  const t=S.qtab;const L=active().filter(e=>e.pipeline_stage===t).sort((a,b)=>((startOf(a)||{}).starts_at||"").localeCompare((startOf(b)||{}).starts_at||""));
+  const act={1:"Открыть",2:"Просмотреть",3:"Решить",4:"Открыть"}[t];
+  return `<div class="head"><div><div class="lbl">Работа</div><h1>Конвейер проверки</h1><div class="sub">Источник → робот → AI → человек → база.</div></div></div>
+  <div class="seg">${[1,2,3,4].map(k=>`<button class="${t===k?"on":""}" data-qtab="${k}">${STAGES[k]} · ${active().filter(e=>e.pipeline_stage===k).length}</button>`).join("")}</div>
+  <div class="panel" style="font-size:14px">${STAGE_TXT[t]}</div>
+  <div class="tablewrap"><table><thead><tr><th>ID</th><th>Запись</th><th>Причина</th><th></th></tr></thead><tbody>${L.map(e=>`<tr class="click" data-go="event" data-arg="${e.id}"><td class="id">${e.id.slice(0,8)}</td><td><div class="tt">${esc(e.title)}</div><div class="id">${fmtDT((startOf(e)||{}).starts_at)}</div></td><td style="max-width:360px">${e.stage_reason?`<div style="color:var(--warn)">${esc(e.stage_reason)}</div>`:""}</td><td><span class="btn" style="white-space:nowrap">${act}</span></td></tr>`).join("")||`<tr><td colspan="4"><div class="empty">На этой стадии записей нет.</div></td></tr>`}</tbody></table></div>`;
+}
+
+const GROUP_LBL={social_network:"Соцсети",ticket_platform:"Билетные платформы",city_media:"Агрегаторы и медиа",official_site:"Официальные источники",industry_site:"Отраслевые сайты",map:"Карты",catalog:"Каталоги",eventer_database:"Eventer Data Base"};
+function guessGroup(host){if(/facebook|tiktok|vk\.com|youtube|threads|instagram/.test(host))return"social_network";if(/ticketon|kino\.kz|afisha\.yandex|topbilet|kassir|biletix|tickets/.test(host))return"ticket_platform";if(/sxodim|inalmaty|afisha|kudago|gorodzovet/.test(host))return"city_media";if(/gov\.kz|akimat/.test(host))return"official_site";if(/2gis|maps\.google/.test(host))return"map";return"city_media"}
+function parseSourceLine(line){
+  let raw=line.trim().replace(/[,;]+$/,"");if(!raw)return null;
+  let url=raw,name;
+  const ig=raw.match(/^@([A-Za-z0-9._]{2,})$/)||raw.match(/instagram\.com\/([A-Za-z0-9._]+)/i);
+  const tg=raw.match(/(?:t\.me|telegram\.me)\/([A-Za-z0-9_]+)/i);
+  let channel="website";
+  if(ig){name="@"+ig[1];url="https://instagram.com/"+ig[1];channel="instagram"}
+  else if(tg){name="@"+tg[1];url="https://t.me/"+tg[1];channel="telegram"}
+  else{if(!/^https?:\/\//i.test(url))url="https://"+url;let host="";try{host=new URL(url).hostname.replace(/^www\./,"")}catch(e){return {bad:true,url:raw}}name=host}
+  const host=(()=>{try{return new URL(url).hostname.replace(/^www\./,"")}catch(e){return name}})();
+  const group=channel==="instagram"?"social_network":channel==="telegram"?"social_network":guessGroup(host);
+  const norm=url.toLowerCase().replace(/^https?:\/\/(www\.)?/,"").replace(/\/+$/,"");
+  const dup=SR.some(s=>s.url&&s.url.toLowerCase().replace(/^https?:\/\/(www\.)?/,"").replace(/\/+$/,"")===norm);
+  return {url,name,channel,group,dup};
+}
+async function addSources(){
+  const txt=($("#src_in")||{}).value||"";
+  const items=txt.split(/\n+/).map(parseSourceLine).filter(Boolean);
+  if(!items.length){toast("Вставьте ссылку или @ник");return}
+  const bad=items.filter(x=>x.bad);if(bad.length){toast("Не похоже на ссылку: "+bad[0].url);return}
+  const fresh=items.filter(x=>!x.dup);
+  if(!fresh.length){toast("Эти источники уже есть в базе");return}
+  try{
+    for(const x of fresh){
+      const {data,error}=await sb.from("sources").insert({name:x.name,url:x.url,source_group:x.group,channel:x.channel,is_connected:false,is_active:true}).select().single();
+      if(error)throw error;
+      await sb.from("parser_source_configurations").insert({source_id:data.id,status:"ready",collection_mode:"manual_review",cadence:"daily",entity_scope:["event"]});
+    }
+    $("#src_in").value="";
+    await loadSources();render();
+    toast("Добавлено: "+fresh.length+(items.length>fresh.length?", дубли пропущены: "+(items.length-fresh.length):""));
+  }catch(err){toast("Не сохранилось: "+(err.message||"ошибка"))}
+}
+function sources(){
+  const L=SR.filter(s=>!S.srT||s.source_group===S.srT).sort((a,b)=>a.name.localeCompare(b.name,"ru"));
+  const groups=[...new Set(SR.map(s=>s.source_group))];
+  let rows="",g="";
+  for(const s of L){if(s.source_group!==g){g=s.source_group;rows+=`<tr class="grp"><td colspan="5">${esc(GROUP_LBL[g]||g)}</td></tr>`}
+    const cfg=CFG.find(c=>c.source_id===s.id);
+    rows+=`<tr><td><div class="tt">${esc(s.name)}</div><a class="id" href="${esc(s.url)}" target="_blank" rel="noopener" style="color:var(--accent)">${esc(s.url.replace(/^https?:\/\//,""))}</a></td><td>${esc(s.channel||"")}</td><td><span class="st ${s.is_connected?"s4":"s1"}">${s.is_connected?"подключён":"не подключён"}</span></td><td>${cfg?esc(cfg.status):""}</td><td><button class="chip" data-srcst="${s.id}">${s.is_connected?"Отключить":"Подключить"}</button> <button class="chip" data-srcdel="${s.id}">${S.srDel===s.id?"Точно удалить?":"Удалить"}</button></td></tr>`}
+  const on=SR.filter(s=>s.is_connected).length;
+  return `<div class="head"><div><div class="lbl">Работа</div><h1>Источники</h1><div class="sub">Откуда база берёт события и места.</div></div></div>
+  <div class="tiles"><button class="tile${!S.srT?" sel":""}" data-srt=""><span class="v">${SR.length}</span><span class="t">Всего источников</span><span class="s">подключено: ${on}</span></button>${groups.map(gr=>`<button class="tile${S.srT===gr?" sel":""}" data-srt="${esc(gr)}"><span class="v">${SR.filter(s=>s.source_group===gr).length}</span><span class="t">${esc(GROUP_LBL[gr]||gr)}</span></button>`).join("")}</div>
+  <section class="panel" style="display:flex;flex-direction:column;gap:12px"><h2>Добавить источники</h2>
+   <textarea id="src_in" rows="4" style="width:100%;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:10px 12px;font:inherit" placeholder="https://instagram.com/jazzestate&#10;@almaty_afisha&#10;https://t.me/almatyevents"></textarea>
+   <div class="row"><button class="btn pri" data-srcadd="1" type="button">Добавить в базу</button></div>
+  </section>
+  <div class="tablewrap"><table><thead><tr><th>Источник</th><th>Канал</th><th>Подключён</th><th>Статус сбора</th><th></th></tr></thead><tbody>${rows||`<tr><td colspan="5"><div class="empty">Источники загружаются…</div></td></tr>`}</tbody></table></div>`;
+}
+
+async function recordHistory(entity_type,entity_id,field_name,old_value,new_value){
+  try{await sb.from("record_history").insert({entity_type,entity_id,field_name,old_value,new_value,changed_by:ME||"human"})}catch(e){}
+}
+async function saveEvent(id,extra){
+  const e=EV.find(x=>x.id===id);if(!e)return;
+  const upd={};const hist=[];
+  const ch=(field,from,to)=>{if(JSON.stringify(from)===JSON.stringify(to===undefined?from:to))return;upd[field]=to;hist.push([field,from,to])};
+  if(extra){Object.entries(extra).forEach(([k,v])=>ch(k,e[k],v))}
+  else{
+    const v=s=>{const el=$(s);return el?el.value:null};
+    ch("leisure_category_id",e.leisure_category_id,catIdByName(v("#f_cat"))||e.leisure_category_id);
+    ch("event_category",e.event_category,v("#f_type")||null);
+    ch("genre",e.genre,v("#f_genre")||null);
+    ch("age_restriction",e.age_restriction,v("#f_age")||null);
+    ch("meeting_point",e.meeting_point,v("#f_meet")||null);
+    ch("booking_url",e.booking_url,v("#f_booking")||null);
+    const free=v("#f_free")==="1";ch("is_free",e.is_free,free);
+    const pf=v("#f_pfrom");ch("price_from",e.price_from,pf===""?null:Number(pf));
+    const moods=window.__moodOrder||(e.moods||[]);ch("moods",e.moods||[],moods);if(JSON.stringify(moods)!==JSON.stringify(e.moods||[]))upd.mood_main=moods[0]||null;
+    const fw=[...document.querySelectorAll("#f_fw .chip.on")].map(b=>b.dataset.fw);ch("for_whom",e.for_whom||[],fw);
+    // date/place/stage handled on save via extra calls below
+  }
+  if(!extra){
+    const st=$("#f_start")?$("#f_start").value:null;
+    if(st){
+      const iso=new Date(st+":00+05:00").toISOString();
+      const cur=startOf(e);
+      if(!cur||new Date(iso).getTime()!==new Date(cur.starts_at).getTime()){
+        if(cur){await sb.from("event_sessions").update({starts_at:iso}).eq("id",cur.id)}
+        else{await sb.from("event_sessions").insert({event_id:e.id,starts_at:iso})}
+      }
+    }
+    const pn=$("#f_place")?$("#f_place").value:null;
+    const curPlace=PLACE_OF[e.id];const newPlace=PL.find(p=>p.name===pn);
+    if((curPlace?curPlace.id:null)!==(newPlace?newPlace.id:null)){
+      if(curPlace)await sb.from("event_places").delete().eq("event_id",e.id).eq("place_id",curPlace.id);
+      if(newPlace)await sb.from("event_places").insert({event_id:e.id,place_id:newPlace.id,relation_type:"venue"});
+    }
+    if(upd.pipeline_stage===undefined && e.pipeline_stage!==4 && Object.keys(upd).length){upd.pipeline_stage=4;upd.stage_reason=null}
+  }
+  upd.human_updated_at=new Date().toISOString();upd.human_updated_by=ME||"human";
+  if(!Object.keys(upd).length){toast("Изменений нет");return}
+  try{
+    const {error}=await sb.from("events").update(upd).eq("id",id);
+    if(error)throw error;
+    for(const [field,from,to] of hist)await recordHistory("event",id,field,from,to);
+    await loadEvents();render();
+    toast("Сохранено");
+  }catch(err){toast("Не сохранилось: "+(err.message||"ошибка"))}
+}
+async function savePlace(id){
+  const p=placeById(id);if(!p)return;
+  const nv=$("#p_type")?$("#p_type").value:null;
+  if(!nv||nv===p.place_type){toast("Изменений нет");return}
+  try{
+    const {error}=await sb.from("places").update({place_type:nv,human_updated_at:new Date().toISOString(),human_updated_by:ME||"human"}).eq("id",id);
+    if(error)throw error;
+    await recordHistory("place",id,"place_type",p.place_type,nv);
+    await loadPlaces();render();
+    toast("Тип сохранён");
+  }catch(err){toast("Не сохранилось: "+(err.message||"ошибка"))}
+}
+
+document.addEventListener("click",ev=>{
+  const t=ev.target.closest("[data-psave],[data-srcadd],[data-srcst],[data-srcdel],[data-srt],[data-go],[data-pl],[data-f],[data-clear],[data-pclear],[data-qtab],[data-save],[data-stage],[data-archive],[data-mood],[data-fw]");
+  if(!t)return;
+  if(t.dataset.psave){savePlace(t.dataset.psave);return}
+  if(t.dataset.srcadd){addSources();return}
+  if(t.dataset.srcst){const x=SR.find(s=>s.id===t.dataset.srcst);if(x)sb.from("sources").update({is_connected:!x.is_connected}).eq("id",x.id).then(async()=>{await loadSources();render();toast("Статус изменён")});return}
+  if(t.dataset.srcdel){const id=t.dataset.srcdel;if(S.srDel!==id){S.srDel=id;render();return}S.srDel=null;
+    sb.from("parser_source_configurations").delete().eq("source_id",id).then(()=>sb.from("sources").delete().eq("id",id)).then(async()=>{await loadSources();render();toast("Источник удалён")});return}
+  if(t.dataset.srt!==undefined){ev.preventDefault();S.srT=t.dataset.srt||null;render();return}
+  if(t.dataset.mood){ev.preventDefault();const on=[...document.querySelectorAll("#f_moods .chip.on")];window.__moodOrder=window.__moodOrder||on.map(b=>b.dataset.mood);if(t.classList.contains("on")){t.classList.remove("on");window.__moodOrder=window.__moodOrder.filter(m=>m!==t.dataset.mood)}else{if(on.length>=3){toast("Не больше трёх настроений");return}t.classList.add("on");window.__moodOrder.push(t.dataset.mood)}document.querySelectorAll("#f_moods .chip").forEach(b=>{b.textContent=(window.__moodOrder[0]===b.dataset.mood?"★ ":"")+MOOD[b.dataset.mood][2]});return}
+  if(t.dataset.fw){ev.preventDefault();t.classList.toggle("on");return}
+  if(t.dataset.save){window.__moodOrder=null;saveEvent(t.dataset.save);return}
+  if(t.dataset.stage){const k=Number(t.dataset.stage);saveEvent(t.dataset.id,{pipeline_stage:k,stage_reason:k===4?null:"Возвращено на проверку AI"});return}
+  if(t.dataset.archive){saveEvent(t.dataset.archive,{status:"archived"});return}
+  ev.preventDefault();
+  if(t.dataset.pl){S.plF=JSON.parse(t.dataset.pl);render();return}
+  if(t.dataset.f){const k=t.dataset.f,v=t.dataset.v;if(k==="pcat"){}else{S.evF=Object.assign({},S.evF,{[k]:S.evF[k]===v?null:v})}render();return}
+  if(t.dataset.clear){S.evF=Object.assign({},S.evF,{[t.dataset.clear]:null});render();return}
+  if(t.dataset.pclear){S.plF=Object.assign({},S.plF,{[t.dataset.pclear]:null});render();return}
+  if(t.dataset.qtab){S.qtab=Number(t.dataset.qtab);render();return}
+  if(t.dataset.go){window.__moodOrder=null;const patch=t.dataset.patch?JSON.parse(t.dataset.patch):null;go(t.dataset.go,t.dataset.arg,patch)}
+});
+document.addEventListener("input",ev=>{if(ev.target.id==="q"){S.q=ev.target.value;const pos=ev.target.selectionStart;render();const q=$("#q");if(q){q.focus();q.setSelectionRange(pos,pos)}}});
+
+async function loadCats(){const {data}=await sb.from("leisure_categories").select("id,name,sort_order").order("sort_order");CATS=data||[]}
+async function loadEvents(){
+  const {data:ev}=await sb.from("events").select("*").order("created_at");EV=ev||[];
+  const {data:sess}=await sb.from("event_sessions").select("*");SESS={};(sess||[]).forEach(s=>{(SESS[s.event_id]=SESS[s.event_id]||[]).push(s)});
+  const {data:ep}=await sb.from("event_places").select("event_id,place_id,relation_type").eq("relation_type","venue");PLACE_OF={};(ep||[]).forEach(r=>{PLACE_OF[r.event_id]={id:r.place_id}});
+}
+async function loadPlaces(){const {data}=await sb.from("places").select("*").order("name");PL=data||[]}
+async function loadSources(){
+  const {data:sr}=await sb.from("sources").select("*").order("name");SR=sr||[];
+  const {data:cfg}=await sb.from("parser_source_configurations").select("*");CFG=cfg||[];
+}
+async function loadAll(){
+  $("#main").innerHTML=`<div class="empty">Загружаю базу…</div>`;
+  await Promise.all([loadCats(),loadEvents(),loadPlaces(),loadSources()]);
+  render();
+}
+
+$("#menuBtn")&&$("#menuBtn").addEventListener("click",()=>$("#nav").classList.toggle("open"));
+$("#li_go").addEventListener("click",async()=>{
+  $("#li_err").textContent="";
+  const email=$("#li_email").value.trim(),pass=$("#li_pass").value;
+  if(!email||!pass){$("#li_err").textContent="Введите почту и пароль";return}
+  const {error}=await sb.auth.signInWithPassword({email,password:pass});
+  if(error)$("#li_err").textContent="Не удалось войти: "+error.message;
+});
+$("#li_pass").addEventListener("keydown",e=>{if(e.key==="Enter")$("#li_go").click()});
+
+sb.auth.onAuthStateChange((event,session)=>{
+  if(session&&session.user){
+    ME=session.user.email;
+    $("#login").hidden=true;$("#app").hidden=false;$("#topbar").hidden=false;
+    loadAll();
+    setInterval(async()=>{try{await loadAll()}catch(e){}},45000);
+  }else{
+    $("#login").hidden=false;$("#app").hidden=true;$("#topbar").hidden=true;
+  }
+});
+</script>
+</body>
+</html>
