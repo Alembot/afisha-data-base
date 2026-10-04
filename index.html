@@ -274,11 +274,16 @@ function category(cid){
 
 function sel(id,opts,cur,ph){return `<select id="${id}">${ph!=null?`<option value="">${ph}</option>`:""}${opts.map(o=>`<option${o===cur?" selected":""}>${esc(o)}</option>`).join("")}${cur&&!opts.includes(cur)?`<option selected>${esc(cur)}</option>`:""}</select>`}
 function banner(e){return `<div class="banner"><h2>Нужно решение человека</h2><div>${esc(e.stage_reason||"AI не уверен в записи.")}</div><div class="muted" style="font-size:13.5px">Пока вы не решите, события нет в базе. Проверьте и поправьте поля, затем нажмите «Подтвердить».</div><div class="row"><button class="btn pri" data-stage="4" data-id="${e.id}">Подтвердить и принять в базу</button><button class="btn" data-2place="${e.id}">Это место, не событие</button><button class="btn" data-archive="${e.id}">Не проводится — в архив</button></div></div>`}
+function translit(s){const m={а:"a",б:"b",в:"v",г:"g",д:"d",е:"e",ё:"e",ж:"zh",з:"z",и:"i",й:"i",к:"k",л:"l",м:"m",н:"n",о:"o",п:"p",р:"r",с:"s",т:"t",у:"u",ф:"f",х:"h",ц:"c",ч:"ch",ш:"sh",щ:"sch",ъ:"",ы:"y",ь:"",э:"e",ю:"yu",я:"ya"};return (s||"").toLowerCase().split("").map(ch=>m[ch]!==undefined?m[ch]:ch).join("")}
+function slugify(s){return translit(s).replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")}
+function nextPublicId(list,prefix){let max=0;list.forEach(x=>{const m=(x.public_id||"").match(new RegExp("^"+prefix+"-(\\d+)$"));if(m)max=Math.max(max,parseInt(m[1],10))});return prefix+"-"+String(max+1).padStart(4,"0")}
 async function convertEventToPlace(id){
   const e=EV.find(x=>x.id===id);if(!e)return;
   if(!confirm(`Перенести «${e.title}» в Места? Событие будет удалено, данные перенесутся в новую карточку места.`))return;
   try{
-    const payload={name:e.title,leisure_category_id:e.leisure_category_id,address:e.meeting_point||null,status:"active",pipeline_stage:3,stage_reason:`Перенесено из события ${e.public_id||""}. ${(e.description||"").slice(0,400)}`.trim(),human_updated_at:new Date().toISOString(),human_updated_by:ME||"human"};
+    const pid=nextPublicId(PL,"PL");
+    const slug=slugify(e.title)+"-"+pid.toLowerCase();
+    const payload={name:e.title,slug,public_id:pid,leisure_category_id:e.leisure_category_id,address:e.meeting_point||null,status:"active",pipeline_stage:3,stage_reason:`Перенесено из события ${e.public_id||""}. ${(e.description||"").slice(0,400)}`.trim(),human_updated_at:new Date().toISOString(),human_updated_by:ME||"human"};
     const {data:np,error:e1}=await sb.from("places").insert(payload).select().single();
     if(e1)throw e1;
     await sb.from("event_sessions").delete().eq("event_id",id);
@@ -287,8 +292,8 @@ async function convertEventToPlace(id){
     if(e2)throw e2;
     await recordHistory("place",np.id,"converted_from_event",e.public_id||id,np.id);
     await loadEvents();await loadPlaces();
-    S.view="place";S.arg=np.id;render();
-    toast("Перенесено в места");
+    S.view="events";S.evMode="wait";S.evF={};render();
+    toast(`Перенесено в места: ${np.name} (${np.public_id})`);
   }catch(err){toast("Ошибка: "+(err.message||err))}
 }
 function eventCard(id){
@@ -406,6 +411,7 @@ async function recordHistory(entity_type,entity_id,field_name,old_value,new_valu
 }
 async function saveEvent(id,extra){
   const e=EV.find(x=>x.id===id);if(!e)return;
+  const wasWaiting=e.pipeline_stage===1||e.pipeline_stage===3;
   const upd={};const hist=[];
   const ch=(field,from,to)=>{if(JSON.stringify(from)===JSON.stringify(to===undefined?from:to))return;upd[field]=to;hist.push([field,from,to])};
   if(extra){Object.entries(extra).forEach(([k,v])=>ch(k,e[k],v))}
@@ -448,8 +454,9 @@ async function saveEvent(id,extra){
     const {error}=await sb.from("events").update(upd).eq("id",id);
     if(error)throw error;
     for(const [field,from,to] of hist)await recordHistory("event",id,field,from,to);
-    await loadEvents();render();
-    toast("Сохранено");
+    await loadEvents();
+    if(wasWaiting){S.view="events";S.evMode="wait";S.evF={};render();toast("Сохранено · вернул в очередь «Ждут человека»")}
+    else{render();toast("Сохранено")}
   }catch(err){toast("Не сохранилось: "+(err.message||"ошибка"))}
 }
 async function savePlace(id){
