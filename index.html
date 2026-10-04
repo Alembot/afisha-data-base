@@ -75,6 +75,18 @@ main{flex:1;min-width:0;padding-block:28px 60px;padding-inline:clamp(16px,3.5vw,
 .doccards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
 .doccard{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:8px}
 .doccard:hover{border-color:var(--accent)}
+.doc-body{display:flex;flex-direction:column;gap:14px;max-width:860px}
+.doc-body h1{font-family:Unbounded,Onest,sans-serif;font-size:22px;font-weight:600}
+.doc-body h2{font-size:18px;font-weight:700;margin-top:4px}
+.doc-body h3{font-size:15.5px;font-weight:700}
+.doc-body h4{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink2)}
+.doc-body p{margin:0;line-height:1.65}
+.doc-body ul,.doc-body ol{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:5px;line-height:1.55}
+.doc-body table{min-width:0}
+.doc-body td,.doc-body th{font-size:13.5px}
+.doc-body hr{border:0;border-top:1px solid var(--line);margin:2px 0}
+.doc-body code{background:var(--surface2);padding:1px 6px;border-radius:5px;font-size:.92em}
+.doc-body a{word-break:break-word}
 .note{background:var(--info-bg);color:var(--info);border-radius:12px;padding:12px 14px;font-size:14px}
 .search{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 12px;min-width:0;width:260px;max-width:100%;color:var(--ink)}
 .tablewrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:16px}
@@ -161,9 +173,8 @@ const MOOD=Object.fromEntries(MOODS.map(m=>[m[0],m]));
 const FW=["Один","На двоих","С друзьями","С семьёй"];
 const STAGES={1:"Новые от робота",2:"Исправлено AI",3:"Нужен человек",4:"В базе"};
 const STAGE_TXT={1:"Робот создал запись и разметил её. AI ещё не проверял.",2:"AI нашёл неточность, исправил по первоисточнику и принял.",3:"AI не уверен или нашёл противоречие. Решает человек.",4:"Запись принята в базу."};
-const DOCS=[["Логика парсера","Поиск, сбор","—","Обновить до 15 категорий","https://docs.google.com/document/d/1gL7TBUF80NERciga1PlWDBpv42VG_wm1HgGPsL8BJFc/edit"],["Методология распознавания событий, мест и связей","Сбор","рабочая","Действует","https://docs.google.com/document/d/1Z9bLoig606rZigDr2QTjAoueGaWUG_NfkTDdSNyPSJU/edit"],["Инструкция для парсера: события","Сбор","—","Обновить до 15 категорий","https://docs.google.com/document/d/1ySJgk87AiXRvxsVpJxBijGdkppWgAS6axdqYb9szoP0/edit"],["Инструкция для парсера: места","Сбор","—","Обновить до 15 категорий","https://docs.google.com/document/d/1XsPSigO1thdSPNRxDTbazKLc_xrCG4CHvwZttcQICMM/edit"],["Инструкция для парсера: категории досуга","Разметка","—","Обновить до 15 категорий","https://docs.google.com/document/d/1E5cJ8nNNXvcqYtmpwDWjWfdoVBOAfaO-rjqynZkweIQ/edit"],["Как проставлять настроение и «Для кого»","Разметка, AI-проверка","1.1","Действует","https://docs.google.com/document/d/1WYN1hXKDr_2hx-ataLE3IlOyCmAqqNeaJ-kcsU40WOY/edit"],["Справочник настроений","Разметка","1.1","Действует","https://docs.google.com/document/d/1sfwyxj-eU3U7E2-7vaSGySl5lJDAanR3dYKs11RlHFM/edit"],["Как выделять performers из события","Сбор","25.09.2026","Действует","https://docs.google.com/document/d/1omGHGE16vy0WxuFO1KOfujsVdPX1zoYDtGDprJSk_RU/edit"],["ТЗ: новый интерфейс Afisha Data Base","Интерфейс","1.0","Действует","https://docs.google.com/document/d/1-sEOe2ZsQR5nnRcQ14jWar92BLEPlbsof0JIbL2GTO8/edit"],["Правила AI-проверки кандидата","AI-проверка","—","Нет документа",""],["Решения и контекст по Afisha Data Base","Все направления","—","Eventer Workspace → afisha","https://alembot.github.io/eventer-workspace/"]];
 
-let CATS=[],EVENT_TYPES=[],PLACE_TYPES=[],SESS={},PLACE_OF={},EV=[],PL=[],SR=[],CFG=[],REFCATS=[],REFITEMS=[],PERF=[];
+let CATS=[],EVENT_TYPES=[],PLACE_TYPES=[],SESS={},PLACE_OF={},EV=[],PL=[],SR=[],CFG=[],REFCATS=[],REFITEMS=[],PERF=[],KBDOCS=[];
 let ME=null;
 let S={view:"home",arg:null,evMode:"base",evF:{},plF:{},q:"",qtab:3,srT:null,dir:null};
 const $=s=>document.querySelector(s);
@@ -203,14 +214,14 @@ function issues(e){const r=[];if(!PLACE_OF[e.id]&&!e.meeting_point)r.push("nopla
 const ISSUES={noplace:"Без места или точки сбора",noprice:"Без цены",nomood:"Без настроения",nofw:"Без «Для кого»"};
 
 function go(view,arg,patch){S.view=view;S.arg=arg??null;if(patch)Object.assign(S,patch);$("#nav").classList.remove("open");render();window.scrollTo(0,0)}
-function navHtml(){const a=active();const n3=EV.filter(e=>e.pipeline_stage===3&&!isArchived(e)).length;const it=(v,t,n)=>`<button class="nv${S.view===v||(v==="events"&&S.view==="event")||(v==="places"&&S.view==="place")?" on":""}" data-go="${v}">${t}${n!=null?`<span class="n">${n}</span>`:""}</button>`;
+function navHtml(){const a=active();const n3=EV.filter(e=>e.pipeline_stage===3&&!isArchived(e)).length;const it=(v,t,n)=>`<button class="nv${S.view===v||(v==="events"&&S.view==="event")||(v==="places"&&S.view==="place")||(v==="docs"&&S.view==="doc")?" on":""}" data-go="${v}">${t}${n!=null?`<span class="n">${n}</span>`:""}</button>`;
 return `<div class="brand">афиша<i>.</i>data</div>${it("home","Главная")}<div class="nvs">Реестры</div>${it("events","События",a.length)}${it("places","Места",PL.length)}<div class="nvs">Работа</div>${it("queue","Конвейер проверки",n3)}${it("sources","Источники",SR.length)}<div class="nvs">Знания</div>${it("dirs","Справочники")}${it("docs","Инструкции")}<div class="nvs" style="margin-top:auto"></div><button class="nv" id="logoutBtn">Выйти (${esc(ME||"")})</button>`}
 
 function render(){
   $("#nav").innerHTML=navHtml();
   $("#logoutBtn").addEventListener("click",()=>sb.auth.signOut());
   const m=$("#main");
-  const V={home,events,places,category,event:eventCard,place:placeCard,queue,sources,dirs,docs}[S.view]||home;
+  const V={home,events,places,category,event:eventCard,place:placeCard,queue,sources,dirs,docs,doc:docView}[S.view]||home;
   m.innerHTML=V(S.arg);
 }
 
@@ -437,6 +448,7 @@ function sources(){
 
 function refCount(code,item){
   if(code==="event_type")return active().filter(e=>e.event_category===item.name).length;
+  if(code==="event_genre")return active().filter(e=>e.genre===item.name).length;
   if(code==="event_format")return active().filter(e=>e.format===item.name).length;
   if(code==="event_topic")return active().filter(e=>e.topic===item.name).length;
   if(code==="event_activity")return active().filter(e=>e.activity===item.name).length;
@@ -448,18 +460,29 @@ function refCount(code,item){
   return null;
 }
 function dirs(){
-  const cats=REFCATS.slice().sort((a,b)=>a.name.localeCompare(b.name,"ru"));
-  const secs=[...cats.map(c=>[c.code,c.name,REFITEMS.filter(i=>i.catalog_id===c.id).length]),["moods","Настроения",MOODS.length],["fw","Для кого",FW.length],["stages","Стадии конвейера",4]];
-  const c=S.dir||(cats[0]&&cats[0].code)||"moods";
+  const CORE=["leisure_direction","event_type","event_genre","place_type"];
+  const active_cats=REFCATS.filter(c=>c.is_active!==false);
+  const EXTRA=active_cats.filter(c=>!["mood","for_whom","pipeline_stage",...CORE].includes(c.code)).sort((a,b)=>a.name.localeCompare(b.name,"ru"));
+  const coreCats=CORE.map(code=>active_cats.find(c=>c.code===code)).filter(Boolean);
+  const cats=[...coreCats,...EXTRA];
+  const secs=[["cats","Категории",CATS.length],...cats.map(c=>[c.code,c.name,REFITEMS.filter(i=>i.catalog_id===c.id).length]),["moods","Настроения",MOODS.length],["fw","Для кого",FW.length],["stages","Стадии конвейера",4]];
+  const c=S.dir||"cats";
   const tbl=(h,rows)=>`<div class="tablewrap"><table style="min-width:600px"><thead><tr>${h.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>`;
   let body="";
-  if(c==="moods")body=tbl(["Код","В базе","Суть","Событий"],MOODS.map(m=>`<tr class="click" data-go="events" data-patch='${esc(JSON.stringify({evMode:"active",evF:{mood:m[0]}}))}'><td class="id">${esc(m[0])}</td><td class="tt">${esc(m[1])}</td><td class="muted">${esc(m[2])}</td><td>${active().filter(e=>(e.moods||[]).includes(m[0])).length}</td></tr>`).join(""));
+  if(c==="cats")body=tbl(["Категория","Мест","Событий"],CATS.map(cat=>`<tr class="click" data-go="category" data-arg="${esc(cat.id)}"><td class="tt">${esc(cat.name)}</td><td>${PL.filter(p=>p.leisure_category_id===cat.id).length}</td><td>${active().filter(e=>e.leisure_category_id===cat.id).length}</td></tr>`).join(""));
+  else if(c==="moods")body=tbl(["Код","В базе","Суть","Событий"],MOODS.map(m=>`<tr class="click" data-go="events" data-patch='${esc(JSON.stringify({evMode:"active",evF:{mood:m[0]}}))}'><td class="id">${esc(m[0])}</td><td class="tt">${esc(m[1])}</td><td class="muted">${esc(m[2])}</td><td>${active().filter(e=>(e.moods||[]).includes(m[0])).length}</td></tr>`).join(""));
   else if(c==="fw")body=tbl(["Значение","Событий"],FW.map(w=>`<tr class="click" data-go="events" data-patch='${esc(JSON.stringify({evMode:"active",evF:{fw:w}}))}'><td class="tt">${esc(w)}</td><td>${active().filter(e=>(e.for_whom||[]).includes(w)).length}</td></tr>`).join(""));
   else if(c==="stages")body=tbl(["Стадия","Что значит","Событий"],[1,2,3,4].map(k=>`<tr class="click" data-go="queue" data-patch='${JSON.stringify({qtab:k})}'><td><span class="st s${k}">${esc(STAGES[k])}</span></td><td>${esc(STAGE_TXT[k])}</td><td>${active().filter(e=>e.pipeline_stage===k).length}</td></tr>`).join(""));
   else{
     const cat=cats.find(x=>x.code===c);
     const items=REFITEMS.filter(i=>i.catalog_id===(cat&&cat.id)).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0)||a.name.localeCompare(b.name,"ru"));
-    if(!items.length)body=`<div class="note">В справочнике «${esc(cat?cat.name:"")}» пока нет значений.</div>`;
+    if(!cat||!items.length)body=`<div class="note">В справочнике «${esc(cat?cat.name:"")}» пока нет действующих значений.</div>`;
+    else if(c==="place_type"){
+      const groups=items.filter(i=>!i.parent_id).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0)||a.name.localeCompare(b.name,"ru"));
+      const byParent=pid=>items.filter(i=>i.parent_id===pid).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0)||a.name.localeCompare(b.name,"ru"));
+      body=groups.length?`<div class="blocks">${groups.map(g=>{const arr=byParent(g.id);return `<div class="blk"><h3>${esc(g.name)}<span>${arr.length}</span></h3><div class="items">${arr.map(i=>{const n=refCount(c,i);return `<span class="it">${esc(i.name)}${n?`<b>${n}</b>`:""}</span>`}).join("")||`<span class="muted" style="font-size:13px">Нет подтипов</span>`}</div></div>`}).join("")}</div>`
+        :tbl(["Значение","Используется"],items.map(i=>{const n=refCount(c,i);return `<tr><td class="tt">${esc(i.name)}</td><td>${n==null?"—":n}</td></tr>`}).join(""));
+    }
     else if(items.some(i=>i.leisure_category_id)){
       const groups={};items.forEach(i=>{const g=catName(i.leisure_category_id)||"Без категории";(groups[g]=groups[g]||[]).push(i)});
       body=`<div class="blocks">${Object.entries(groups).map(([g,arr])=>`<div class="blk"><h3>${esc(g)}<span>${arr.length}</span></h3><div class="items">${arr.map(i=>{const n=refCount(c,i);return `<span class="it">${esc(i.name)}${n?`<b>${n}</b>`:""}</span>`}).join("")}</div></div>`).join("")}</div>`;
@@ -467,12 +490,54 @@ function dirs(){
       body=tbl(["Значение","Используется"],items.map(i=>{const n=refCount(c,i);return `<tr><td class="tt">${esc(i.name)}</td><td>${n==null?"—":n}</td></tr>`}).join(""));
     }
   }
-  return `<div class="head"><div><div class="lbl">Знания</div><h1>Справочники</h1><div class="sub">Единый язык разметки для робота, AI и человека: таблицы reference_catalogs / reference_items + настроения, «для кого» и стадии конвейера.</div></div></div>
+  return `<div class="head"><div><div class="lbl">Знания</div><h1>Справочники</h1><div class="sub">Только действующие значения (архивные скрыты). Категории досуга, направления, типы событий, жанры, настроения, «для кого», типы мест, стадии конвейера — и дополнительные рабочие справочники.</div></div></div>
   <div class="seg">${secs.map(([k,t,n])=>`<button class="${c===k?"on":""}" data-dir="${esc(k)}">${esc(t)} · ${n}</button>`).join("")}</div>${body}`;
 }
+function mdToHtml(md){
+  const lines=(md||"").replace(/\r\n/g,"\n").split("\n");
+  let html="",i=0,inList=null;
+  const inline=s=>esc(s)
+    .replace(/\*\*(.+?)\*\*/g,"<b>$1</b>")
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/`([^`]+)`/g,"<code>$1</code>");
+  const closeList=()=>{if(inList){html+="</"+inList+">";inList=null}};
+  while(i<lines.length){
+    const l=lines[i];
+    let m;
+    if(/^\s*$/.test(l)){closeList();i++;continue}
+    if(m=l.match(/^(#{1,4})\s+(.*)$/)){closeList();const lvl=Math.min(m[1].length+1,4);html+=`<h${lvl}>${inline(m[2])}</h${lvl}>`;i++;continue}
+    if(/^-{3,}\s*$/.test(l.trim())){closeList();html+="<hr>";i++;continue}
+    if(l.trim().startsWith("|")){
+      closeList();
+      const rows=[];
+      while(i<lines.length&&lines[i].trim().startsWith("|")){rows.push(lines[i].trim());i++}
+      if(rows.length>=2){
+        const cells=r=>r.replace(/^\||\|$/g,"").split("|").map(s=>s.trim());
+        const head=cells(rows[0]);
+        const body=rows.slice(2).map(cells);
+        html+=`<div class="tablewrap"><table><thead><tr>${head.map(h=>`<th>${inline(h)}</th>`).join("")}</tr></thead><tbody>${body.map(r=>`<tr>${r.map(c=>`<td>${inline(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+      }
+      continue;
+    }
+    if(m=l.match(/^[-*]\s+(.*)$/)){if(inList!=="ul"){closeList();html+="<ul>";inList="ul"}html+=`<li>${inline(m[1])}</li>`;i++;continue}
+    if(m=l.match(/^\d+\.\s+(.*)$/)){if(inList!=="ol"){closeList();html+="<ol>";inList="ol"}html+=`<li>${inline(m[1])}</li>`;i++;continue}
+    closeList();html+=`<p>${inline(l)}</p>`;i++;
+  }
+  closeList();
+  return html||`<p class="muted">Пусто.</p>`;
+}
 function docs(){
-  return `<div class="head"><div><div class="lbl">Знания</div><h1>Инструкции</h1><div class="sub">Регламенты парсера и разметки. Решения и контекст по направлению фиксируются отдельно, в Eventer Workspace.</div></div></div>
-  <div class="doccards">${DOCS.map(([t,area,ver,status,url])=>`<div class="doccard"><h3 style="font-size:15px;font-weight:700">${esc(t)}</h3><div class="muted">${esc(area)}</div><div class="row" style="justify-content:space-between;align-items:center"><span class="chip soft">${esc(ver)}</span><span class="muted">${esc(status)}</span></div>${url?`<a href="${esc(url)}" target="_blank" rel="noopener">Открыть →</a>`:""}</div>`).join("")}</div>`;
+  const L=KBDOCS.slice().sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+  return `<div class="head"><div><div class="lbl">Знания</div><h1>Инструкции</h1><div class="sub">Регламенты парсера и разметки — перенесены 1:1 из эталона. Решения и контекст по направлению фиксируются отдельно, в Eventer Workspace.</div></div></div>
+  <div class="doccards">${L.map(d=>`<div class="doccard"><h3 style="font-size:15px;font-weight:700">${esc(d.title)}</h3><div class="muted">${esc(d.step||"")}</div><div class="row" style="justify-content:space-between;align-items:center"><span class="chip soft">${esc(d.version||"—")}</span><span class="muted">${esc(d.status||"")}</span></div><div class="row" style="gap:12px;margin-top:2px"><a href="#" data-go="doc" data-arg="${esc(d.id)}">Читать →</a>${d.gdoc?`<a href="${esc(d.gdoc)}" target="_blank" rel="noopener" class="muted">Google Docs</a>`:""}</div></div>`).join("")||`<div class="empty">Документы загружаются…</div>`}
+  <div class="doccard"><h3 style="font-size:15px;font-weight:700">Решения и контекст по Afisha Data Base</h3><div class="muted">Все направления</div><a href="https://alembot.github.io/eventer-workspace/" target="_blank" rel="noopener">Eventer Workspace → afisha ↗</a></div>
+  </div>`;
+}
+function docView(id){
+  const d=KBDOCS.find(x=>x.id===id);if(!d)return `<div class="empty">Документ не найден.</div>`;
+  return `<button class="back" data-go="docs">← Инструкции</button>
+  <div class="head"><div><div class="lbl">${esc(d.step||"")}${d.version?" · "+esc(d.version):""}${d.status?" · "+esc(d.status):""}</div><h1>${esc(d.title)}</h1></div>${d.gdoc?`<a href="${esc(d.gdoc)}" target="_blank" rel="noopener" class="btn">Google Docs →</a>`:""}</div>
+  <div class="panel doc-body">${mdToHtml(d.md)}</div>`;
 }
 
 async function recordHistory(entity_type,entity_id,field_name,old_value,new_value){
@@ -567,7 +632,7 @@ document.addEventListener("click",ev=>{
 });
 document.addEventListener("input",ev=>{if(ev.target.id==="q"){S.q=ev.target.value;const pos=ev.target.selectionStart;render();const q=$("#q");if(q){q.focus();q.setSelectionRange(pos,pos)}}});
 
-async function loadCats(){const {data}=await sb.from("leisure_categories").select("id,name,sort_order").order("sort_order");CATS=data||[]}
+async function loadCats(){const {data}=await sb.from("leisure_categories").select("id,name,sort_order").eq("is_active",true).order("sort_order");CATS=data||[]}
 async function loadEvents(){
   const {data:ev}=await sb.from("events").select("*").order("created_at");EV=ev||[];
   const {data:sess}=await sb.from("event_sessions").select("*");SESS={};(sess||[]).forEach(s=>{(SESS[s.event_id]=SESS[s.event_id]||[]).push(s)});
@@ -579,13 +644,14 @@ async function loadSources(){
   const {data:cfg}=await sb.from("parser_source_configurations").select("*");CFG=cfg||[];
 }
 async function loadRefs(){
-  const {data:rc}=await sb.from("reference_catalogs").select("*");REFCATS=rc||[];
-  const {data:ri}=await sb.from("reference_items").select("*");REFITEMS=ri||[];
+  const {data:rc}=await sb.from("reference_catalogs").select("*").eq("is_active",true);REFCATS=rc||[];
+  const {data:ri}=await sb.from("reference_items").select("*").eq("is_active",true);REFITEMS=ri||[];
   const {data:pf}=await sb.from("performers").select("id,performer_role,performer_type");PERF=pf||[];
 }
+async function loadKbDocs(){const {data}=await sb.from("kb_docs").select("*").eq("is_active",true).order("sort_order");KBDOCS=data||[]}
 async function loadAll(first){
   if(first)$("#main").innerHTML=`<div class="empty">Загружаю базу…</div>`;
-  await Promise.all([loadCats(),loadEvents(),loadPlaces(),loadSources(),loadRefs()]);
+  await Promise.all([loadCats(),loadEvents(),loadPlaces(),loadSources(),loadRefs(),loadKbDocs()]);
   render();
 }
 
