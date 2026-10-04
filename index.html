@@ -195,7 +195,7 @@ function home(){
    <div class="panel" style="display:flex;flex-direction:column;gap:12px"><div class="row" style="justify-content:space-between"><h2>События</h2><a href="#" data-go="events">Реестр →</a></div><div class="tiles">
     ${tile(a.length,"Собрано","предстоящие","events",{evMode:"active",evF:{}})}${tile(EV.filter(inBase).length,"В базе","прошли проверку","events",{evMode:"base",evF:{}})}${tile(EV.filter(waiting).length,"Ждут человека","ещё не в базе","events",{evMode:"wait",evF:{}},EV.filter(waiting).length?"warn":"")}${tile(arch,"Архив","прошедшие","events",{evMode:"archive",evF:{}})}</div></div>
    <div class="panel" style="display:flex;flex-direction:column;gap:12px"><div class="row" style="justify-content:space-between"><h2>Места</h2><a href="#" data-go="places">Реестр →</a></div><div class="tiles">
-    ${tile(PL.length,"Всего","","places",{plF:{}})}${tile(PL.filter(p=>p.status==="active").length,"Активные","","places",{plF:{}})}${tile(plNoAddr,"Без адреса","","places",{plF:{noaddr:1}})}</div></div>
+    ${tile(PL.length,"Всего","","places",{plF:{}})}${tile(PL.filter(p=>p.status==="active").length,"Активные","","places",{plF:{}})}${tile(PL.filter(p=>p.is_showcase).length,"На витрине","","places",{plF:{showcase:1}})}${tile(plNoAddr,"Без адреса","","places",{plF:{noaddr:1}})}</div></div>
   </section>
   <section style="display:flex;flex-direction:column;gap:12px"><div class="lbl">Конвейер проверки</div><div class="tiles">
     ${tile(st(1),"Новые от робота","ждут AI","queue",{qtab:1})}${tile(st(2),"Исправлено AI","AI поправил и принял","queue",{qtab:2})}${tile(st(3),"Нужен человек","решаете вы","queue",{qtab:3},st(3)?"warn":"")}${tile(st(4),"В базе","стадия 4","queue",{qtab:4})}</div></section>
@@ -249,13 +249,13 @@ function events(){
 function nextEvent(pid){const L=active().filter(e=>(PLACE_OF[e.id]||{}).id===pid);L.sort((a,b)=>{const sa=startOf(a),sb_=startOf(b);return (sa?sa.starts_at:"").localeCompare(sb_?sb_.starts_at:"")});return L[0]}
 function places(){
   let L=PL.slice();const f=S.plF;
-  if(f.cat)L=L.filter(p=>p.leisure_category_id===f.cat);if(f.noaddr)L=L.filter(p=>!p.address);
+  if(f.cat)L=L.filter(p=>p.leisure_category_id===f.cat);if(f.noaddr)L=L.filter(p=>!p.address);if(f.showcase)L=L.filter(p=>p.is_showcase);
   L.sort((a,b)=>{const x=nextEvent(a.id),y=nextEvent(b.id);if(x&&y)return (startOf(x)||{}).starts_at.localeCompare((startOf(y)||{}).starts_at||"");if(x)return-1;if(y)return 1;return a.name.localeCompare(b.name,"ru")});
   const cnt=()=>{const m={};PL.forEach(p=>m[catName(p.leisure_category_id)]=(m[catName(p.leisure_category_id)]||0)+1);return Object.entries(m).sort((a,b)=>b[1]-a[1])};
   const rows=L.map(p=>{const n=nextEvent(p.id);return `<tr class="click" data-go="place" data-arg="${p.id}"><td><div class="id">${p.id.slice(0,8)}</div></td><td><div class="tt">${esc(p.name)}</div></td><td>${esc(catName(p.leisure_category_id))}</td><td>${esc(p.place_type||"")}</td><td>${p.address?esc(p.address):`<span class="bad">нет адреса</span>`}</td><td>${n?`<div class="tt" style="font-weight:500">${esc(n.title)}</div><div class="id">${fmtDT((startOf(n)||{}).starts_at)}</div>`:`<span class="muted">—</span>`}</td></tr>`}).join("");
-  const fl=Object.entries(f).filter(([k,v])=>v).map(([k,v])=>`<button class="chip on" data-pclear="${k}">${k==="noaddr"?"Без адреса":v} ✕</button>`).join("");
+  const fl=Object.entries(f).filter(([k,v])=>v).map(([k,v])=>`<button class="chip on" data-pclear="${k}">${k==="noaddr"?"Без адреса":k==="showcase"?"На витрине":v} ✕</button>`).join("");
   return `<div class="head"><div><div class="lbl">Реестр</div><h1>Места</h1><div class="sub">Сначала места с ближайшими событиями, дальше по алфавиту.</div></div></div>
-  <div class="tiles"><button class="tile" data-go="places" data-patch='{}'><span class="v">${PL.length}</span><span class="t">Всего</span></button><button class="tile" data-go="places" data-patch='${esc(JSON.stringify({plF:{noaddr:1}}))}'><span class="v">${PL.filter(p=>!p.address).length}</span><span class="t">Без адреса</span></button></div>
+  <div class="tiles"><button class="tile" data-go="places" data-patch='{}'><span class="v">${PL.length}</span><span class="t">Всего</span></button><button class="tile" data-go="places" data-patch='${esc(JSON.stringify({plF:{showcase:1}}))}'><span class="v">${PL.filter(p=>p.is_showcase).length}</span><span class="t">На витрине</span></button><button class="tile" data-go="places" data-patch='${esc(JSON.stringify({plF:{noaddr:1}}))}'><span class="v">${PL.filter(p=>!p.address).length}</span><span class="t">Без адреса</span></button></div>
   <section class="grid2">${breakdown("По категориям",cnt(),"pcat",null)}</section>
   ${fl?`<div class="row">${fl}</div>`:""}
   <div class="tablewrap"><table><thead><tr><th>ID</th><th>Место</th><th>Категория</th><th>Тип</th><th>Адрес</th><th>Ближайшее событие</th></tr></thead><tbody>${rows||`<tr><td colspan="6"><div class="empty">Мест нет.</div></td></tr>`}</tbody></table></div>`;
