@@ -92,6 +92,10 @@ tr.grp td{background:var(--bg);font-weight:700;font-size:12px;letter-spacing:.06
 .dark .btn.pri{background:var(--accent);border-color:var(--accent)}
 .hist{font-size:13px;color:var(--ink2);display:flex;flex-direction:column;gap:6px;max-height:260px;overflow:auto}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:600;z-index:50}
+.cfm-ov{position:fixed;inset:0;background:rgba(26,26,31,.55);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px}
+.cfm-box{background:var(--surface);color:var(--ink);border-radius:16px;padding:22px;max-width:420px;width:100%;box-shadow:0 24px 70px rgba(0,0,0,.35)}
+.cfm-box h3{margin:0 0 8px;font-family:Unbounded,sans-serif;font-size:17px}
+.cfm-msg{font-size:14.5px;line-height:1.5;color:var(--ink2)}
 .back{background:none;border:0;color:var(--ink2);cursor:pointer;padding:0;font-size:14px;align-self:flex-start}
 .idrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .idchip{background:var(--ink);color:var(--bg);font-weight:700;font-size:12px;padding:5px 10px;border-radius:8px;letter-spacing:.02em}
@@ -158,6 +162,18 @@ const fmtT=iso=>iso?new Intl.DateTimeFormat("ru-RU",{timeZone:TZ,hour:"2-digit",
 const fmtDT=iso=>iso?fmtD(iso)+", "+fmtT(iso):"—";
 const money=n=>n==null?null:Number(n).toLocaleString("ru-RU").replace(/,/g," ")+" ₸";
 function toast(t){const el=$("#toast");el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,2400)}
+function appConfirm(title,msg,okLabel){
+  return new Promise(res=>{
+    const ov=document.createElement("div");ov.className="cfm-ov";
+    ov.innerHTML=`<div class="cfm-box"><h3>${esc(title)}</h3><div class="cfm-msg">${esc(msg)}</div><div class="row" style="justify-content:flex-end;gap:8px;margin-top:18px"><button class="btn" data-cfm="0">Отмена</button><button class="btn pri" data-cfm="1">${esc(okLabel||"Подтвердить")}</button></div></div>`;
+    document.body.appendChild(ov);
+    ov.addEventListener("click",e=>{
+      if(e.target===ov){document.body.removeChild(ov);res(false);return}
+      const b=e.target.closest("[data-cfm]");if(!b)return;
+      document.body.removeChild(ov);res(b.dataset.cfm==="1");
+    });
+  });
+}
 
 function catName(id){return (CATS.find(c=>c.id===id)||{}).name||""}
 function catIdByName(n){return (CATS.find(c=>c.name===n)||{}).id||null}
@@ -279,7 +295,7 @@ function slugify(s){return translit(s).replace(/[^a-z0-9]+/g,"-").replace(/^-+|-
 function nextPublicId(list,prefix){let max=0;list.forEach(x=>{const m=(x.public_id||"").match(new RegExp("^"+prefix+"-(\\d+)$"));if(m)max=Math.max(max,parseInt(m[1],10))});return prefix+"-"+String(max+1).padStart(4,"0")}
 async function convertEventToPlace(id){
   const e=EV.find(x=>x.id===id);if(!e)return;
-  if(!confirm(`Перенести «${e.title}» в Места? Событие будет удалено, данные перенесутся в новую карточку места.`))return;
+  if(!(await appConfirm("Перенести в места?",`«${e.title}» станет карточкой места. Событие будет удалено, данные перенесутся в новую карточку.`,"Перенести")))return;
   try{
     const pid=nextPublicId(PL,"PL");
     const slug=slugify(e.title)+"-"+pid.toLowerCase();
