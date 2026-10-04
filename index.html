@@ -638,7 +638,7 @@ async function loadEvents(){
   const {data:sess}=await sb.from("event_sessions").select("*");SESS={};(sess||[]).forEach(s=>{(SESS[s.event_id]=SESS[s.event_id]||[]).push(s)});
   const {data:ep}=await sb.from("event_places").select("event_id,place_id,relation_type").eq("relation_type","venue");PLACE_OF={};(ep||[]).forEach(r=>{PLACE_OF[r.event_id]={id:r.place_id}});
 }
-async function loadPlaces(){const {data}=await sb.from("places").select("*").order("name");PL=data||[]}
+async function loadPlaces(){const {data}=await sb.from("places").select("*").order("name");PL=(data||[]).filter(p=>!p.archived_at&&p.status!=="archived")}
 async function loadSources(){
   const {data:sr}=await sb.from("sources").select("*").order("name");SR=sr||[];
   const {data:cfg}=await sb.from("parser_source_configurations").select("*");CFG=cfg||[];
