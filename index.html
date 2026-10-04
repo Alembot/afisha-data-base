@@ -273,7 +273,24 @@ function category(cid){
 }
 
 function sel(id,opts,cur,ph){return `<select id="${id}">${ph!=null?`<option value="">${ph}</option>`:""}${opts.map(o=>`<option${o===cur?" selected":""}>${esc(o)}</option>`).join("")}${cur&&!opts.includes(cur)?`<option selected>${esc(cur)}</option>`:""}</select>`}
-function banner(e){return `<div class="banner"><h2>Нужно решение человека</h2><div>${esc(e.stage_reason||"AI не уверен в записи.")}</div><div class="muted" style="font-size:13.5px">Пока вы не решите, события нет в базе. Проверьте и поправьте поля, затем нажмите «Подтвердить».</div><div class="row"><button class="btn pri" data-stage="4" data-id="${e.id}">Подтвердить и принять в базу</button><button class="btn" data-archive="${e.id}">Не проводится — в архив</button></div></div>`}
+function banner(e){return `<div class="banner"><h2>Нужно решение человека</h2><div>${esc(e.stage_reason||"AI не уверен в записи.")}</div><div class="muted" style="font-size:13.5px">Пока вы не решите, события нет в базе. Проверьте и поправьте поля, затем нажмите «Подтвердить».</div><div class="row"><button class="btn pri" data-stage="4" data-id="${e.id}">Подтвердить и принять в базу</button><button class="btn" data-2place="${e.id}">Это место, не событие</button><button class="btn" data-archive="${e.id}">Не проводится — в архив</button></div></div>`}
+async function convertEventToPlace(id){
+  const e=EV.find(x=>x.id===id);if(!e)return;
+  if(!confirm(`Перенести «${e.title}» в Места? Событие будет удалено, данные перенесутся в новую карточку места.`))return;
+  try{
+    const payload={name:e.title,leisure_category_id:e.leisure_category_id,address:e.meeting_point||null,status:"active",pipeline_stage:3,stage_reason:`Перенесено из события ${e.public_id||""}. ${(e.description||"").slice(0,400)}`.trim(),human_updated_at:new Date().toISOString(),human_updated_by:ME||"human"};
+    const {data:np,error:e1}=await sb.from("places").insert(payload).select().single();
+    if(e1)throw e1;
+    await sb.from("event_sessions").delete().eq("event_id",id);
+    await sb.from("event_places").delete().eq("event_id",id);
+    const {error:e2}=await sb.from("events").delete().eq("id",id);
+    if(e2)throw e2;
+    await recordHistory("place",np.id,"converted_from_event",e.public_id||id,np.id);
+    await loadEvents();await loadPlaces();
+    S.view="place";S.arg=np.id;render();
+    toast("Перенесено в места");
+  }catch(err){toast("Ошибка: "+(err.message||err))}
+}
 function eventCard(id){
   const e=EV.find(x=>x.id===id);if(!e)return `<div class="empty">Событие не найдено.</div>`;
   const s=startOf(e);const pl=placeById((PLACE_OF[e.id]||{}).id);
@@ -301,7 +318,7 @@ function eventCard(id){
    <div class="row"><button class="btn pri" data-save="${e.id}">Сохранить правки</button><span class="muted" style="font-size:13px">Правка ставит стадию «В базе», если не указано иное.</span></div>
   </div>
   <aside class="side-sec">
-   <div class="dark"><div class="lbl">Стадия</div><div style="font-size:20px;font-weight:600">${STAGES[e.pipeline_stage]}</div>${e.stage_reason?`<div style="font-size:14px;color:#E4E0DA">${esc(e.stage_reason)}</div>`:""}<div class="row"><button class="btn pri" data-stage="4" data-id="${e.id}">Принять</button><button class="btn" data-stage="1" data-id="${e.id}">Вернуть AI</button><button class="btn" data-archive="${e.id}">В архив</button></div></div>
+   <div class="dark"><div class="lbl">Стадия</div><div style="font-size:20px;font-weight:600">${STAGES[e.pipeline_stage]}</div>${e.stage_reason?`<div style="font-size:14px;color:#E4E0DA">${esc(e.stage_reason)}</div>`:""}<div class="row"><button class="btn pri" data-stage="4" data-id="${e.id}">Принять</button><button class="btn" data-stage="1" data-id="${e.id}">Вернуть AI</button><button class="btn" data-2place="${e.id}">Это место, не событие</button><button class="btn" data-archive="${e.id}">В архив</button></div></div>
    <div class="panel side-sec"><div class="lbl">Статус</div><div style="font-size:14px">${esc(e.status)}</div></div>
    <div class="panel side-sec"><div class="lbl">Booking</div>${e.booking_url?`<a href="${esc(e.booking_url)}" target="_blank" rel="noopener">Открыть →</a>`:`<span class="muted" style="font-size:13.5px">Ссылки нет</span>`}</div>
   </aside></div>`;
@@ -449,7 +466,7 @@ async function savePlace(id){
 }
 
 document.addEventListener("click",ev=>{
-  const t=ev.target.closest("[data-psave],[data-srcadd],[data-srcst],[data-srcdel],[data-srt],[data-go],[data-pl],[data-f],[data-clear],[data-pclear],[data-qtab],[data-save],[data-stage],[data-archive],[data-mood],[data-fw]");
+  const t=ev.target.closest("[data-psave],[data-srcadd],[data-srcst],[data-srcdel],[data-srt],[data-go],[data-pl],[data-f],[data-clear],[data-pclear],[data-qtab],[data-save],[data-stage],[data-archive],[data-2place],[data-mood],[data-fw]");
   if(!t)return;
   if(t.dataset.psave){savePlace(t.dataset.psave);return}
   if(t.dataset.srcadd){addSources();return}
@@ -462,6 +479,7 @@ document.addEventListener("click",ev=>{
   if(t.dataset.save){window.__moodOrder=null;saveEvent(t.dataset.save);return}
   if(t.dataset.stage){const k=Number(t.dataset.stage);saveEvent(t.dataset.id,{pipeline_stage:k,stage_reason:k===4?null:"Возвращено на проверку AI"});return}
   if(t.dataset.archive){saveEvent(t.dataset.archive,{status:"archived"});return}
+  if(t.dataset["2place"]){convertEventToPlace(t.dataset["2place"]);return}
   ev.preventDefault();
   if(t.dataset.pl){S.plF=JSON.parse(t.dataset.pl);render();return}
   if(t.dataset.f){const k=t.dataset.f,v=t.dataset.v;if(k==="pcat"){}else{S.evF=Object.assign({},S.evF,{[k]:S.evF[k]===v?null:v})}render();return}
