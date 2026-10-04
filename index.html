@@ -11,6 +11,7 @@
 :root{color-scheme:light;box-sizing:border-box}
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
+[hidden]{display:none!important}
 :root{
   --bg:#F6F4F0; --surface:#FFFFFF; --surface2:#F1EEE9; --line:#E4E0DA; --line2:#EFEBE5;
   --ink:#1A1A1F; --ink2:#5E5B57; --ink3:#8F8B84;
@@ -497,13 +498,19 @@ $("#li_go").addEventListener("click",async()=>{
 });
 $("#li_pass").addEventListener("keydown",e=>{if(e.key==="Enter")$("#li_go").click()});
 
+let authInited=false,pollId=null;
 sb.auth.onAuthStateChange((event,session)=>{
   if(session&&session.user){
     ME=session.user.email;
     $("#login").hidden=true;$("#app").hidden=false;$("#topbar").hidden=false;
-    loadAll(true);
-    setInterval(async()=>{try{await loadAll(false)}catch(e){}},45000);
+    if(!authInited){
+      authInited=true;
+      loadAll(true);
+      pollId=setInterval(async()=>{try{await loadAll(false)}catch(e){}},45000);
+    }
   }else{
+    authInited=false;
+    if(pollId){clearInterval(pollId);pollId=null}
     $("#login").hidden=false;$("#app").hidden=true;$("#topbar").hidden=true;
   }
 });
