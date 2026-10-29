@@ -632,13 +632,15 @@ document.addEventListener("click",ev=>{
 });
 document.addEventListener("input",ev=>{if(ev.target.id==="q"){S.q=ev.target.value;const pos=ev.target.selectionStart;render();const q=$("#q");if(q){q.focus();q.setSelectionRange(pos,pos)}}});
 
+/* Supabase отдаёт максимум 1000 строк за запрос — забираем всё страницами */
+async function allRows(mk){let out=[];for(let from=0;;from+=1000){const {data,error}=await mk().range(from,from+999);if(error||!data)break;out=out.concat(data);if(data.length<1000)break}return out}
 async function loadCats(){const {data}=await sb.from("leisure_categories").select("id,name,sort_order").eq("is_active",true).order("sort_order");CATS=data||[]}
 async function loadEvents(){
-  const {data:ev}=await sb.from("events").select("*").order("created_at");EV=ev||[];
-  const {data:sess}=await sb.from("event_sessions").select("*");SESS={};(sess||[]).forEach(s=>{(SESS[s.event_id]=SESS[s.event_id]||[]).push(s)});
-  const {data:ep}=await sb.from("event_places").select("event_id,place_id,relation_type").eq("relation_type","venue");PLACE_OF={};(ep||[]).forEach(r=>{PLACE_OF[r.event_id]={id:r.place_id}});
+  EV=await allRows(()=>sb.from("events").select("*").order("created_at"));
+  const sess=await allRows(()=>sb.from("event_sessions").select("*").order("id"));SESS={};sess.forEach(s=>{(SESS[s.event_id]=SESS[s.event_id]||[]).push(s)});
+  const ep=await allRows(()=>sb.from("event_places").select("event_id,place_id,relation_type").eq("relation_type","venue").order("event_id"));PLACE_OF={};ep.forEach(r=>{PLACE_OF[r.event_id]={id:r.place_id}});
 }
-async function loadPlaces(){const {data}=await sb.from("places").select("*").order("name");PL=(data||[]).filter(p=>!p.archived_at&&p.status!=="archived")}
+async function loadPlaces(){const data=await allRows(()=>sb.from("places").select("*").order("name").order("id"));PL=data.filter(p=>!p.archived_at&&p.status!=="archived")}
 async function loadSources(){
   const {data:sr}=await sb.from("sources").select("*").order("name");SR=sr||[];
   const {data:cfg}=await sb.from("parser_source_configurations").select("*");CFG=cfg||[];
