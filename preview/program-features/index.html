@@ -3,11 +3,15 @@
 .fields.ec-fields{grid-template-columns:repeat(3,minmax(0,1fr))}
 .ec-lower{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px}
 .ec-prices{display:grid;grid-template-columns:1fr 1fr;gap:6px}.ec-prices label{min-width:0;font-size:12px}
-.ec-program{border:1px solid var(--line);border-radius:8px;background:var(--bg);min-height:36px}
-.ec-program summary{padding:7px 9px;cursor:pointer;overflow-wrap:anywhere}
-.ec-program-options{display:grid;gap:8px;padding:10px;border-top:1px solid var(--line)}
-.ec-program-options label{display:flex;gap:8px;align-items:start;font-size:13px}
-.ec-program-options input{width:auto;margin-top:3px}.ec-program-options small{color:var(--ink3)}
+.ec-program{min-width:0;position:relative;font:inherit;color:var(--ink)}
+.ec-fields .f>select,.ec-program>summary{box-sizing:border-box;height:38px;min-height:38px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;padding:7px 28px 7px 9px;width:100%;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m2 2 4 4 4-4' fill='none' stroke='%238F8B84' stroke-width='1.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center}
+.ec-program>summary{display:block;list-style:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:22px}
+.ec-program>summary::-webkit-details-marker{display:none}
+.ec-program>summary:focus-visible,.ec-fields .f>select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.ec-program-options{display:grid;gap:4px;padding:6px;margin-top:4px;border:1px solid var(--line);border-radius:8px;background:var(--surface);max-height:240px;overflow:auto}
+.ec-program-options label{display:flex;gap:8px;align-items:center;font:inherit;padding:5px 6px;border-radius:5px;cursor:pointer}
+.ec-program-options label:hover{background:var(--surface2)}
+.ec-program-options label input{width:16px;height:16px;flex:0 0 16px;padding:0;margin:0;accent-color:var(--accent)}.ec-program-options small{color:var(--ink3)}
 @media(max-width:760px){.fields.ec-fields{grid-template-columns:1fr}.ec-lower{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:420px){.ec-lower{grid-template-columns:1fr}}
 </style></head><body>
