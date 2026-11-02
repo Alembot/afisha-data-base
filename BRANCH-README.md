@@ -1,37 +1,28 @@
-# Compact event form / program features
+# Afisha Data Base — current top-navigation UI
 
-This branch is an alternative to the Claude artifact UI. It is based on the existing static Afisha Data Base application. It does not replace or modify the main branch or the published Claude artifact.
+This revision is based on the owner's current Claude artifact export, NOT the older sidebar application in the repository root. The root production application is unchanged. The separately authorized Pages preview is `preview/program-features/index.html`.
 
-## Runtime
+## Preserved application
 
-The existing application signs in with Supabase email/password and uses its existing table permissions for ordinary fields. Program features must go through the scoped `program-features-admin` Edge Function. Never place a service-role key in this HTML, expose the service-only RPCs to authenticated/anonymous roles, or reuse a collector secret in the browser.
+The actual top navigation, dashboards, event/place registries and cards, selection screen, robot screen, reference/rule editors, source management, instructions, and existing layout are retained. Program features appear next to genre as a compact multiselect and show selected names. Language, age, Luxe, both prices and showcase controls remain separate. No record is populated from a mockup.
 
-Bridge contract:
+## Protected runtime
 
-- POST through `sb.functions.invoke('program-features-admin', { body })` with the signed-in user's bearer token.
-- Read body: `{ "action": "read", "event_id": "<events UUID>" }`.
-- Save body: `{ "action": "save", "event_id": "<events UUID>", "program_features": ["<catalog code>"] }`.
-- Successful read/save response: `{ "catalog": [{ "code", "name", "description", "is_active" }], "program_features": ["code"], "program_feature_details": [{ "code", "name", "is_active" }] }`.
-- Save modifies program-feature relations only. It is separate from legacy form-field saves; failures after one part succeeds must be reported as partial saves, not atomic success.
+The browser uses the existing public Supabase anon configuration for sign-in. All administrative operations go through `afisha-admin` with `{op, args}` and the signed-in user's JWT. The server uses an explicit owner allowlist and typed operation validators. There is no client SQL execution, arbitrary RPC forwarding, service key, Claude MCP/db dependency, or private Google Docs URL in the public source.
 
-The bridge is a separate deployment/security decision. Adding its source to this branch does not deploy it. Its server-side JWT verification and explicit approved-user allowlist must fail closed. Existing SQL RPC ACLs remain unchanged.
+Static internal configuration and document links are supplied only by the authenticated bootstrap operation. These server-private assets and deployed owner policy are deliberately NOT included in this public repository.
 
-## Preview and validation
+Destructive operations and robot launches require an actual user confirmation and a top-level `confirm: true` request. The supported origin is `https://alembot.github.io`; local downloaded live HTML is not supported. Do not weaken CORS or RPC grants to work around this.
 
-`preview.html`, when present, is an isolated, offline interactive demonstration using fixture data. It is not a live database admin application and cannot establish that authenticated read/save works. No preview changes persist to Supabase.
+Generative Claude assistance is explicitly unavailable outside Claude. Deterministic record search is retained; edits use the normal forms.
 
-Automated tests use mocked DOM/network boundaries. Live authenticated read/save and deployed browser behavior require the approved bridge deployment and an authorized test session. See test output and branch handoff for what was actually run.
+## Validation
 
-No automatic migration of genre or inferred program features is performed by the UI. Existing values are read as stored. Features are displayed by catalog name, saved by stable code, and not replaced with a selection count.
+- `node test-features.cjs`: 15 correct-source mocked scenarios passed.
+- `node test-transport.cjs`: 18 transport assertions passed.
+- `node test-public-source.cjs`: public-source sanitation and current-version structural checks passed.
+- 9 original top-navigation/registry/queue views were additionally rendered with isolated DOM mocks and the authorized server-private configuration; that private fixture is not published.
+- Inline JavaScript syntax check passed.
+- Independent source/contract review passed.
 
-## Verified status (2026-11-02)
-
-- `node test-ui.cjs`: 16 mocked UI regression scenarios passed.
-- `node tests/program-features-admin.test.cjs`: 43 mocked authorization/input/CORS/read/save assertions passed.
-- Inline JavaScript syntax checks: index.html and preview.html passed.
-- Independent code review passed after fixes for in-flight polling, stale reads, session changes, and uncertain partial saves.
-- Backend operator reports program-features-admin v1 deployed with the exact owner allowlist. The committed server policy is intentionally empty/fail-closed; it contains no owner identifiers and is not the private deployed policy.
-- Browser visual verification and authenticated end-to-end read/save are not established by mocked tests. The local preview could not be reached by the remote browser.
-- Allowed bridge origin is exactly `https://alembot.github.io`. Downloaded live HTML (`Origin: null`) is not supported. Do not weaken this to make a local file work.
-- `preview.html` is an offline interactive demonstration, not the live application.
-- The owner separately authorized publishing the live UI as the single new file `preview/program-features/index.html` in the main GitHub Pages source. This is not a merge of this branch, and the root application must remain byte-identical.
+These checks do not claim an authenticated browser or production-write end-to-end pass. The owner must use their normal account to view protected data. The older standalone sidebar demo has been removed from this branch to avoid confusion.

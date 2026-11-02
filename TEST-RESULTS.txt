@@ -1,2 +1,4 @@
-PASS 16 scenarios (including poll/read races and malformed/mismatched service replies): multi/save/reopen/clear/unloaded omission/feature error/partial error/stage guard/poll guard/navigation/inactive/genre filtering
-PASS 43 mocked auth/input/narrow-read/save/CORS assertions. Actual allowed-user login not tested; no user JWT supplied.
+PASS: 15 correct-source mock scenarios; no original transport/network executed
+PASS typed transport: 18 assertions incl critical confirm, cancellation, feature payload, auth/stale response, error redaction; mocks only
+PASS transformed application bootstrap and 9 topnav/registry/queue renders using isolated DOM and typed backend mocks; no network or original runtime executed
+PASS public-source sanitation and current-version structural checks; not browser/runtime validation.
