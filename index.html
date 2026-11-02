@@ -141,6 +141,19 @@ tr.grp td{background:var(--bg);font-weight:700;font-size:12px;letter-spacing:.06
 #login .box{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:28px;width:100%;max-width:360px;display:flex;flex-direction:column;gap:12px}
 #login input{border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:10px 12px;font:inherit}
 #login .err{color:var(--bad);font-size:13.5px;min-height:1em}
+/* Compact event taxonomy and accessible program-feature dropdown. */
+.event-fields{grid-template-columns:repeat(3,minmax(0,1fr))}
+.event-lower{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px}
+.price-pair{display:grid;grid-template-columns:1fr 1fr;gap:6px}.price-pair label{min-width:0;font-size:12px}
+.feature-picker{border:1px solid var(--line);border-radius:8px;background:var(--bg);min-height:36px}
+.feature-picker summary{padding:7px 9px;cursor:pointer;overflow-wrap:anywhere}
+.feature-options{padding:8px;display:grid;gap:8px;border-top:1px solid var(--line)}
+.feature-options label{display:flex;gap:8px;align-items:start;font-size:13px}
+.feature-options input{width:auto;margin-top:3px}
+.feature-options .by{display:block}
+.feature-status{font-size:12px;color:var(--ink2);overflow-wrap:anywhere}
+@media(max-width:700px){.event-fields{grid-template-columns:1fr}.event-lower{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:420px){.event-lower{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -176,6 +189,47 @@ const STAGE_TXT={1:"Робот создал запись и разметил е�
 
 let CATS=[],EVENT_TYPES=[],PLACE_TYPES=[],SESS={},PLACE_OF={},EV=[],PL=[],SR=[],CFG=[],REFCATS=[],REFITEMS=[],PERF=[],KBDOCS=[];
 let ME=null;
+let EVENT_DIRTY=false,EVENT_SAVING=false,LOADING_ALL=null,NAV_REQUEST=0,AUTH_EPOCH=0,AUTH_USER=null;
+const FEATURE_STATE=new Map();
+const featureCodes=v=>[...new Set(v)].sort();
+function featureChanged(st){return !!st&&st.status==="ready"&&JSON.stringify(featureCodes(st.selected))!==JSON.stringify(featureCodes(st.original))}
+function featureOptions(st){const m=new Map((st.catalog||[]).map(x=>[x.code,x]));(st.details||[]).forEach(x=>{if(!m.has(x.code))m.set(x.code,x)});return [...m.values()]}
+function featureNames(st){const m=new Map(featureOptions(st).map(x=>[x.code,x.name]));return st.selected.map(code=>m.get(code)||code).join(", ")||"Не выбрано"}
+function validFeatureResult(data){
+ if(!data||!Array.isArray(data.catalog)||!Array.isArray(data.program_features)||!Array.isArray(data.program_feature_details))return false;
+ const items=[...data.catalog,...data.program_feature_details];
+ return items.every(x=>x&&typeof x.code==="string"&&typeof x.name==="string")&&data.program_features.every(x=>typeof x==="string"&&items.some(i=>i.code===x));
+}
+async function featureRequest(action,event_id,program_features){
+  const body={action,event_id};if(action==="save")body.program_features=featureCodes(program_features);
+  const {data,error}=await sb.functions.invoke("program-features-admin",{body});
+  if(error||data?.error)throw new Error(action==="save"?"Не удалось подтвердить сохранение особенностей. Выбор сохранён в форме; повтор может потребовать проверки карточки.":"Защищённый сервис особенностей программы недоступен. Повторите загрузку.");
+  if(!validFeatureResult(data))throw new Error(action==="save"?"Не удалось подтвердить результат сохранения. Выбор сохранён в форме.":"Некорректный ответ сервиса особенностей программы. Повторите загрузку.");
+  if(action==="save"&&JSON.stringify(featureCodes(data.program_features))!==JSON.stringify(body.program_features))throw new Error("Ответ сохранения не совпадает с выбором. Проверьте карточку перед повтором.");
+  return data;
+}
+function featureField(id){
+ const st=FEATURE_STATE.get(id);
+ if(!st||st.status==="loading")return `<div class="feature-status" role="status">Загружаю справочник…</div>`;
+ if(st.status==="error")return `<div class="feature-status" role="alert">${esc(st.error)} <button type="button" class="btn" data-feature-retry="${esc(id)}">Повторить</button></div>`;
+ return `<details class="feature-picker"><summary aria-label="Особенности программы">${esc(featureNames(st))}</summary><div class="feature-options">${featureOptions(st).map(x=>`<label><input type="checkbox" data-program-feature="${esc(x.code)}" ${st.selected.includes(x.code)?"checked":""} ${x.is_active===false&&!st.original.includes(x.code)?"disabled":""}><span>${esc(x.name)}${x.is_active===false?'<span class="by">Неактивное значение</span>':""}</span></label>`).join("")||'<span class="by">Активных значений нет</span>'}</div></details>`;
+}
+function paintFeatureField(id){if(S.view==="event"&&S.arg===id){const target=$("#f_features");if(target)target.innerHTML=featureField(id)}}
+async function loadFeatureState(id){
+ if(FEATURE_STATE.get(id)?.status==="loading")return;
+ const request={status:"loading"};FEATURE_STATE.set(id,request);paintFeatureField(id);
+ try{const data=await featureRequest("read",id);if(FEATURE_STATE.get(id)!==request)return;FEATURE_STATE.set(id,{status:"ready",catalog:data.catalog,details:data.program_feature_details,original:featureCodes(data.program_features),selected:featureCodes(data.program_features)})}
+ catch(err){if(FEATURE_STATE.get(id)!==request)return;FEATURE_STATE.set(id,{status:"error",error:err.message})}
+ paintFeatureField(id);
+}
+function catalogNames(code,e){
+ const cat=REFCATS.find(x=>x.code===code);if(!cat)return [];
+ const typeCatalog=REFCATS.find(x=>x.code==="event_type");
+ const parentIds=REFITEMS.filter(x=>x.catalog_id===typeCatalog?.id&&x.name===e.event_category).map(x=>x.id);
+ return [...new Set(REFITEMS.filter(x=>x.catalog_id===cat.id&&(!x.leisure_category_id||x.leisure_category_id===e.leisure_category_id)&&(code!=="event_genre"||(parentIds.includes(x.parent_id)&&!x.name.endsWith("(кандидат)")))&&(code!=="event_type"||!x.parent_id)).map(x=>x.name))]
+}
+function nullableBoolSelect(id,value){return `<select id="${id}"><option value="" ${value==null?"selected":""}>Не указано</option><option value="1" ${value===true?"selected":""}>Да</option><option value="0" ${value===false?"selected":""}>Нет</option></select>`}
+
 let S={view:"home",arg:null,evMode:"base",evF:{},plF:{},q:"",qtab:3,srT:null,dir:null};
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -213,16 +267,17 @@ const placeById=id=>PL.find(p=>p.id===id);
 function issues(e){const r=[];if(!PLACE_OF[e.id]&&!e.meeting_point)r.push("noplace");if(e.price_from==null&&!e.is_free)r.push("noprice");if(!e.moods||!e.moods.length)r.push("nomood");if(!e.for_whom||!e.for_whom.length)r.push("nofw");return r}
 const ISSUES={noplace:"Без места или точки сбора",noprice:"Без цены",nomood:"Без настроения",nofw:"Без «Для кого»"};
 
-function go(view,arg,patch){S.view=view;S.arg=arg??null;if(patch)Object.assign(S,patch);$("#nav").classList.remove("open");render();window.scrollTo(0,0)}
+async function go(view,arg,patch){const request=++NAV_REQUEST;if(EVENT_SAVING)return;if(view==="event"&&LOADING_ALL){await LOADING_ALL;if(request!==NAV_REQUEST)return;}if(EVENT_DIRTY&&!window.confirm("Есть несохранённые правки. Уйти без сохранения?"))return;EVENT_DIRTY=false;window.__moodOrder=null;if(view==="event")FEATURE_STATE.delete(arg);S.view=view;S.arg=arg??null;if(patch)Object.assign(S,patch);$("#nav").classList.remove("open");render();window.scrollTo(0,0)}
 function navHtml(){const a=active();const n3=EV.filter(e=>e.pipeline_stage===3&&!isArchived(e)).length;const it=(v,t,n)=>`<button class="nv${S.view===v||(v==="events"&&S.view==="event")||(v==="places"&&S.view==="place")||(v==="docs"&&S.view==="doc")?" on":""}" data-go="${v}">${t}${n!=null?`<span class="n">${n}</span>`:""}</button>`;
 return `<div class="brand">афиша<i>.</i>data</div>${it("home","Главная")}<div class="nvs">Реестры</div>${it("events","События",a.length)}${it("places","Места",PL.length)}<div class="nvs">Работа</div>${it("queue","Конвейер проверки",n3)}${it("sources","Источники",SR.length)}<div class="nvs">Знания</div>${it("dirs","Справочники")}${it("docs","Инструкции")}<div class="nvs" style="margin-top:auto"></div><button class="nv" id="logoutBtn">Выйти (${esc(ME||"")})</button>`}
 
 function render(){
   $("#nav").innerHTML=navHtml();
-  $("#logoutBtn").addEventListener("click",()=>sb.auth.signOut());
+  $("#logoutBtn").addEventListener("click",()=>{if(EVENT_SAVING)return;if(EVENT_DIRTY&&!window.confirm("Есть несохранённые правки. Выйти без сохранения?"))return;sb.auth.signOut()});
   const m=$("#main");
   const V={home,events,places,category,event:eventCard,place:placeCard,queue,sources,dirs,docs,doc:docView}[S.view]||home;
   m.innerHTML=V(S.arg);
+  if(S.view==="event"&&!FEATURE_STATE.has(S.arg))loadFeatureState(S.arg);
 }
 
 function home(){
@@ -346,16 +401,22 @@ function eventCard(id){
     ${e.original_title&&e.original_title!==e.title?`<div class="muted" style="font-size:14px">Название из источника: ${esc(e.original_title)}</div>`:""}
     <div class="row">${(e.moods||[]).map(m=>`<span class="chip ${m===e.mood_main?"on":""}">${esc(MOOD[m]?MOOD[m][2]:m)}${m===e.mood_main?" · главное":""}</span>`).join("")}${(e.for_whom||[]).map(w=>`<span class="chip">${esc(w)}</span>`).join("")}</div>
     <p style="margin:0;max-width:70ch">${esc(e.description||"")}</p></div>
-   <div class="fields">
+   <div class="fields event-fields">
     <label class="f"><span class="lbl">Категория</span>${sel("f_cat",CATS.map(c=>c.name),catName(e.leisure_category_id))}</label>
-    <label class="f"><span class="lbl">Тип события</span><input id="f_type" value="${esc(e.event_category||"")}"></label>
-    <label class="f"><span class="lbl">Жанр</span><input id="f_genre" value="${esc(e.genre||"")}"></label>
+    <label class="f"><span class="lbl">Направление</span>${sel("f_direction",catalogNames("leisure_direction",e),e.direction,"Не указано")}</label>
+    <label class="f"><span class="lbl">Тип события</span>${sel("f_type",catalogNames("event_type",e),e.event_category,"Не указано")}</label>
+    <label class="f"><span class="lbl">Жанр</span>${sel("f_genre",catalogNames("event_genre",e),e.genre,"Не указан")}</label>
+    <div class="f"><span class="lbl">Особенности программы</span><div id="f_features">${featureField(id)}</div></div>
+    <label class="f"><span class="lbl">Язык</span>${sel("f_language",catalogNames("language",e),e.language,"Не указан")}</label>
+    <div class="event-lower">
+    <label class="f"><span class="lbl">Возраст</span><input id="f_age" value="${esc(e.age_restriction||"")}" placeholder="Не указан"></label>
+    <label class="f"><span class="lbl">Luxe</span>${nullableBoolSelect("f_luxe",e.is_luxe)}</label>
+    <div class="f"><span class="lbl">Цена, ₸</span><div class="price-pair"><label>От<input id="f_pfrom" aria-label="Цена от, тенге" type="number" min="0" value="${e.price_from!=null?e.price_from:""}"></label><label>До<input id="f_pto" aria-label="Цена до, тенге" type="number" min="0" value="${e.price_to!=null?e.price_to:""}"></label></div><label class="by">Бесплатно<select id="f_free"><option value="0" ${!e.is_free?"selected":""}>Нет</option><option value="1" ${e.is_free?"selected":""}>Да</option></select></label></div>
+    <label class="f"><span class="lbl">На витрине</span>${nullableBoolSelect("f_showcase",e.is_showcase)}</label>
+    </div>
     <label class="f"><span class="lbl">Дата и время</span><input id="f_start" type="datetime-local" value="${s?new Date(new Date(s.starts_at).getTime()+5*3600e3).toISOString().slice(0,16):""}"><span class="by">время Алматы</span></label>
     <label class="f"><span class="lbl">Место</span>${sel("f_place",PL.map(p=>p.name).sort((a,b)=>a.localeCompare(b,"ru")),pl?pl.name:null,"нет места")}</label>
     <label class="f"><span class="lbl">Точка сбора</span><input id="f_meet" value="${esc(e.meeting_point||"")}" placeholder="Если без площадки"></label>
-    <label class="f"><span class="lbl">Бесплатно</span><select id="f_free"><option value="0" ${!e.is_free?"selected":""}>Нет</option><option value="1" ${e.is_free?"selected":""}>Да</option></select></label>
-    <label class="f"><span class="lbl">Цена от, ₸</span><input id="f_pfrom" type="number" min="0" value="${e.price_from!=null?e.price_from:""}"><span class="by">${priceTxt(e)}</span></label>
-    <label class="f"><span class="lbl">Возраст</span><input id="f_age" value="${esc(e.age_restriction||"")}"></label>
     <div class="f" style="grid-column:1/-1"><span class="lbl">Настроения · до трёх, первое — главное</span><div class="row" id="f_moods">${MOODS.map(m=>{const i=(e.moods||[]).indexOf(m[0]);return `<button type="button" class="chip${i>=0?" on":""}" data-mood="${m[0]}">${i===0?"★ ":""}${m[2]}</button>`}).join("")}</div></div>
     <div class="f" style="grid-column:1/-1"><span class="lbl">Для кого</span><div class="row" id="f_fw">${FW.map(w=>`<button type="button" class="chip${(e.for_whom||[]).includes(w)?" on":""}" data-fw="${esc(w)}">${esc(w)}</button>`).join("")}</div></div>
     <label class="f"><span class="lbl">Продажа билетов</span><input id="f_booking" value="${esc(e.booking_url||"")}" placeholder="https://…"></label>
@@ -544,7 +605,15 @@ async function recordHistory(entity_type,entity_id,field_name,old_value,new_valu
   try{await sb.from("record_history").insert({entity_type,entity_id,field_name,old_value,new_value,changed_by:ME||"human"})}catch(e){}
 }
 async function saveEvent(id,extra){
+  if(EVENT_SAVING)return;
+  if(extra&&EVENT_DIRTY){toast("Сначала сохраните правки карточки или отмените их.");return}
   const e=EV.find(x=>x.id===id);if(!e)return;
+  const saveEpoch=AUTH_EPOCH;
+  let featuresSaved=false,legacyStarted=false;
+  const featureState=FEATURE_STATE.get(id);
+  EVENT_SAVING=true;if($(".event-fields"))$(".event-fields").inert=true;
+  document.querySelectorAll("[data-save],[data-stage],[data-archive]").forEach(b=>b.disabled=true);
+  try{
   const wasWaiting=e.pipeline_stage===1||e.pipeline_stage===3;
   const upd={};const hist=[];
   const ch=(field,from,to)=>{if(JSON.stringify(from)===JSON.stringify(to===undefined?from:to))return;upd[field]=to;hist.push([field,from,to])};
@@ -554,6 +623,12 @@ async function saveEvent(id,extra){
     ch("leisure_category_id",e.leisure_category_id,catIdByName(v("#f_cat"))||e.leisure_category_id);
     ch("event_category",e.event_category,v("#f_type")||null);
     ch("genre",e.genre,v("#f_genre")||null);
+    ch("direction",e.direction,v("#f_direction")||null);
+    ch("language",e.language,v("#f_language")||null);
+    const nullableBool=selector=>v(selector)===""?null:v(selector)==="1";
+    ch("is_luxe",e.is_luxe,nullableBool("#f_luxe"));
+    ch("is_showcase",e.is_showcase,nullableBool("#f_showcase"));
+    const pt=v("#f_pto");ch("price_to",e.price_to,pt===""?null:Number(pt));
     ch("age_restriction",e.age_restriction,v("#f_age")||null);
     ch("meeting_point",e.meeting_point,v("#f_meet")||null);
     ch("booking_url",e.booking_url,v("#f_booking")||null);
@@ -563,35 +638,44 @@ async function saveEvent(id,extra){
     const fw=[...document.querySelectorAll("#f_fw .chip.on")].map(b=>b.dataset.fw);ch("for_whom",e.for_whom||[],fw);
     // date/place/stage handled on save via extra calls below
   }
+  if(!extra&&featureChanged(featureState)){
+    const data=await featureRequest("save",id,featureState.selected);
+    if(saveEpoch!==AUTH_EPOCH)throw new Error("Сеанс изменился во время сохранения.");
+    featureState.original=featureCodes(data.program_features);featureState.selected=featureCodes(data.program_features);
+    featureState.catalog=data.catalog;featureState.details=data.program_feature_details;featuresSaved=true;
+  }
+  legacyStarted=true;
   if(!extra){
     const st=$("#f_start")?$("#f_start").value:null;
     if(st){
       const iso=new Date(st+":00+05:00").toISOString();
       const cur=startOf(e);
       if(!cur||new Date(iso).getTime()!==new Date(cur.starts_at).getTime()){
-        if(cur){await sb.from("event_sessions").update({starts_at:iso}).eq("id",cur.id)}
-        else{await sb.from("event_sessions").insert({event_id:e.id,starts_at:iso})}
+        if(cur){const r=await sb.from("event_sessions").update({starts_at:iso}).eq("id",cur.id);if(r.error)throw r.error}
+        else{const r=await sb.from("event_sessions").insert({event_id:e.id,starts_at:iso});if(r.error)throw r.error}
       }
     }
     const pn=$("#f_place")?$("#f_place").value:null;
     const curPlace=PLACE_OF[e.id];const newPlace=PL.find(p=>p.name===pn);
     if((curPlace?curPlace.id:null)!==(newPlace?newPlace.id:null)){
-      if(curPlace)await sb.from("event_places").delete().eq("event_id",e.id).eq("place_id",curPlace.id);
-      if(newPlace)await sb.from("event_places").insert({event_id:e.id,place_id:newPlace.id,relation_type:"venue"});
+      if(curPlace){const r=await sb.from("event_places").delete().eq("event_id",e.id).eq("place_id",curPlace.id);if(r.error)throw r.error}
+      if(newPlace){const r=await sb.from("event_places").insert({event_id:e.id,place_id:newPlace.id,relation_type:"venue"});if(r.error)throw r.error}
     }
     if(upd.pipeline_stage===undefined && e.pipeline_stage!==4 && Object.keys(upd).length){upd.pipeline_stage=4;upd.stage_reason=null}
   }
   {const finalStage=upd.pipeline_stage!==undefined?upd.pipeline_stage:e.pipeline_stage;const wantPfx=(finalStage===1||finalStage===3)?"AFC-":"AFB-";if(e.public_id&&e.public_id.slice(0,4)!==wantPfx){upd.public_id=wantPfx+e.public_id.slice(4)}}
   upd.human_updated_at=new Date().toISOString();upd.human_updated_by=ME||"human";
   if(!Object.keys(upd).length){toast("Изменений нет");return}
-  try{
     const {error}=await sb.from("events").update(upd).eq("id",id);
     if(error)throw error;
     for(const [field,from,to] of hist)await recordHistory("event",id,field,from,to);
     await loadEvents();
+    if(saveEpoch!==AUTH_EPOCH)return;
+    EVENT_DIRTY=false;window.__moodOrder=null;
     if(wasWaiting){S.view="events";S.evMode="wait";S.evF={};render();toast("Сохранено · вернул в очередь «Ждут человека»")}
     else{render();toast("Сохранено")}
-  }catch(err){toast("Не сохранилось: "+(err.message||"ошибка"))}
+  }catch(err){if(saveEpoch!==AUTH_EPOCH)return;toast((featuresSaved?"Особенности сохранены, остальные правки не завершены. ":legacyStarted?"Сохранение не завершено; часть правок могла сохраниться. ":"Не сохранилось. ")+(err.message||"Ошибка"));EVENT_DIRTY=true}
+  finally{if(saveEpoch===AUTH_EPOCH){EVENT_SAVING=false;if($(".event-fields"))$(".event-fields").inert=false;document.querySelectorAll("[data-save],[data-stage],[data-archive]").forEach(b=>b.disabled=false)}}
 }
 async function savePlace(id){
   const p=placeById(id);if(!p)return;
@@ -607,8 +691,10 @@ async function savePlace(id){
 }
 
 document.addEventListener("click",ev=>{
-  const t=ev.target.closest("[data-psave],[data-srcadd],[data-srcst],[data-srcdel],[data-srt],[data-go],[data-pl],[data-f],[data-clear],[data-pclear],[data-qtab],[data-save],[data-stage],[data-archive],[data-2place],[data-mood],[data-fw],[data-dir]");
+  const t=ev.target.closest("[data-feature-retry],[data-psave],[data-srcadd],[data-srcst],[data-srcdel],[data-srt],[data-go],[data-pl],[data-f],[data-clear],[data-pclear],[data-qtab],[data-save],[data-stage],[data-archive],[data-2place],[data-mood],[data-fw],[data-dir]");
   if(!t)return;
+  if(t.dataset.featureRetry){loadFeatureState(t.dataset.featureRetry);return}
+  if((t.dataset.mood||t.dataset.fw)&&S.view==="event")EVENT_DIRTY=true;
   if(t.dataset.dir!==undefined){ev.preventDefault();S.dir=t.dataset.dir||null;render();return}
   if(t.dataset.psave){savePlace(t.dataset.psave);return}
   if(t.dataset.srcadd){addSources();return}
@@ -618,19 +704,37 @@ document.addEventListener("click",ev=>{
   if(t.dataset.srt!==undefined){ev.preventDefault();S.srT=t.dataset.srt||null;render();return}
   if(t.dataset.mood){ev.preventDefault();const on=[...document.querySelectorAll("#f_moods .chip.on")];window.__moodOrder=window.__moodOrder||on.map(b=>b.dataset.mood);if(t.classList.contains("on")){t.classList.remove("on");window.__moodOrder=window.__moodOrder.filter(m=>m!==t.dataset.mood)}else{if(on.length>=3){toast("Не больше трёх настроений");return}t.classList.add("on");window.__moodOrder.push(t.dataset.mood)}document.querySelectorAll("#f_moods .chip").forEach(b=>{b.textContent=(window.__moodOrder[0]===b.dataset.mood?"★ ":"")+MOOD[b.dataset.mood][2]});return}
   if(t.dataset.fw){ev.preventDefault();t.classList.toggle("on");return}
-  if(t.dataset.save){window.__moodOrder=null;saveEvent(t.dataset.save);return}
+  if(t.dataset.save){saveEvent(t.dataset.save);return}
   if(t.dataset.stage){const k=Number(t.dataset.stage);saveEvent(t.dataset.id,{pipeline_stage:k,stage_reason:k===4?null:"Возвращено на проверку AI"});return}
   if(t.dataset.archive){saveEvent(t.dataset.archive,{status:"archived"});return}
-  if(t.dataset["2place"]){convertEventToPlace(t.dataset["2place"]);return}
+  if(t.dataset["2place"]){if(EVENT_SAVING)return;if(EVENT_DIRTY){toast("Сначала сохраните правки карточки или отмените их.");return}convertEventToPlace(t.dataset["2place"]);return}
   ev.preventDefault();
   if(t.dataset.pl){S.plF=JSON.parse(t.dataset.pl);render();return}
   if(t.dataset.f){const k=t.dataset.f,v=t.dataset.v;if(k==="pcat"){}else{S.evF=Object.assign({},S.evF,{[k]:S.evF[k]===v?null:v})}render();return}
   if(t.dataset.clear){S.evF=Object.assign({},S.evF,{[t.dataset.clear]:null});render();return}
   if(t.dataset.pclear){S.plF=Object.assign({},S.plF,{[t.dataset.pclear]:null});render();return}
   if(t.dataset.qtab){S.qtab=Number(t.dataset.qtab);render();return}
-  if(t.dataset.go){window.__moodOrder=null;const patch=t.dataset.patch?JSON.parse(t.dataset.patch):null;go(t.dataset.go,t.dataset.arg,patch)}
+  if(t.dataset.go){const patch=t.dataset.patch?JSON.parse(t.dataset.patch):null;go(t.dataset.go,t.dataset.arg,patch)}
 });
-document.addEventListener("input",ev=>{if(ev.target.id==="q"){S.q=ev.target.value;const pos=ev.target.selectionStart;render();const q=$("#q");if(q){q.focus();q.setSelectionRange(pos,pos)}}});
+document.addEventListener("change",ev=>{
+ if(S.view!=="event"||!ev.target.closest(".event-fields"))return;
+ EVENT_DIRTY=true;
+ if(ev.target.id==="f_cat"){
+  const e=EV.find(x=>x.id===S.arg);const edited={...e,leisure_category_id:catIdByName(ev.target.value)};
+  [ ["f_direction","leisure_direction"],["f_type","event_type"] ].forEach(([id,code])=>{const cur=$("#"+id).value;$("#"+id).outerHTML=sel(id,catalogNames(code,edited),cur,"Не указано")});
+ }
+ if(ev.target.id==="f_type"||ev.target.id==="f_cat"){
+  const e={...EV.find(x=>x.id===S.arg),leisure_category_id:catIdByName($("#f_cat").value)};const current=$("#f_genre").value;
+  $("#f_genre").outerHTML=sel("f_genre",catalogNames("event_genre",{...e,event_category:$("#f_type").value}),current,"Не указан");
+ }
+ if(ev.target.dataset.programFeature){const st=FEATURE_STATE.get(S.arg);if(st?.status!=="ready")return;
+ const code=ev.target.dataset.programFeature;
+ st.selected=ev.target.checked?featureCodes([...st.selected,code]):st.selected.filter(x=>x!==code);
+ const summary=$("#f_features summary");if(summary)summary.textContent=featureNames(st);
+ }
+});
+window.addEventListener("beforeunload",ev=>{if(EVENT_DIRTY||EVENT_SAVING){ev.preventDefault();ev.returnValue=""}});
+document.addEventListener("input",ev=>{if(S.view==="event"&&ev.target.closest(".event-fields"))EVENT_DIRTY=true;if(ev.target.id==="q"){S.q=ev.target.value;const pos=ev.target.selectionStart;render();const q=$("#q");if(q){q.focus();q.setSelectionRange(pos,pos)}}});
 
 /* Supabase отдаёт максимум 1000 строк за запрос — забираем всё страницами */
 async function allRows(mk){let out=[];for(let from=0;;from+=1000){const {data,error}=await mk().range(from,from+999);if(error||!data)break;out=out.concat(data);if(data.length<1000)break}return out}
@@ -652,9 +756,11 @@ async function loadRefs(){
 }
 async function loadKbDocs(){const {data}=await sb.from("kb_docs").select("*").eq("is_active",true).order("sort_order");KBDOCS=data||[]}
 async function loadAll(first){
+  if(!first&&S.view==="event")return; // Never poll over an open edit form or its save baseline.
   if(first)$("#main").innerHTML=`<div class="empty">Загружаю базу…</div>`;
-  await Promise.all([loadCats(),loadEvents(),loadPlaces(),loadSources(),loadRefs(),loadKbDocs()]);
-  render();
+  if(LOADING_ALL)return LOADING_ALL;
+  LOADING_ALL=Promise.all([loadCats(),loadEvents(),loadPlaces(),loadSources(),loadRefs(),loadKbDocs()]);
+  try{await LOADING_ALL;if(!EVENT_DIRTY&&!EVENT_SAVING)render()}finally{LOADING_ALL=null}
 }
 
 $("#menuBtn")&&$("#menuBtn").addEventListener("click",()=>$("#nav").classList.toggle("open"));
@@ -669,6 +775,8 @@ $("#li_pass").addEventListener("keydown",e=>{if(e.key==="Enter")$("#li_go").clic
 
 let authInited=false,pollId=null;
 sb.auth.onAuthStateChange((event,session)=>{
+  const user=session?.user?.id||session?.user?.email||null;
+  if(user!==AUTH_USER){AUTH_USER=user;AUTH_EPOCH++;FEATURE_STATE.clear();EVENT_DIRTY=false;EVENT_SAVING=false;NAV_REQUEST++}
   if(session&&session.user){
     ME=session.user.email;
     $("#login").hidden=true;$("#app").hidden=false;$("#topbar").hidden=false;
@@ -678,7 +786,7 @@ sb.auth.onAuthStateChange((event,session)=>{
       pollId=setInterval(async()=>{try{await loadAll(false)}catch(e){}},45000);
     }
   }else{
-    authInited=false;
+    authInited=false;EVENT_DIRTY=false;FEATURE_STATE.clear();
     if(pollId){clearInterval(pollId);pollId=null}
     $("#login").hidden=false;$("#app").hidden=true;$("#topbar").hidden=true;
   }
