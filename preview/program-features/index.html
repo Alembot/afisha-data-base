@@ -495,6 +495,43 @@ function render(force=false){
 
 
 const SRC_NAMES={kinokz:"Kino.kz",onvibe:"OnVibe",yandex:"Яндекс Афиша",topbilet:"Topbilet",zakazbiletov:"Zakazbiletov",instagram:"Instagram","2gis":"2ГИС"};
+/* Quality review: read-only, one canonical server projection. */
+let QS=null,QSerr=null,QSbusy=false,QSseq=0,QC=null,QCerr=null;
+const QFIELD={description:"Описание",place:"Площадка",poster:"Афиша",price:"Цена",time:"Время начала",lang:"Язык",age:"Возраст",org:"Организатор",perf:"Перформер"};
+const QREASON={unknown_reason:"Причина пока не зафиксирована",not_found:"Не найдено в проверенных источниках",unavailable:"Источник недоступен",conflict:"Источники противоречат друг другу",not_applicable:"Не применимо",unknown:"Причина пока не зафиксирована"};
+const qSafeUrl=u=>{try{const x=new URL(u);return ["https:","http:"].includes(x.protocol)&&!x.username&&!x.password?x.href:null}catch{return null}};
+const qLabel=x=>x.label||QFIELD[x.field]||x.field||"Параметр";
+const qReason=x=>QREASON[x.reason]||QREASON.unknown_reason;
+const qIssues=r=>Array.isArray(r&&r.quality)?r.quality:[];
+function qValidate(v){if(!v||!Number.isSafeInteger(v.total)||v.total<0||!Array.isArray(v.rows))throw {code:"bad_payload"};return v}
+async function loadQualitySummary(){if(QSbusy)return;const seq=++QSseq;QSbusy=true;QSerr=null;if(S.view==="home")render();try{const r=qValidate(await apiCall("quality_events",{p:{limit:1}}));if(seq===QSseq)QS=r}catch(e){if(seq===QSseq)QSerr=e||{}}finally{if(seq===QSseq){QSbusy=false;if(S.view==="home")render()}}}
+let QCseq=0;
+async function qualityRead(p){let timer;try{return qValidate(await Promise.race([apiCall("quality_events",{p}),new Promise((_,reject)=>{timer=setTimeout(()=>reject({code:"upstream_error"}),15000)})]))}finally{clearTimeout(timer)}}
+function paintQualityCard(){const el=document.getElementById("event-quality-panel");if(el&&S.view==="evcard")el.innerHTML=qualityCardPanel()}
+async function loadQualityCard(id,seq){const request=++QCseq;QC=null;QCerr=null;paintQualityCard();try{const r=await qualityRead({id,limit:1});if(ECid===id&&ECseq===seq&&request===QCseq)QC=r}catch(e){if(ECid===id&&ECseq===seq&&request===QCseq)QCerr=e||{}}finally{if(ECid===id&&ECseq===seq&&request===QCseq)paintQualityCard()}}
+
+function qualityHome(){
+ if(!QS&&!QSbusy&&!QSerr)setTimeout(loadQualitySummary,0);
+ if(QSerr)return `<section class="panel"><h2>Карточки для уточнения</h2><div class="note2">Не удалось получить счётчик. Это не означает, что пропусков нет.</div><button class="btn" data-qrefresh="1">Повторить</button></section>`;
+ if(!QS)return `<section class="panel" role="status">Считаю карточки с неизвестными параметрами…</section>`;
+ return `<section class="panel"><div class="row" style="justify-content:space-between"><div><h2>Карточки для уточнения</h2><div class="note2">${esc(QS.scope_label||"Действующие карточки в текущем реестре")}${QS.at?` · ${dtf(QS.at)}`:""}</div></div><button class="btn" data-qrefresh="1"${QSbusy?" disabled":""}>${QSbusy?"Обновляю…":"Обновить"}</button></div><button class="tile" style="margin-top:12px;width:100%" data-go="events" data-patch='{"evL":{"quality":"any"}}'><span class="v">${nf(QS.total)}</span><span class="t">карточек с параметрами для проверки →</span><span class="s">${nf(QS.field_total)} параметров · карточка считается один раз</span></button><div class="note2" style="margin-top:10px">Не новая стадия конвейера и не запрет публикации. Откройте список, чтобы увидеть пропуски и сохранённые причины. Неизвестный организатор — необязательное уточнение.</div></section>`;
+}
+function qualityFilters(){const f=S.evL||{},r=ER||QS||{};
+ return `<section class="panel"><h2>Почему параметры неизвестны</h2><div class="note2">${esc(r.scope_label||"Текущий реестр событий")}. Число карточек не равно сумме пропусков. Язык и другие условные поля требуют проверки применимости; пустое поле не доказывает неудачный поиск.</div><div class="row" style="margin-top:12px">${Object.entries(r.by_field||{}).map(([k,n])=>`<button class="chip${f.qfield===k?" on":""}" data-ef="qfield" data-v="${esc(k)}">${esc(QFIELD[k]||k)}: ${nf(n)}</button>`).join("")}</div><div class="row" style="margin-top:8px">${Object.entries(r.by_reason||{}).map(([k,n])=>`<button class="chip${f.qreason===k?" on":""}" data-ef="qreason" data-v="${esc(k)}">${esc(QREASON[k]||QREASON.unknown_reason)}: ${nf(n)}</button>`).join("")}</div><div class="note2" style="margin-top:10px">Откройте карточку → «Почему неизвестно». Сначала изучаем источники и причину, затем улучшаем алгоритм; не заполняем догадками и не запускаем массовую обработку.</div></section>`;
+}
+function qualityTags(r){return qIssues(r).filter(x=>x.actionable!==false).map(x=>`<span class="tg ${x.status==="informational"?"":"miss"}">${esc(qLabel(x))}</span>`).join("")+`<div class="id">${[...new Set(qIssues(r).filter(x=>x.actionable!==false).map(qReason))].map(esc).join(" · ")}</div>`}
+function qualityCardPanel(){
+ if(QCerr)return `<section class="panel"><h2>Почему неизвестно</h2><div class="note2">Не удалось загрузить диагностику. Значения карточки не изменены.</div><button class="btn" data-qcardretry="1">Повторить</button></section>`;
+ if(!QC)return `<section class="panel" role="status">Загружаю причины неизвестных параметров…</section>`;
+ const row=QC.rows[0];if(!row)return `<section class="panel"><h2>Почему неизвестно</h2><div class="note2">Карточка вне текущего охвата диагностики. Это не означает, что она заполнена полностью.</div></section>`;
+ const issues=qIssues(row);
+ const evidence=x=>(Array.isArray(x.evidence)?x.evidence:[]).map(e=>{const url=qSafeUrl(e.url);return `<div class="note2">${esc(e.text||e.excerpt||"")}${url?` <a href="${esc(url)}" target="_blank" rel="noopener noreferrer">Источник ↗</a>`:""}${e.at?` · ${dtf(e.at)}`:""}</div>`}).join("");
+ const attempts=x=>(Array.isArray(x.attempts)?x.attempts:[]).map(a=>{const u=qSafeUrl(a.url);return `<li>${esc(a.source||"Источник")}${a.at?` · ${dtf(a.at)}`:""}: ${esc(a.outcome||"результат не записан")}${u?` <a href="${esc(u)}" target="_blank" rel="noopener noreferrer">Открыть ↗</a>`:""}</li>`}).join("");
+ return `<section class="panel"><h2>Почему неизвестно</h2><div class="note2">Диагностика сохранённых данных, не несохранённых правок${QC.at?` · ${dtf(QC.at)}`:""}.</div>${issues.length?issues.map(x=>`<div style="border-top:1px solid var(--line);margin-top:12px;padding-top:12px"><b>${esc(qLabel(x))}</b>${x.actionable===false?` <span class="tg">необязательное уточнение</span>`:x.status==="applicability_unknown"?` <span class="tg">применимость не подтверждена</span>`:""}<div>${esc(qReason(x))}</div>${evidence(x)}${attempts(x)?`<details><summary>Где робот проверял</summary><ul>${attempts(x)}</ul></details>`:`<div class="note2">История поиска по этому полю не записана. Нельзя утверждать, что робот уже искал.</div>`}${x.next_step?`<div class="note2">Следующий шаг: ${esc(x.next_step)}</div>`:""}</div>`).join(""):`<div class="note2" style="margin-top:10px">В проверяемом наборе полей неизвестных параметров нет. Это не подтверждение достоверности всех значений.</div>`}<div class="note2" style="margin-top:12px">Организатор не блокирует карточку. Особенности программы без подтверждения не считаются пропуском. Источники и история изменений доступны ниже.</div></section>`;
+}
+document.addEventListener("click",ev=>{if(ev.target.closest("[data-qcardretry]")){ev.preventDefault();if(ECid)loadQualityCard(ECid,ECseq);return}if(ev.target.closest("[data-qrefresh]")){ev.preventDefault();loadQualitySummary()}});
+/* End quality review. */
+
 let ST=null, STerr=null, STbusy=false;
 const nf=n=>new Intl.NumberFormat("ru-RU").format(n??0);
 const dtf=t=>t?new Intl.DateTimeFormat("ru-RU",{timeZone:TZ,day:"numeric",month:"long",hour:"2-digit",minute:"2-digit"}).format(new Date(t)):"—";
@@ -544,6 +581,7 @@ function home(){
    <div class="flow">${step(f.raw,"Новых сырых","нашёл в источниках","main")}${step(f.trash,"В корзину","мусор, дубли, не события")}${step(f.review,"На проверке","ждут человека",f.review?"warn":"")}${step(f.base,"В базу","стали событиями за сутки","good")}</div>
    ${f.processing?`<div class="note2">Ещё в обработке у робота: ${nf(f.processing)}.</div>`:""}
   </section>
+  ${qualityHome()}
   <section class="grid2">
    <a href="#" class="panel big plink" data-go="events" data-patch='{"evL":{}}'><div class="bl"><h2>События</h2><div class="deltas"><div class="d"><b>+${nf(e.added)}</b><span>добавилось за сутки</span></div><div class="d neg"><b>−${nf(e.archived)}</b><span>ушло в архив</span></div></div></div>
     <div class="total"><b>${nf(e.now)}</b><span>событий в базе сегодня</span></div></a>
@@ -851,13 +889,43 @@ async function addSources(){
 document.addEventListener("click",ev=>{const k=ev.target.closest&&ev.target.closest("[data-srkind]");if(k){const [i,kind]=k.dataset.srkind.split(":");if(S.srItems&&S.srItems[+i]){S.srItems[+i].kind=kind;render()}return}
   const c=ev.target.closest&&ev.target.closest("[data-srcancel]");if(c){S.srStage=null;S.srItems=null;render()}});
 let SRshow=10;
+const SOURCE_ROLE_LABELS={place:"Место",organizer:"Организатор",performer:"Перформер",media:"Медиа"};
+function sourceRole(s){return ["place","organizer","performer"].includes(s.account_type)?s.account_type:["blogger-author","media-editorial"].includes(s.account_type)?"media":null}
+function sourceIdentity(s){
+ const url=qSafeUrl(s.url);let handle="";
+ if(url){const u=new URL(url);if(/(^|\.)instagram\.com$/i.test(u.hostname)){const part=u.pathname.split("/").filter(Boolean)[0]||"";if(/^[a-z0-9_.]+$/i.test(part)&&!["p","reel","reels","stories"].includes(part.toLowerCase()))handle="@"+part}}
+ const raw=String(s.entity_name||s.name||"").trim();const handleOnly=/^(?:https?:\/\/|(?:www\.)?instagram\.com\/)/i.test(raw)||raw.startsWith("@")||(handle&&raw.replace(/^@/,"").toLowerCase()===handle.slice(1).toLowerCase())||raw===s.url;
+ const name=raw&&!handleOnly?raw:"Название не уточнено";
+ const entity=SOURCE_ROLE_LABELS[sourceRole(s)]||"Роль не уточнена";
+ return `<div class="tt">${esc(name)}</div>${url?`<a class="id" href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent);overflow-wrap:anywhere">${esc(handle||url.replace(/^https?:\/\//,""))} ↗</a>`:raw?`<div class="id">${esc(raw)}</div>`:""}`;
+}
+
+document.addEventListener("click",ev=>{const t=ev.target.closest("[data-srcat]");if(!t)return;ev.preventDefault();S.srCategory=t.dataset.srcat||null;SRshow=10;render()});
+document.addEventListener("click",ev=>{const t=ev.target.closest("[data-srcowner]");if(!t)return;ev.preventDefault();S.srOwner=t.dataset.srcowner||null;S.srCategory=null;SRshow=10;render()});
+function sourcePrimary(s){
+ if(Object.hasOwn(s,"primary_leisure_category")){const p=s.primary_leisure_category;return p&&typeof p.name==="string"?p.name:null}
+ if(s.leisure_category_id&&typeof s.leisure_category_name==="string")return s.leisure_category_name;
+ const cs=sourceCategories(s);return cs.length===1?cs[0]:null;
+}
+function sourceCategoryState(s){if(!sourceCategoriesLoaded(s)&&!Object.hasOwn(s,"primary_leisure_category"))return "__unloaded";if(sourcePrimary(s))return sourcePrimary(s);return s.category_resolution==="ambiguous"||sourceCategories(s).length>1?"__ambiguous":"__none"}
+function sourceCategoriesLoaded(s){return Object.hasOwn(s,"leisure_categories")||Object.hasOwn(s,"leisure_category_name")}
+function sourceCategories(s){
+ if(Array.isArray(s.leisure_categories))return [...new Set(s.leisure_categories.map(x=>typeof x==="string"?x:x&&x.name).filter(x=>typeof x==="string"&&x.trim()))];
+ return typeof s.leisure_category_name==="string"&&s.leisure_category_name.trim()?[s.leisure_category_name]:[];
+}
 function sources(){
   const SRV=SR.filter(s=>s.status!=="перенесено в места"),MOVED=SR.length-SRV.length;
   const cnt=n=>EV.filter(e=>e.source&&e.source.name===n).length;
-  const L=SRV.filter(s=>S.srT&&s.type===S.srT).sort((a,b)=>SRC_TYPES.indexOf(a.type)-SRC_TYPES.indexOf(b.type)||(a.order||99)-(b.order||99));
+  const medium=SRV.filter(s=>!S.srT||s.type===S.srT);
+  const ownerCounts={};for(const x of medium){const k=sourceRole(x)||"__none";ownerCounts[k]=(ownerCounts[k]||0)+1}
+  const typed=medium.filter(s=>!S.srOwner||(S.srOwner==="__none"?!sourceRole(s):sourceRole(s)===S.srOwner));
+  const categoryCounts=Object.fromEntries((Array.isArray(CATS)?CATS:[]).filter(x=>typeof x==="string").map(x=>[x,0]));for(const x of typed){const k=sourceCategoryState(x);categoryCounts[k]=(categoryCounts[k]||0)+1}
+  const L=typed.filter(s=>!S.srCategory||sourceCategoryState(s)===S.srCategory).sort((a,b)=>SRC_TYPES.indexOf(a.type)-SRC_TYPES.indexOf(b.type)||(a.order||99)-(b.order||99));
+  const categoryFilter=`<section class="panel"><div class="lbl">Роль</div><div class="row" style="margin-top:8px"><button class="chip${!S.srOwner?" on":""}" data-srcowner="">Все роли: ${medium.length}</button>${[...Object.keys(SOURCE_ROLE_LABELS),"__none"].map(k=>[k,ownerCounts[k]||0]).map(([k,n])=>`<button class="chip${S.srOwner===k?" on":""}" data-srcowner="${esc(k)}">${esc(k==="__none"?"Роль не уточнена":SOURCE_ROLE_LABELS[k])}: ${n}</button>`).join("")}</div><div class="lbl" style="margin-top:16px">Категория досуга</div><div class="row" style="margin-top:8px"><button class="chip${!S.srCategory?" on":""}" data-srcat="">Все категории: ${typed.length}</button>${Object.entries(categoryCounts).sort(([a],[b])=>a.localeCompare(b,"ru")).map(([k,n])=>`<button class="chip${S.srCategory===k?" on":""}" data-srcat="${esc(k)}">${esc(k==="__none"?"Без категории":k==="__unloaded"?"Категория не загружена":k==="__ambiguous"?"Категория требует уточнения":k)}: ${n}</button>`).join("")}</div><div class="note2" style="margin-top:8px">Одна основная категория досуга из справочника: явно заданная в профиле или единственная подтверждённая. Если категорий несколько и основная не указана — требуется уточнение; не выбираем первую.</div></section>`;
   let rows="",g="",num=0;
-  for(const s of L.slice(0,SRshow)){num++;if(s.type!==g){g=s.type;rows+=`<tr class="grp"><td colspan="9">${esc(g)}</td></tr>`}
-    rows+=`<tr><td style="white-space:nowrap"><b>${num}</b><div class="id">${esc(s.id||"")}</div></td><td><div class="tt">${esc(s.name)}</div>${s.url?`<a class="id" href="${esc(s.url)}" target="_blank" rel="noopener" style="color:var(--accent)">${esc(s.url.replace(/^https?:\/\//,""))}</a>`:""}</td><td style="max-width:260px">${esc(s.takes)}</td><td>${esc(s.method)}</td><td>${esc(s.freq)}</td><td><span class="st ${TRUST[s.trust]||"s1"}">${esc(s.trust)}</span></td><td><span class="st ${SRST[s.status]||"s1"}">${esc(s.status)}</span></td><td>${cnt(s.name)?`<a href="#" data-go="events" data-patch='${esc(JSON.stringify({evMode:"all",evF:{},q:""}))}'>${cnt(s.name)}</a>`:`<span class="muted">—</span>`}</td><td class="muted" style="max-width:240px;font-size:13px">${esc(s.note||"")}${s.added_by==="human"?`<div class="row" style="margin-top:6px"><button class="chip" data-srcst="${s.id}">${s.status==="подключён"?"Отключить":"Подключить"}</button><button class="chip" data-srcdel="${s.id}">${S.srDel===s.id?"Точно в архив?":"В архив"}</button></div>`:""}</td></tr>`}
+  for(const s of L.slice(0,SRshow)){num++;if(s.type!==g){g=s.type;rows+=`<tr class="grp"><td colspan="4">${esc(g)}</td></tr>`}
+    rows+=`<tr><td>${sourceIdentity(s)}<details><summary>Настройки и сведения</summary><div class="note2" style="display:flex;flex-direction:column;gap:6px;margin-top:8px"><span>№ ${num} · ID: <span class="id" style="overflow-wrap:anywhere">${esc(s.id||"—")}</span></span><span>Исходный тип: ${esc(s.account_type||"не указан")}</span><span>Сохранённые категории: ${sourceCategories(s).map(esc).join(", ")||"не указаны"}</span><span>Что берём: ${esc(s.takes||"не указано")}</span><span>Как собираем: ${esc(s.method||"не указано")}</span><span>Частота: ${esc(s.freq||"не указана")}</span><span>Надёжность: ${esc(s.trust||"не указана")}</span>${cnt(s.name)?`<span>Связанных событий: ${cnt(s.name)}</span>`:""}${s.note?`<span>${esc(s.note)}</span>`:""}</div>${s.added_by==="human"?`<div class="row" style="margin-top:6px"><button class="chip" data-srcst="${esc(s.id)}">${s.status==="подключён"?"Отключить":"Подключить"}</button><button class="chip" data-srcdel="${esc(s.id)}">${S.srDel===s.id?"Точно в архив?":"В архив"}</button></div>`:""}</details></td><td>${esc(SOURCE_ROLE_LABELS[sourceRole(s)]||"Роль не уточнена")}</td><td>${sourcePrimary(s)?`<span class="tg">${esc(sourcePrimary(s))}</span>`:`<span class="muted">${sourceCategoryState(s)==="__unloaded"?"Категория не загружена":sourceCategoryState(s)==="__ambiguous"?"Категория требует уточнения":"Без категории"}</span>`}</td><td><span class="st ${SRST[s.status]||"s1"}">${esc(s.status)}</span><div class="id">настройка подключения, не результат сбора</div><div class="note2">Последняя проверка: ${s.last_checked_at?dtf(s.last_checked_at):"не записана"}</div></td></tr>`}
+
   const on=SRV.filter(s=>s.status==="подключён").length;
   return `<div class="head"><div><div class="lbl">Работа</div><h1>Источники</h1>${MOVED?`<div class="muted" style="font-size:13px;margin-top:4px">${MOVED} заведений перенесено из источников в места: их Instagram читается через карточку места</div>`:""}<div class="sub">Откуда база берёт события и места. Событие попадает в базу только после сверки с первоисточником: билетной платформой или сайтом площадки.</div></div></div>
   <div class="tiles"><button class="tile${!S.srT?" sel":""}" data-srt=""><span class="v">${SRV.length}</span><span class="t">Всего источников</span><span class="s">подключено: ${on}</span></button>${SRC_TYPES.map(t=>`<button class="tile${S.srT===t?" sel":""}" data-srt="${esc(t)}"><span class="v">${SRV.filter(s=>s.type===t).length}</span><span class="t">${t}</span><span class="s">подключено: ${SRV.filter(s=>s.type===t&&s.status==="подключён").length}</span></button>`).join("")}</div>
@@ -868,7 +936,8 @@ function sources(){
    ${S.srPreview&&S.srPreview.length?`<div style="display:flex;flex-direction:column;gap:6px">${S.srPreview.map(x=>`<div class="row" style="font-size:14px"><span class="st s2">${KIND_L[x.kind]||x.type}</span><b>${esc(x.name)}</b><span class="muted">${esc(x.url)}</span>${x.res?`<span>— ${esc(x.res)}</span>`:""}</div>`).join("")}</div>`:""}
   </section>
   <div class="steps"><div class="step"><span class="st s4" style="align-self:flex-start">высокая</span><b>Первоисточник</b><span class="muted" style="font-size:13.5px">Билетная платформа или сайт площадки. Достаточно одного, чтобы принять дату, место и цену.</span></div><div class="step"><span class="st s2" style="align-self:flex-start">средняя</span><b>Агрегатор</b><span class="muted" style="font-size:13.5px">Находит события, но факты сверяются с первоисточником.</span></div><div class="step"><span class="st s1" style="align-self:flex-start">подтверждающий</span><b>Соцсети и Telegram</b><span class="muted" style="font-size:13.5px">Первый сигнал о событии и атмосфера. Без первоисточника запись уходит на «На проверке».</span></div></div>
-  <div class="tablewrap"><table><thead><tr><th>№</th><th>Источник</th><th>Что берём</th><th>Как собираем</th><th>Частота</th><th>Надёжность</th><th>Статус</th><th>Событий</th><th>Заметка</th></tr></thead><tbody>${rows||`<tr><td colspan="9"><div class="empty">${!S.srT?"Выберите тип источника в плитках выше — тогда появится список.":SR.length?"Источников этого типа нет.":"Источники загружаются…"}</div></td></tr>`}</tbody></table></div>${L.length>SRshow?`<div class="row" style="justify-content:space-between"><span class="note2">Показано ${SRshow} из ${L.length}</span><button class="btn more" data-srmore="1">Показать ещё ${Math.min(10,L.length-SRshow)} · осталось ${L.length-SRshow}</button></div>`:(L.length>10?`<span class="note2">Показаны все ${L.length}</span>`:"")}`;
+  ${categoryFilter}
+  <div class="tablewrap"><table><thead><tr><th>Название · аккаунт</th><th>Роль</th><th>Категория досуга</th><th>Статус</th></tr></thead><tbody>${rows||`<tr><td colspan="4"><div class="empty">${SR.length?"Источников по этим условиям нет.":"Источники загружаются…"}</div></td></tr>`}</tbody></table></div>${L.length>SRshow?`<div class="row" style="justify-content:space-between"><span class="note2">Показано ${SRshow} из ${L.length}</span><button class="btn more" data-srmore="1">Показать ещё ${Math.min(10,L.length-SRshow)} · осталось ${L.length-SRshow}</button></div>`:(L.length>10?`<span class="note2">Показаны все ${L.length}</span>`:"")}`;
 }
 
 async function saveEvent(id,extra){go("evcard",id);toast("Правки сохраняются в рабочей карточке события.")}
@@ -881,7 +950,7 @@ document.addEventListener("click",ev=>{
   if(t.dataset.srcadd){addSources();return}
   if(t.dataset.srcst){changeSource(t.dataset.srcst,false);return}
   if(t.dataset.srcdel){changeSource(t.dataset.srcdel,true);return}
-  if(t.dataset.srt!==undefined){ev.preventDefault();S.srT=t.dataset.srt||null;SRshow=10;render();return}
+  if(t.dataset.srt!==undefined){ev.preventDefault();S.srT=t.dataset.srt||null;S.srCategory=null;S.srOwner=null;SRshow=10;render();return}
   if(t.dataset.srmore){ev.preventDefault();SRshow+=10;render();return}
   if(t.dataset.mood){ev.preventDefault();const on=[...document.querySelectorAll("#f_moods .chip.on")];window.__moodOrder=window.__moodOrder||on.map(b=>b.dataset.mood);if(t.classList.contains("on")){t.classList.remove("on");window.__moodOrder=window.__moodOrder.filter(m=>m!==t.dataset.mood)}else{if(on.length>=3){toast("Не больше трёх настроений");return}t.classList.add("on");window.__moodOrder.push(t.dataset.mood)}document.querySelectorAll("#f_moods .chip").forEach(b=>{b.textContent=(window.__moodOrder[0]===b.dataset.mood?"★ ":"")+MOOD[b.dataset.mood][2]});return}
   if(t.dataset.fw){ev.preventDefault();t.classList.toggle("on");return}
@@ -957,15 +1026,15 @@ function updReg(){const el=document.getElementById("evreg");if(S.view==="events"
 let EVshow=10;const hasF=o=>Object.values(o||{}).some(Boolean);
 async function loadEvReg(more){
   if(!more)EVshow=10;
-  const f=Object.assign({},S.evL||{});const seq=++ERseq;ERbusy=true;if(!more)ERkey=JSON.stringify(f);updReg();
+  const f=Object.assign({},S.evL||{});const seq=++ERseq;ERbusy=true;if(!more){ERkey=JSON.stringify(f);if(f.quality)ER=null;}updReg();
   try{
     const body=Object.assign({},f,{limit:100,offset:more&&ER?ER.rows.length:0});
     const tag="q"+Math.random().toString(36).slice(2,10);
-    const v=await apiCall("events_registry",{p:body});
+    const v=f.quality?qValidate(await apiCall("quality_events",{p:{...(f.q?{q:f.q}:{}),...(f.qfield?{field:f.qfield}:{}),...(f.qreason?{reason:f.qreason}:{}),limit:body.limit,offset:body.offset}})):await apiCall("events_registry",{p:body});
     if(seq!==ERseq)return;
-    ER=more&&ER?{total:v.total,rows:ER.rows.concat(v.rows||[])}:{total:v.total,rows:v.rows||[]};ERerr=null;
+    ER=more&&ER?{...v,rows:ER.rows.concat(v.rows||[])}:{...v,rows:v.rows||[]};ERerr=null;
   }catch(e){if(seq===ERseq)ERerr={code:(e&&e.code)||"upstream_error",message:(e&&e.message)||""}}
-  finally{if(seq===ERseq){ERbusy=false;updReg()}}
+  finally{if(seq===ERseq){ERbusy=false;updReg();if(f.quality&&S.view==="events"){const panel=document.getElementById("quality-filters");if(panel)panel.innerHTML=qualityFilters()}}}
 }
 function evBars(title,items,key,opt){
   opt=opt||{};const cur=(S.evL||{})[key];const max=Math.max(1,...items.map(i=>i[1]));
@@ -1000,7 +1069,7 @@ function evTrend(tr){
 }
 function regHtml(){
   const f=S.evL||{};
-  const chipT=(k,v)=>k==="genre"?(v==="__none"?"жанр не указан":v):k==="period"?PERIOD_L[v]:k==="mood"?moodName(v):k==="band"?BAND_L[v]:k==="src"?SRCG_L[v]:k==="miss"?MISS_L[v]:k==="chg"?CHG_L[v]:k==="q"?`поиск: ${v}`:v;
+  const chipT=(k,v)=>k==="quality"?"Неизвестные параметры":k==="qfield"?(QFIELD[v]||v):k==="qreason"?(QREASON[v]||QREASON.unknown_reason):k==="genre"?(v==="__none"?"жанр не указан":v):k==="period"?PERIOD_L[v]:k==="mood"?moodName(v):k==="band"?BAND_L[v]:k==="src"?SRCG_L[v]:k==="miss"?MISS_L[v]:k==="chg"?CHG_L[v]:k==="q"?`поиск: ${v}`:v;
   const chips=Object.entries(f).filter(([k,v])=>v).map(([k,v])=>`<button class="chip on" data-evclear="${k}">${esc(chipT(k,v)||v)} ✕</button>`).join("");
   const head=`<div class="row" style="justify-content:space-between"><div class="row">${chips||`<span class="note2">Фильтры не выбраны</span>`}${chips?`<button class="lnk" data-evclear="*">Сбросить все</button>`:""}</div><span class="note2">${ERbusy?"Обновляю…":ER?`Найдено: ${nf(ER.total)}`:""}</span></div>`;
   if(!hasF(f))return head+`<div class="empty">Выберите категорию или другой фильтр выше — либо найдите по названию. Тогда появится список событий.</div>`;
@@ -1012,16 +1081,22 @@ function regHtml(){
     const tm=fmtT(r.next);const t=r.tu||tm==="00:00"?"":tm;const extra=r.n>1?`ещё дат: ${r.n-1}`:"";
     return `${dayKey(new Date(r.next))===dnow?"Сегодня":fmtD(r.next)}<div class="id">${[t,extra].filter(Boolean).join(" · ")}</div>`};
   const price=r=>r.free||r.price===0?"Бесплатно":r.price!=null?"от "+money(r.price):`<span class="muted">—</span>`;
-  const rows=ER.rows.slice(0,EVshow).map((r,i)=>`<tr class="click" tabindex="0" data-evcard="${esc(r.id||"")}"><td style="white-space:nowrap"><b>${i+1}</b><div class="id">${esc(r.id||"")}</div></td><td><div class="tt">${esc(r.title)}</div><div class="id">${r.place?esc(r.place):r.type==="Кинопоказ"?"кинотеатры":`<span class="bad">нет площадки</span>`}</div></td><td style="white-space:nowrap">${when(r)}</td><td>${esc(r.type||"—")}</td><td>${esc(r.cat||"—")}</td><td style="white-space:nowrap">${price(r)}</td><td>${(r.miss||[]).length?(r.miss||[]).map(m=>`<span class="tg miss">${MISS_T[m]||m}</span>`).join(""):`<span class="tg okk">полная</span>`}</td><td><span class="src">${r.url?`<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(SRC_NAMES[r.src]||r.src||"источник")} ↗</a>`:esc(SRC_NAMES[r.src]||r.src||"не записан")}</span>${r.conf?`<div class="id">подтверждено вторым</div>`:""}</td></tr>`).join("");
+  const rows=ER.rows.slice(0,EVshow).map((r,i)=>`<tr class="click" tabindex="0" data-evcard="${esc(r.id||"")}"><td style="white-space:nowrap"><b>${i+1}</b><div class="id">${esc(r.id||"")}</div></td><td><div class="tt">${esc(r.title)}</div><div class="id">${r.place?esc(r.place):r.type==="Кинопоказ"?"кинотеатры":`<span class="bad">нет площадки</span>`}</div></td><td style="white-space:nowrap">${when(r)}</td><td>${esc(r.type||"—")}</td><td>${esc(r.cat||"—")}</td><td style="white-space:nowrap">${price(r)}</td><td>${f.quality?qualityTags(r):(r.miss||[]).length?(r.miss||[]).map(m=>`<span class="tg miss">${MISS_T[m]||m}</span>`).join(""):`<span class="tg okk">полная</span>`}</td><td><span class="src">${r.url?`<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(SRC_NAMES[r.src]||r.src||"источник")} ↗</a>`:esc(SRC_NAMES[r.src]||r.src||"не записан")}</span>${r.conf?`<div class="id">подтверждено вторым</div>`:""}</td></tr>`).join("");
   const shownE=Math.min(EVshow,ER.rows.length),leftE=ER.total-shownE;
   const more=leftE>0?`<div class="row" style="justify-content:space-between"><span class="note2">Показано ${nf(shownE)} из ${nf(ER.total)}</span><button class="btn more" data-evmore="1"${ERbusy?" disabled":""}>${ERbusy?"Загружаю…":`Показать ещё ${nf(Math.min(10,leftE))} · осталось ${nf(leftE)}`}</button></div>`:(ER.total>10?`<span class="note2">Показаны все ${nf(ER.total)}</span>`:"");
-  return head+`<div class="tablewrap"><table><thead><tr><th>№</th><th>Событие и площадка</th><th>Ближайшая дата</th><th>Тип</th><th>Категория</th><th>Цена</th><th>Не хватает</th><th>Источник</th></tr></thead><tbody>${rows}</tbody></table></div>${more}`;
+  return head+`<div class="tablewrap"><table><thead><tr><th>№</th><th>Событие и площадка</th><th>Ближайшая дата</th><th>Тип</th><th>Категория</th><th>Цена</th><th>${f.quality?"Уточнить":"Не хватает"}</th><th>Источник</th></tr></thead><tbody>${rows}</tbody></table></div>${more}`;
 }
 function eventsLive(){
   const head=`<div class="head"><div>${S.evFrom==="dirs"?`<button class="back" data-go="dirs">← Справочники</button>`:`<button class="back" data-go="home">← Главная</button>`}<h1 style="margin-top:8px">События</h1>${ES?`<div class="lbl" style="margin-top:8px">данные на ${dtf(ES.at)}</div>`:""}</div><div class="row"><button class="btn" data-evrefresh="1"${ESbusy?" disabled":""}>${ESbusy?"Обновляю…":"Обновить"}</button></div></div>`;
+  if((S.evL||{}).quality){
+   if(ERkey!==evKey()&&!(ERerr&&ERkey===evKey())){ERkey=evKey();setTimeout(()=>loadEvReg(),0)}
+   const f=S.evL||{};
+   return `<div class="viz" style="display:flex;flex-direction:column;gap:22px">${head}<div id="quality-filters">${qualityFilters()}</div><section style="display:flex;flex-direction:column;gap:12px"><div class="regtop"><h2>Карточки с неизвестными параметрами</h2><input class="search" id="evq" type="search" placeholder="Название, площадка или номер" aria-label="Поиск по событиям" value="${esc(f.q||"")}"></div><div id="evreg" style="display:flex;flex-direction:column;gap:12px">${regHtml()}</div></section></div>`;
+  }
   if(!ES){if(!ESbusy&&!ESerr)setTimeout(loadEvScreen,0);return head+(ESerr?statsError(ESerr):`<div class="empty">Запрашиваю события из рабочей базы…</div>`)}
   if(hasF(S.evL)&&ERkey!==evKey()&&!(ERerr&&ERkey===evKey())){ERkey=evKey();setTimeout(()=>loadEvReg(),0)}
   const f=S.evL||{},d=ES.dates||{},m=ES.miss||{};
+
   const pt=(k,v)=>`<button class="tile${f.period===k?" sel":""}" data-ef="period" data-v="${k}"><span class="v">${nf(v)}</span><span class="t">${PERIOD_L[k]}</span></button>`;
   const missItems=["org","perf","poster","lang","price","time","place"].map(k=>[k,Number(m[k]||0),MISS_L[k]]);
   return `<div class="viz" style="display:flex;flex-direction:column;gap:22px">${head}
@@ -1034,7 +1109,7 @@ function eventsLive(){
 document.addEventListener("click",ev=>{
   let t;
   if(t=ev.target.closest("[data-ef]")){ev.preventDefault();const k=t.dataset.ef,v=t.dataset.v;const f=Object.assign({},S.evL||{});if(f[k]===v)delete f[k];else f[k]=v;S.evL=f;render();return}
-  if(t=ev.target.closest("[data-evclear]")){ev.preventDefault();const k=t.dataset.evclear;if(k==="*")S.evL={};else{const f=Object.assign({},S.evL||{});delete f[k];S.evL=f}render();return}
+  if(t=ev.target.closest("[data-evclear]")){ev.preventDefault();const k=t.dataset.evclear;if(k==="*"||k==="quality")S.evL={};else{const f=Object.assign({},S.evL||{});delete f[k];S.evL=f}render();return}
   if(ev.target.closest("[data-evmore]")){ev.preventDefault();if(ERbusy)return;EVshow+=10;if(EVshow>ER.rows.length&&ER.rows.length<ER.total)loadEvReg(true);else updReg();return}
   if(ev.target.closest("[data-evrefresh]")){ev.preventDefault();ERkey=null;ERerr=null;ESerr=null;loadEvScreen();return}
 });
@@ -1074,7 +1149,7 @@ function draftOf(e){return {program_features:pfCodes(e.program_features),title:e
   orgs:(e.orgs||[]).map(o=>({id:o.id,name:o.name})),perfs:(e.perfs||[]).map(o=>({id:o.id,name:o.name})),date:e.dates_total===1&&(e.dates||[])[0]?almLocal(e.dates[0].at):""}}
 async function loadEvCard(id){
   if(ECsave||(ECid===id&&evDirty()))return;
-  const seq=++ECseq;ECid=id;ECbusy=true;EC=null;ED=null;ECerr=null;ECmsg="";ECarch=false;LK=null;if(S.view==="evcard")render(true);
+  const seq=++ECseq;ECid=id;ECbusy=true;EC=null;ED=null;ECerr=null;ECmsg="";ECarch=false;LK=null;QC=null;QCerr=null;loadQualityCard(id,seq);if(S.view==="evcard")render(true);
   try{if(!/^[A-Za-z0-9-]{1,24}$/.test(id))throw {code:"tool_error",message:"неверный номер"};
     const [v,refs]=await Promise.all([apiCall("events_card",{p_id:id}),EF&&Array.isArray(EF.program_features)?Promise.resolve(EF):apiCall("events_refs")]);
     if(ECid!==id||ECseq!==seq)return;if(!v||typeof v!=="object"||typeof v.id!=="string")throw {code:"upstream_error",message:"карточка не получена"};EF=refs;EC=v;ED=draftOf(v)}
@@ -1108,7 +1183,7 @@ async function evSave(extra){
     if(ECid!==saveId||ECseq!==saveSeq)return;
     if(!r||!r.card||typeof r.card.id!=="string")throw {code:"upstream_error",message:"не получена карточка после сохранения"};
     if(p.set&&p.set.program_features&&(!pfCodes(r.card.program_features)||JSON.stringify(pfCodes(r.card.program_features))!==JSON.stringify(pfCodes(p.set.program_features))))throw {code:"upstream_error",message:"выбранные особенности не подтверждены ответом"};
-    EC=r.card;ED=draftOf(EC);ES=null;ERkey=null;ECarch=false;
+    EC=r.card;ED=draftOf(EC);ES=null;ERkey=null;ECarch=false;QS=null;QSerr=null;QSseq++;QSbusy=false;loadQualityCard(saveId,saveSeq);
     if(extra&&extra.archive){toast("Событие отправлено в архив");ECsave=false;go("events");return}
     ECmsg=r.changed?`Сохранено. Изменено полей: ${r.changed}`:"Изменений нет";toast(r.changed?"Сохранено":"Изменений нет");
   }catch(e){if(ECid===saveId&&ECseq===saveSeq)ECmsg="Не удалось подтвердить сохранение; правки сохранены в форме. "+bkErrText(e)}
@@ -1133,7 +1208,7 @@ function evCardLive(id){
   if(ECid!==id&&!ECbusy){setTimeout(()=>loadEvCard(id),0);return back+`<div class="empty">Открываю карточку…</div>`}
   if(ECerr)return back+statsError(ECerr);
   if(!EC||!ED)return back+`<div class="empty">Открываю карточку…</div>`;
-  const e=EC,d=ED,R=EF||{},film=d.type==="Кинопоказ",gone=e.archived||e.status!=="active";
+  const e=EC,d=ED,R=EF||{},film=d.type==="Кинопоказ",gone=e.archived||e.status==="archived";
   const opt=(list,cur,ph)=>{list=(list||[]).slice();if(cur&&!list.includes(cur))list.push(cur);return `<option value="">${ph||"—"}</option>`+list.map(o=>`<option${o===cur?" selected":""}>${esc(o)}</option>`).join("")};
   const fld=(t,v,wide)=>`<div class="f"${wide?` style="grid-column:1 / -1"`:""}><span class="lbl">${t}</span>${v}</div>`;
   const selF=(k,t,list,ph)=>fld(t,`<select data-ed="${k}" aria-label="${t}">${opt(list,d[k],ph)}</select>`);
@@ -1153,7 +1228,7 @@ function evCardLive(id){
   return `${back}
   <div class="head"><div><div class="idrow"><span class="idchip">${esc(e.id)}</span>${d.type?`<span class="dirchip">${esc(d.type)}</span>`:""}${d.cat?`<span class="dirchip">${esc(d.cat)}</span>`:""}${e.showcase?`<span class="pill">на витрине</span>`:""}${e.luxe?`<span class="pill">Luxe</span>`:""}${gone?`<span class="pill warn">в архиве</span>`:""}</div><h1 style="margin-top:10px">${esc(e.title)}</h1><div class="evwhen">${(e.dates||[])[0]?`<b>${esc(whenTxt(e.dates[0].at))}</b>${e.dates_total>1?` <span class="muted">и ещё ${nf(e.dates_total-1)}</span>`:""}`:`<span class="muted">${film?"в прокате":"нет предстоящих дат"}</span>`}${(e.places||[])[0]?` · ${esc(e.places[0].name||e.places[0])}`:""}</div>${e.original?`<div class="muted" style="margin-top:4px">${esc(e.original)}</div>`:""}</div>
    <div class="row">${ECmsg?`<span class="note2" role="status">${esc(ECmsg)}</span>`:""}<button class="btn pri" data-ecsave="1"${ECsave?" disabled":""}>${ECsave?"Сохраняю…":"Сохранить"}</button></div></div>
-  ${miss.length?`<div class="panel" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="lbl">Не хватает</span>${miss.map(m=>`<span class="tg miss">${m}</span>`).join("")}</div>`:""}
+  <div id="event-quality-panel">${qualityCardPanel()}</div>
   <div class="card"><div style="display:flex;flex-direction:column;gap:16px;min-width:0">
    <div class="fields ec-fields"${ECsave?" inert":""}>
     ${inF("title","Название","text","",true)}
