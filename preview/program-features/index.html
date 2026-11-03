@@ -584,7 +584,7 @@ function paintHomeSearch(){const el=document.getElementById('home-search-results
 async function runHomeSearch(){const seq=++HSEARCH.seq,q=HSEARCH.q.trim(),mode=HSEARCH.mode;HSEARCH.rows=[];HSEARCH.error='';if(q.length<2){HSEARCH.busy=false;paintHomeSearch();return}HSEARCH.busy=true;paintHomeSearch();try{const r=await homeSearchRead(mode,q);if(seq===HSEARCH.seq)HSEARCH.rows=r.rows||[]}catch(e){if(seq===HSEARCH.seq)HSEARCH.error='failed'}finally{if(seq===HSEARCH.seq){HSEARCH.busy=false;paintHomeSearch()}}}
 function home(){
  const head=`<div class="head"><div><div class="lbl">Алматы${HS?` · данные на ${dtf(HS.at)}`:''}</div><h1>Главная</h1></div><div class="row"><button class="btn" data-home-refresh="1"${HSbusy?' disabled':''}>${HSbusy?'Обновляю…':'Обновить'}</button><button class="btn pri aibtn" data-aiopen="1" aria-expanded="${AI.open}">✦ Ассистент базы</button></div></div>${AI.open?aiPanel():''}`;
- if(!HS)return head+homeSearch()+(HSerr?hApiError()+`<button class="btn" data-home-refresh="1">Повторить</button>`:'<div class="empty" role="status">Загружаю состояние базы…</div>');
+ if(!HS)return head+(HSerr?hApiError()+`<button class="btn" data-home-refresh="1">Повторить</button>`:'<div class="empty" role="status">Загружаю состояние базы…</div>');
  const f=HS.funnel||{},c=HS.calendar||{},sh=HS.showcase||{};
  const types=Object.keys(HOME_TYPES).map(k=>hLink(HS.counts[k],HOME_TYPES[k],`data-hlist="${k}"`,HS.scope_labels&&HS.scope_labels[k]||'')).join('');
  const windows=Object.keys(HOME_PERIODS).map(k=>hLink(c[k],HOME_PERIODS[k],`data-hperiod="${k}"`,c.labels&&c.labels[k]||'')).join('');
@@ -595,7 +595,7 @@ function home(){
  <section class="panel"><h2>Робот Афиша за сутки</h2><div class="note2">${f.from&&f.to?`${dtf(f.from)} — ${dtf(f.to)} · последние 24 часа`: 'Окно данных не получено'}</div><div class="tiles" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-top:14px">${hLink(f.raw,'Сырые','data-hbucket="raw"')}${hLink(f.base,'В базу','data-hbucket="base"')}${hLink(f.trash,'В корзине','data-hbucket="trash"')}</div>${f.processing||f.review?`<div class="row" style="margin-top:10px">${f.processing?`<button class="chip" data-hbucket="processing">В обработке: ${nf(f.processing)}</button>`:''}${f.review?`<button class="chip" data-hbucket="review">Ожидают решения: ${nf(f.review)}</button>`:''}</div>`:''}</section>
  <section><div class="row" style="justify-content:space-between;margin-bottom:10px"><h2>События по датам</h2><span class="note2">без кино · фильмов в прокате: ${hCount(c.films)}</span></div><div class="tiles">${windows}</div></section>
  <section class="panel"><h2>Состояние робота</h2><div class="tiles" style="margin-top:14px">${health.map(r=>`<button class="tile" data-go="robot"><span class="pill ${r.state==='ok'?'':r.state==='failed'?'bad':'warn'}">${esc(HOME_HEALTH[r.state]||HOME_HEALTH.unknown)}</span><span class="t">${esc(r.label)}</span>${r.last_success?`<span class="s">Успех: ${dtf(r.last_success)}</span>`:''}</button>`).join('')||'<div class="note2">Состояние функций неизвестно.</div>'}</div></section>
- <section class="tiles">${hLink(sh.events,'События на витрине','disabled')}${hLink(sh.places,'Места на витрине','disabled')}</section>`+homeSearch();
+ <section class="tiles">${hLink(sh.events,'События на витрине','disabled')}${hLink(sh.places,'Места на витрине','disabled')}</section>`;
 }
 function hListTitle(){return HL.bucket?({raw:'Сырые записи',base:'В базу',trash:'В корзине',processing:'В обработке',review:'Ожидают решения'}[HL.bucket]):HL.quality?'На проверке':HOME_TYPES[HL.entity]||'Карточки базы'}
 function hListParams(){const f=HLFunnel||{};return {...HL,at:HS&&HS.at,from:f.from,to:f.to,limit:50}}
@@ -1581,21 +1581,12 @@ async function aiApply(ti,pi){
     toast("Готово");
   }catch(e){toast("Не сохранилось: "+bkErrText(e))}finally{p.busy=false;aiPaint()}
 }
-function aiPanel(){
-  const turns=AI.turns.map((t,ti)=>t.role==="user"?`<div class="aimsg me">${esc(t.ui.text)}</div>`:
-    `<div class="aimsg ai${t.ui.err?" err":""}">${t.ui.reply?`<div>${esc(t.ui.reply)}</div>`:""}${(t.ui.links||[]).length?`<div class="ailinks">${t.ui.links.map(l=>`<a href="#" data-go="${String(l.id).startsWith("PL")?"plcard":"evcard"}" data-arg="${esc(l.id)}"><b>${esc(l.id)}</b> ${esc(l.title||"")}${l.sub?` <span class="muted">· ${esc(l.sub)}</span>`:""}</a>`).join("")}</div>`:""}${(t.ui.props||[]).filter(p=>!p.skipped).map(p=>aiPropHtml(p,ti,t.ui.props.indexOf(p))).join("")}</div>`).join("");
-  return `<section class="panel aipanel" id="aipanel"><div class="row" style="justify-content:space-between"><b style="font-size:17px">Ассистент базы</b><span class="note2">поиск в рабочей базе · генеративный Claude здесь недоступен</span></div>
-   <div class="chips">${AI_CHIPS.map(([l,p],i)=>`<button class="chip" data-aichip="${i}">${l}</button>`).join("")}</div>
-   ${turns?`<div class="aithread">${turns}</div>`:`<div class="note2">Введите название или номер карточки — поиск работает с рабочей базой. Генеративный ассистент Claude вне Claude недоступен. Для изменений откройте карточку и используйте форму.</div>`}
-   ${AI.busy?`<div class="row aistat"><span class="note2">${esc(AI.status||"думаю…")}</span>${AI.ctl?`<button class="btn" data-aistop="1">Стоп</button>`:""}</div>`:""}
-   <form class="aiask" data-aiform="1"><input id="aiq" type="text" autocomplete="off" placeholder="Напишите своими словами или выберите кнопку выше" value="${esc(AI.draft)}" aria-label="Вопрос ассистенту"${AI.busy?" disabled":""}><button class="btn pri" type="submit"${AI.busy?" disabled":""}>Отправить</button></form>
-   ${AI.turns.length?`<div class="row"><button class="lnk" data-aiclear="1">Очистить разговор</button></div>`:""}</section>`;
-}
+function aiPanel(){return `<section class="panel aipanel" id="aipanel"><div class="row" style="justify-content:space-between"><b style="font-size:17px">Ассистент базы</b><span class="note2">Поиск в рабочей базе · AI не подключён</span></div>${homeSearch()}</section>`}
 function aiPaint(){const el=document.getElementById("aipanel");if(S.view==="home"&&el){const had=document.activeElement&&document.activeElement.id==="aiq";el.outerHTML=aiPanel();if(had){const i=document.getElementById("aiq");if(i&&!i.disabled){i.focus();i.setSelectionRange(i.value.length,i.value.length)}}}}
 document.addEventListener("input",ev=>{if(ev.target.id==="aiq")AI.draft=ev.target.value});
 document.addEventListener("submit",ev=>{if(!ev.target.closest("[data-aiform]"))return;ev.preventDefault();const v=(document.getElementById("aiq")||{}).value||"";aiSend(v)});
 document.addEventListener("click",ev=>{let t;
-  if(t=ev.target.closest("[data-aiopen]")){ev.preventDefault();AI.open=!AI.open;render();if(AI.open)setTimeout(()=>{const i=document.getElementById("aiq");if(i)i.focus()},50);return}
+  if(t=ev.target.closest("[data-aiopen]")){ev.preventDefault();AI.open=!AI.open;render();if(AI.open)setTimeout(()=>{const i=document.getElementById("home-search");if(i)i.focus()},50);return}
   if(t=ev.target.closest("[data-aichip]")){ev.preventDefault();const c=AI_CHIPS[+t.dataset.aichip];AI.draft=c[1];aiPaint();const i=document.getElementById("aiq");if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length)}return}
   if(ev.target.closest("[data-aistop]")){ev.preventDefault();if(AI.ctl)AI.ctl.abort();return}
   if(ev.target.closest("[data-aiclear]")){ev.preventDefault();AI.turns=[];aiPaint();return}
