@@ -895,7 +895,7 @@ function sourceIdentity(s){
  const url=qSafeUrl(s.url);let handle="";
  if(url){const u=new URL(url);if(/(^|\.)instagram\.com$/i.test(u.hostname)){const part=u.pathname.split("/").filter(Boolean)[0]||"";if(/^[a-z0-9_.]+$/i.test(part)&&!["p","reel","reels","stories"].includes(part.toLowerCase()))handle="@"+part}}
  const raw=String(s.entity_name||s.name||"").trim();const handleOnly=/^(?:https?:\/\/|(?:www\.)?instagram\.com\/)/i.test(raw)||raw.startsWith("@")||(handle&&raw.replace(/^@/,"").toLowerCase()===handle.slice(1).toLowerCase())||raw===s.url;
- const name=raw&&!handleOnly?raw:"Название не уточнено";
+ const name=raw&&!handleOnly?raw:"Не определено";
  const entity=SOURCE_ROLE_LABELS[sourceRole(s)]||"Роль не уточнена";
  return `<div class="tt">${esc(name)}</div>${url?`<a class="id" href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent);overflow-wrap:anywhere">${esc(handle||url.replace(/^https?:\/\//,""))} ↗</a>`:raw?`<div class="id">${esc(raw)}</div>`:""}`;
 }
