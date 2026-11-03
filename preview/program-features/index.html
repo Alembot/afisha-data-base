@@ -481,6 +481,7 @@ function go(view,arg,patch){
   if(evDirty()&&!window.confirm("Есть несохранённые правки. Уйти без сохранения?"))return false;
   ECseq++;ECid=null;EC=null;ED=null;ECbusy=false;LK=null;lkSeq++;
  }
+ if(!["evcard","plcard","homeList","homeDetail"].includes(view)){S.homeReturn=null;HSelection=null;}
  S.view=view;S.arg=arg??null;if(patch)Object.assign(S,patch);$("#nav").classList.remove("open");render();window.scrollTo(0,0);return true}
 function navHtml(){const on=v=>S.view===v||(v==="docs"&&S.view==="doc")?" on":"";
 return `<button class="brand" data-go="home" aria-label="На главную">афиша<i>.</i>data</button><span class="tlinks"><button class="tl${on("pick")}" data-go="pick">Отбор</button><button class="tl${on("sources")}" data-go="sources">Источники</button><button class="tl${on("robot")}" data-go="robot">Робот</button><button class="tl${on("dirs")}" data-go="dirs">Справочники и правила</button><button class="tl${on("docs")}" data-go="docs">Инструкции</button></span>`}
@@ -489,9 +490,9 @@ function render(force=false){
   if(!force&&S.view==="evcard"&&(ECsave||evDirty()))return;
   $("#nav").innerHTML=navHtml();
   const m=$("#main");
-  if(S.view!=="home"&&S.view!=="dirs"&&S.view!=="events"&&S.view!=="evcard"&&S.view!=="places"&&S.view!=="plcard"&&S.view!=="sources"&&S.view!=="robot"&&S.view!=="pick"&&!loaded.e){m.innerHTML=db===false?`<div class="empty">Раздел требует загрузки данных рабочей базы.</div>`:`<div class="empty">Загружаю базу…</div>`;return}
-  const V={home,events:eventsLive,evcard:evCardLive,eventsOld:events,places:placesLive,plcard:plCardLive,robot:robotView,pick:pickView,placesOld:places,category,event:eventCard,place:placeCard,queue,dirs,docs,sources,doc:docView}[S.view]||home;
-  m.innerHTML=V(S.arg);
+  if(S.view!=="homeList"&&S.view!=="homeDetail"&&S.view!=="home"&&S.view!=="dirs"&&S.view!=="events"&&S.view!=="evcard"&&S.view!=="places"&&S.view!=="plcard"&&S.view!=="sources"&&S.view!=="robot"&&S.view!=="pick"&&!loaded.e){m.innerHTML=db===false?`<div class="empty">Раздел требует загрузки данных рабочей базы.</div>`:`<div class="empty">Загружаю базу…</div>`;return}
+  const V={home,homeList,homeDetail,events:eventsLive,evcard:evCardLive,eventsOld:events,places:placesLive,plcard:plCardLive,robot:robotView,pick:pickView,placesOld:places,category,event:eventCard,place:placeCard,queue,dirs,docs,sources,doc:docView}[S.view]||home;
+  m.innerHTML=((S.view==="evcard"||S.view==="plcard")&&S.homeReturn?`<button class="back" data-go="${S.homeReturn}">← ${S.homeReturn==="homeList"?"К выбранному списку":"К поиску на главной"}</button>${homeSelectionPanel()}`:"")+V(S.arg);
 }
 
 
@@ -553,52 +554,77 @@ function statsError(err){err=err||STerr;
   else t="Не удалось получить данные из базы. Нажмите «Обновить».";
   return `<div class="panel"><div class="note" style="margin:0">${t}</div></div>`;
 }
-function home(){
-  const head=sub=>`<div class="head"><div><div class="lbl">Алматы${ST?` · данные на ${dtf(ST.at)}`:""}</div><h1>Главная</h1><div class="row" style="margin-top:10px"><button class="btn" data-refresh="1"${STbusy?" disabled":""}>${STbusy?"Обновляю…":"Обновить"}</button></div></div><button class="btn pri aibtn" data-aiopen="1" aria-expanded="${AI.open}">✦ Ассистент базы</button></div>${AI.open?aiPanel():""}`;
-  const sub="";
-  if(!ST)return head(sub)+(STerr?statsError():`<div class="empty">Запрашиваю цифры из рабочей базы…</div>`);
-  const f=ST.funnel||{},e=ST.events||{},p=ST.places||{},pe=ST.people||{},sh=ST.showcase||{},m=ST.money||{};
-  const step=(v,t,s,cls)=>`<div class="step ${cls||""}"><span class="v">${nf(v)}</span><span class="t">${t}</span>${s?`<span class="s">${s}</span>`:""}</div>`;
-  const bySrc=Object.entries(f.by_source||{}).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`${esc(SRC_NAMES[k]||k)} ${nf(n)}`).join(" · ");
-  const eqc=(v,t,cls)=>`<div class="c ${cls||""}"><b>${v}</b><span>${t}</span></div>`;
-  const op=x=>`<span class="op">${x}</span>`;
-  const ppl=(o,t)=>{o=o||{};return `<div class="tile" style="cursor:default"><span class="v">${nf(o.total)}</span><span class="t">${t}</span><span class="s">за неделю +${nf(o.week)} · за месяц +${nf(o.month)}</span></div>`};
-  const robot=ST.robot||[];
-  const bad=robot.filter(r=>r.state==="failed"||r.state==="never").length,stale=robot.filter(r=>r.state==="stale").length;
-  const ap=m.apify||null,cl=m.claude||{};
-  const apShare=ap&&ap.ok&&ap.limit_usd?ap.used_usd/ap.limit_usd:null;
-  const apState=!ap||!ap.ok?"off":apShare>=0.95?"bad":apShare>=0.8?"warn":"";
-  const clState=cl.last_error?"bad":"";
-  const worst=(bad||apState==="bad"||clState==="bad"||ST.cron_failed_24h>0)?"bad":(stale||apState==="warn")?"warn":"";
-  const pillT=worst==="bad"?"Нужно вмешательство":worst==="warn"?"Работает, есть предупреждения":"Всё работает";
-  const stT={ok:"",stale:"давно не запускался",failed:"последний запуск с ошибкой",never:"ещё не запускался"};
-  const srow=r=>`<div class="srow"><span class="dot ${r.state==="ok"?"":r.state==="stale"?"warn":"bad"}"></span><span class="nm">${esc(r.title)}</span><span class="wh">${r.last_ok?dtf(r.last_ok):"—"}${stT[r.state]?` · ${stT[r.state]}`:""}${r.error?` · ${esc(r.error)}`:""}</span><span class="nn">${nf(r.found)} за сутки</span></div>`;
-  const usd=v=>"$"+new Intl.NumberFormat("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2}).format(v||0);
-  const apRow=`<div class="srow"><span class="dot ${apState}"></span><span class="nm">Apify · 2ГИС и Instagram</span><span class="wh">${ap&&ap.ok?`потрачено ${usd(ap.used_usd)} из ${usd(ap.limit_usd)} в месяц${ap.cycle_end?`, период до ${new Intl.DateTimeFormat("ru-RU",{timeZone:TZ,day:"numeric",month:"long"}).format(new Date(ap.cycle_end))}`:""}`:"состояние подписки не получено"}</span><span class="nn">${apShare!=null&&apShare>=0.8?`<b class="needtop">пора пополнить</b> · `:""}<a class="topup${apState==="bad"||apState==="warn"?" hot":""}" href="https://console.apify.com/billing" target="_blank" rel="noopener noreferrer">Пополнить ↗</a></span></div>`;
-  const clRow=`<div class="srow"><span class="dot ${clState}"></span><span class="nm">Claude · разметка и чтение афиш</span><span class="wh">${cl.last_error?`ошибка ${dtf(cl.last_error.at)}: ${esc(cl.last_error.text||"")}`:`расход за сутки ${usd(cl.usd_24h)}, за 30 дней ${usd(cl.usd_30d)}`}</span><span class="nn">${cl.last_error?`<b class="needtop">баланс пуст</b> · `:""}<a class="topup${cl.last_error?" hot":""}" href="https://console.anthropic.com/settings/billing" target="_blank" rel="noopener noreferrer">Пополнить ↗</a></span></div>`;
-  return head(sub)+`
-  <section class="panel" style="display:flex;flex-direction:column;gap:14px">
-   <div class="row" style="justify-content:space-between"><h2>Робот Афиша за сутки · ${new Intl.DateTimeFormat("ru-RU",{timeZone:TZ,day:"numeric",month:"long"}).format(new Date(ST.at))}</h2>${f.review_total?`<a href="#" data-go="events" data-patch='${esc(JSON.stringify({evMode:"wait",evF:{}}))}'>Всего на проверке: ${nf(f.review_total)} →</a>`:""}</div>
-   <div class="flow">${step(f.raw,"Новых сырых","нашёл в источниках","main")}${step(f.trash,"В корзину","мусор, дубли, не события")}${step(f.review,"На проверке","ждут человека",f.review?"warn":"")}${step(f.base,"В базу","стали событиями за сутки","good")}</div>
-   ${f.processing?`<div class="note2">Ещё в обработке у робота: ${nf(f.processing)}.</div>`:""}
-  </section>
-  ${qualityHome()}
-  <section class="grid2">
-   <a href="#" class="panel big plink" data-go="events" data-patch='{"evL":{}}'><div class="bl"><h2>События</h2><div class="deltas"><div class="d"><b>+${nf(e.added)}</b><span>добавилось за сутки</span></div><div class="d neg"><b>−${nf(e.archived)}</b><span>ушло в архив</span></div></div></div>
-    <div class="total"><b>${nf(e.now)}</b><span>событий в базе сегодня</span></div></a>
-   <a href="#" class="panel big plink" data-go="places" data-patch='{"plL":{}}'><div class="bl"><h2>Места</h2><div class="deltas"><div class="d"><b>+${nf(p.added)}</b><span>добавилось за сутки</span></div></div></div>
-    <div class="total"><b>${nf(p.now)}</b><span>мест в базе сегодня</span></div></a>
-  </section>
-  ${(()=>{const c=ST.calendar;if(!c)return "";const dm=x=>new Intl.DateTimeFormat("ru-RU",{day:"numeric",month:"short",timeZone:"UTC"}).format(new Date(x+"T00:00:00Z")).replace(".","");
-   const ct=(v,t,r,k)=>`<button class="tile" data-go="events" data-patch='${esc(JSON.stringify({evL:{period:k}}))}'><span class="v">${nf(v)}</span><span class="t">${t}</span><span class="s">${r}</span></button>`;
-   return `<section style="display:flex;flex-direction:column;gap:10px"><div class="row" style="justify-content:space-between"><div class="lbl">События по датам</div><span class="note2">без кино · фильмов в прокате: ${nf(c.films)}</span></div><div class="tiles">${ct(c.today,"Сегодня",dm(c.d0),"today")}${ct(c.week,"Эта неделя",dm(c.d0)+" – "+dm(c.week_end),"week")}${ct(c.month,"Этот месяц","до "+dm(c.month_end),"month")}${ct(c.quarter,"Ближайшие 3 месяца","до "+dm(c.quarter_end),"quarter")}</div></section>`})()}
-  <section class="tiles">${ppl(pe.organizers,"Организаторы")}${ppl(pe.performers,"Перформеры")}<div class="tile" style="cursor:default"><span class="v">${nf(sh.events)}</span><span class="t">События на витрине</span></div><div class="tile" style="cursor:default"><span class="v">${nf(sh.places)}</span><span class="t">Места на витрине</span></div></section>
-  <section class="panel" style="display:flex;flex-direction:column;gap:12px">
-   <div class="row" style="justify-content:space-between"><h2>Состояние робота</h2><span class="pill ${worst}">${pillT}</span></div>
-   ${robot.some(r=>r.state!=="ok")?`<div style="font-size:14px">Не работает: ${robot.filter(r=>r.state!=="ok").map(r=>esc(r.title)).join(", ")}${cl.last_error?` — на счёте Claude нет денег`:""}</div>`:`<div class="note2">Все роботы работают по расписанию.</div>`}
-   <div class="row"><button class="btn" data-go="robot">Открыть экран робота →</button>${cl.last_error?`<a class="topup hot" href="https://console.anthropic.com/settings/billing" target="_blank" rel="noopener noreferrer">Пополнить Claude ↗</a>`:""}</div>
-  </section>`;
+async function homeSummaryRead(){const r=await apiCall('home_summary',{});const f=r.funnel||{};return {...r,funnel:{...f,...f.counts},calendar:{...r.calendar,labels:r.calendar?{today:r.calendar.d0||'',week:[r.calendar.d0,r.calendar.week_end].filter(Boolean).join(' — '),month:r.calendar.month_end?'до '+r.calendar.month_end:'',quarter:r.calendar.quarter_end?'до '+r.calendar.quarter_end:''}:{}}}}
+async function homeSearchRead(mode,q){return apiCall('search_cards',{p:{mode,q,limit:12}})}
+async function homeListRead(p){
+ if(p.bucket){const f=HLFunnel||HS.funnel,all=Array.isArray(f.rows)?f.rows:[],rows=all.filter(r=>p.bucket==='raw'||r.bucket===p.bucket).map(r=>({...r,id:(r.kind||'raw')+':'+r.id,raw_id:r.id,entity:'raw',name:r.title,reason_label:r.reason}));return {at:f.at,total:(f.counts&&f.counts[p.bucket])??f[p.bucket],rows:rows.slice(p.offset,p.offset+p.limit),available_total:rows.length,scope_label:f.complete===false?'Список неполный: достигнут предел выгрузки. Счётчик отражает всю когорту.':'Состав записей зафиксирован вместе со счётчиком.',complete:f.complete}}
+ return apiCall('home_registry',{p:{entity:p.entity,quality:!!p.quality,...(p.period?{period:p.period}:{}),...(p.cat?{cat:p.cat}:{}),limit:p.limit,offset:p.offset}})
 }
+async function homeDetailRead(entity,id,raw){
+ if(raw){const r=((HLFunnel||HS.funnel).rows||[]).find(x=>(x.kind||'raw')+':'+x.id===String(id));if(!r)return null;return {...r,entity:'raw',event_id:r.event_public_id||null,source_url:r.url,fields:{'Источник':r.source,'Получено':r.first_seen_at?dtf(r.first_seen_at):null,'Результат':r.bucket,'Причина':r.reason||'Причина пока не зафиксирована'},description:r.details&&typeof r.details.description==='string'?r.details.description:'',fields:{'Источник':r.source,'Получено':r.first_seen_at?dtf(r.first_seen_at):null,'Результат':r.bucket,'Причина':r.reason||'Причина пока не зафиксирована',...Object.fromEntries(Object.entries(r.details||{}).filter(([k])=>['starts_at','ends_at','venue_name','address','price_min','price_max','age','merge_status','event_status','pipeline_stage','stage_reason'].includes(k)).map(([k,v])=>[({'starts_at':'Начало','ends_at':'Окончание','venue_name':'Место','address':'Адрес','price_min':'Цена от','price_max':'Цена до','age':'Возраст','merge_status':'Решение при сведении','event_status':'Статус события','pipeline_stage':'Этап','stage_reason':'Причина этапа'})[k],v]))}}}
+ const r=await apiCall('home_person_card',{p:{entity,id}});return r&&r.found!==false?{...r,entity,description:r.bio||'',source_url:r.site||r.social,fields:{'Категория':r.cat,'Статус':r.status,'Тип':r.type,'Роль':r.role,'Специализация':r.specialization,'Сайт':r.site,'Социальная сеть':r.social,'Проверено':r.verified?dtf(r.verified):null,'Связанных событий':r.events_total}}:null;
+}
+/* Home control centre: owner-only read projections, never starts collection. */
+const HOME_TYPES={events:'События',places:'Места',organizers:'Организаторы',performers:'Перформеры'};
+const HOME_PERIODS={today:'Сегодня',week:'Ближайшие 7 дней',month:'До конца месяца',quarter:'Ближайшие 3 месяца'};
+const HOME_HEALTH={ok:'Работает',failed:'Ошибка',stale:'Данные устарели',unknown:'Нет данных',never:'Нет успешных запусков',disabled:'Выключено',warning:'Требует внимания'};
+let HS=null,HSerr=null,HSbusy=false,HSseq=0;
+let HLFunnel=null;
+let HL={entity:'events',quality:false,period:'',cat:'',bucket:'',offset:0},HLdata=null,HLerr=null,HLbusy=false,HLseq=0;
+let HD=null,HDerr=null,HDbusy=false,HDseq=0,HSelection=null;
+let HSEARCH={mode:'entities',q:'',rows:[],busy:false,error:'',seq:0,timer:null};
+const hCount=n=>Number.isSafeInteger(n)&&n>=0?nf(n):'—';
+const hCats=()=>(HS&&Array.isArray(HS.categories)?HS.categories:CATS).filter(c=>c!=='Частные праздники');
+function hApiError(){return '<div class="note">Не удалось получить данные. Значение неизвестно, это не ноль.</div>'}
+function hLink(v,label,attrs,sub=''){return `<button class="tile" ${attrs}><span class="v">${hCount(v)}</span><span class="t">${esc(label)}</span>${sub?`<span class="s">${esc(sub)}</span>`:''}</button>`}
+async function loadHomeSummary(){const seq=++HSseq;HSbusy=true;HSerr=null;if(S.view==='home')render();try{const r=await homeSummaryRead();if(seq!==HSseq)return;if(!r||!r.counts||!r.quality_counts||Object.keys(HOME_TYPES).some(k=>!Number.isSafeInteger(r.counts[k])||r.counts[k]<0||!Number.isSafeInteger(r.quality_counts[k])||r.quality_counts[k]<0||r.quality_counts[k]>r.counts[k])||r.total!==Object.values(r.counts).reduce((a,b)=>a+b,0)||r.quality_total!==Object.values(r.quality_counts).reduce((a,b)=>a+b,0))throw Error('invalid summary');HS=r}catch(e){if(seq===HSseq)HSerr=e}finally{if(seq===HSseq){HSbusy=false;if(S.view==='home')render()}}}
+function homeSearchResults(){return HSEARCH.busy?'<div class="note2" role="status">Ищу…</div>':HSEARCH.error?'<div class="note2">Поиск недоступен. Повторите ввод.</div>':HSEARCH.rows.length?`<div class="ailinks">${HSEARCH.rows.map(r=>`<button class="btn" data-hopen="${esc(r.entity)}" data-hid="${esc(r.id)}" style="text-align:left;justify-content:flex-start"><b>${esc(r.name||r.title||'Без названия')}</b> · ${esc(HOME_TYPES[r.entity]||r.entity)} · ${esc(r.id)}</button>`).join('')}</div>`:HSEARCH.q.trim().length>=2?'<div class="note2">По собственному названию или ID ничего не найдено.</div>':''}
+function homeSearch(){return `<section class="panel"><div class="row"><label class="f" style="flex:1"><span class="lbl">Поиск карточки</span><input id="home-search" autocomplete="off" value="${esc(HSEARCH.q)}" placeholder="Начните название или введите ID"></label><label class="f"><span class="lbl">Тип поиска</span><select id="home-search-mode"><option value="entities"${HSEARCH.mode==='entities'?' selected':''}>Места, организаторы, перформеры</option><option value="events"${HSEARCH.mode==='events'?' selected':''}>События</option></select></label></div><div id="home-search-results" aria-live="polite">${homeSearchResults()}</div></section>`}
+function paintHomeSearch(){const el=document.getElementById('home-search-results');if(el&&S.view==='home')el.innerHTML=homeSearchResults()}
+async function runHomeSearch(){const seq=++HSEARCH.seq,q=HSEARCH.q.trim(),mode=HSEARCH.mode;HSEARCH.rows=[];HSEARCH.error='';if(q.length<2){HSEARCH.busy=false;paintHomeSearch();return}HSEARCH.busy=true;paintHomeSearch();try{const r=await homeSearchRead(mode,q);if(seq===HSEARCH.seq)HSEARCH.rows=r.rows||[]}catch(e){if(seq===HSEARCH.seq)HSEARCH.error='failed'}finally{if(seq===HSEARCH.seq){HSEARCH.busy=false;paintHomeSearch()}}}
+function home(){
+ const head=`<div class="head"><div><div class="lbl">Алматы${HS?` · данные на ${dtf(HS.at)}`:''}</div><h1>Главная</h1></div><div class="row"><button class="btn" data-home-refresh="1"${HSbusy?' disabled':''}>${HSbusy?'Обновляю…':'Обновить'}</button><button class="btn pri aibtn" data-aiopen="1" aria-expanded="${AI.open}">✦ Ассистент базы</button></div></div>${AI.open?aiPanel():''}`;
+ if(!HS)return head+homeSearch()+(HSerr?hApiError()+`<button class="btn" data-home-refresh="1">Повторить</button>`:'<div class="empty" role="status">Загружаю состояние базы…</div>');
+ const f=HS.funnel||{},c=HS.calendar||{},sh=HS.showcase||{};
+ const types=Object.keys(HOME_TYPES).map(k=>hLink(HS.counts[k],HOME_TYPES[k],`data-hlist="${k}"`,HS.scope_labels&&HS.scope_labels[k]||'')).join('');
+ const windows=Object.keys(HOME_PERIODS).map(k=>hLink(c[k],HOME_PERIODS[k],`data-hperiod="${k}"`,c.labels&&c.labels[k]||'')).join('');
+ const health=Array.isArray(HS.health)?HS.health:[];
+ return head+(HSerr?'<div class="note">Обновление не удалось. Ниже сохранённые данные на указанное время.</div>':'')+
+ `<section class="panel"><h2>Состояние базы</h2><div class="tiles" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:14px">${hLink(HS.total,'Всего карточек','data-hall="1"')}${hLink(HS.quality_total,'На проверке','data-hquality="1"')}</div><div class="note2" style="margin-top:10px">${esc(HS.scope_label||'Состав выборки указан под каждым типом. Архив отдельно.')}</div></section>
+ <section class="tiles">${types}</section>
+ <section class="panel"><h2>Робот Афиша за сутки</h2><div class="note2">${f.from&&f.to?`${dtf(f.from)} — ${dtf(f.to)} · последние 24 часа`: 'Окно данных не получено'}</div><div class="tiles" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-top:14px">${hLink(f.raw,'Сырые','data-hbucket="raw"')}${hLink(f.base,'В базу','data-hbucket="base"')}${hLink(f.trash,'В корзине','data-hbucket="trash"')}</div>${f.processing||f.review?`<div class="row" style="margin-top:10px">${f.processing?`<button class="chip" data-hbucket="processing">В обработке: ${nf(f.processing)}</button>`:''}${f.review?`<button class="chip" data-hbucket="review">Ожидают решения: ${nf(f.review)}</button>`:''}</div>`:''}</section>
+ <section><div class="row" style="justify-content:space-between;margin-bottom:10px"><h2>События по датам</h2><span class="note2">без кино · фильмов в прокате: ${hCount(c.films)}</span></div><div class="tiles">${windows}</div></section>
+ <section class="panel"><h2>Состояние робота</h2><div class="tiles" style="margin-top:14px">${health.map(r=>`<button class="tile" data-go="robot"><span class="pill ${r.state==='ok'?'':r.state==='failed'?'bad':'warn'}">${esc(HOME_HEALTH[r.state]||HOME_HEALTH.unknown)}</span><span class="t">${esc(r.label)}</span>${r.last_success?`<span class="s">Успех: ${dtf(r.last_success)}</span>`:''}</button>`).join('')||'<div class="note2">Состояние функций неизвестно.</div>'}</div></section>
+ <section class="tiles">${hLink(sh.events,'События на витрине','disabled')}${hLink(sh.places,'Места на витрине','disabled')}</section>`+homeSearch();
+}
+function hListTitle(){return HL.bucket?({raw:'Сырые записи',base:'В базу',trash:'В корзине',processing:'В обработке',review:'Ожидают решения'}[HL.bucket]):HL.quality?'На проверке':HOME_TYPES[HL.entity]||'Карточки базы'}
+function hListParams(){const f=HLFunnel||{};return {...HL,at:HS&&HS.at,from:f.from,to:f.to,limit:50}}
+async function loadHomeList(){const seq=++HLseq;HLbusy=true;HLerr=null;HLdata=null;if(S.view==='homeList')render();try{const r=await homeListRead(hListParams());if(seq!==HLseq)return;if(!r||!Array.isArray(r.rows)||!Number.isSafeInteger(r.total))throw Error('invalid registry');HLdata=r}catch(e){if(seq===HLseq)HLerr=e}finally{if(seq===HLseq){HLbusy=false;if(S.view==='homeList')render()}}}
+function openHomeList(p){HL={entity:'events',quality:false,period:'',cat:'',bucket:'',offset:0,...p};HLFunnel=HL.bucket&&HS?HS.funnel:null;HLdata=null;HLerr=null;S.homeReturn=null;if(go('homeList')!==false)loadHomeList()}
+function homeList(){const d=HLdata,rows=d&&d.rows||[];const tabs=!HL.bucket&&!HL.period?`<div class="seg">${Object.entries(HOME_TYPES).map(([k,t])=>`<button data-htype="${k}" class="${HL.entity===k?'on':''}">${t} · ${hCount(HS&&(HL.quality?HS.quality_counts:HS.counts)[k])}</button>`).join('')}</div>`:'';
+ const cat=!HL.bucket&&HL.entity!=='organizers'?`<label class="f"><span class="lbl">Категория досуга</span><select id="home-category"><option value="">Все категории</option>${hCats().map(c=>`<option${HL.cat===c?' selected':''}>${esc(c)}</option>`).join('')}<option value="__none"${HL.cat==='__none'?' selected':''}>Без категории</option></select></label>`:'';
+ return `<button class="back" data-go="home">← Главная</button><div class="head"><div><h1>${esc(hListTitle())}</h1>${HL.period?`<div class="sub">${esc(HOME_PERIODS[HL.period])} · Алматы</div>`:''}${HL.bucket&&HLFunnel?`<div class="sub">${dtf(HLFunnel.from)} — ${dtf(HLFunnel.to)}</div>`:''}</div></div>${tabs}${cat}${!HL.bucket&&HL.entity==='organizers'?'<div class="note2">Категория досуга для организаторов пока не хранится в базе.</div>':''}${d?`<div class="note2">${esc(d.scope_label||'')}${d.at?` · данные на ${dtf(d.at)}`:''}${!HL.bucket?' · список пересчитан при открытии':''}</div>`:''}${HLbusy?'<div class="empty" role="status">Загружаю записи…</div>':HLerr?hApiError()+'<button class="btn" data-hretry="1">Повторить</button>':d?`<div class="lbl">${nf(d.total)} ${HL.bucket?'записей':'карточек'}${HL.cat?' · '+esc(HL.cat==='__none'?'Без категории':HL.cat):''}</div><div class="tablewrap"><table><thead><tr><th>Название</th><th>ID</th><th>Категория</th>${HL.quality||HL.bucket?'<th>Что требует внимания</th>':''}</tr></thead><tbody>${rows.map(r=>`<tr class="click" data-hrow="${esc(r.id)}" data-hentity="${esc(r.entity||HL.entity)}"><td><b>${esc(r.name||r.title||'Без названия')}</b></td><td class="id">${esc(r.public_id||r.raw_id||r.id)}</td><td>${esc(r.category||r.cat||'—')}</td>${HL.quality||HL.bucket?`<td>${esc((r.issues||r.quality||[]).filter(x=>x.actionable!==false).map(x=>x.label||x.field||x).join(' · ')||r.reason_label||r.reason||'—')}</td>`:''}</tr>`).join('')||`<tr><td colspan="4"><div class="empty">В этой выборке записей нет.</div></td></tr>`}</tbody></table></div><div class="row"><button class="btn" data-hpage="prev"${HL.offset===0?' disabled':''}>← Назад</button><span class="note2">${d.total?HL.offset+1:0}–${Math.min(HL.offset+rows.length,d.total)} из ${nf(d.total)}</span><button class="btn" data-hpage="next"${HL.offset+rows.length>=Math.min(d.total,d.available_total??d.total)?' disabled':''}>Далее →</button></div>`:''}`}
+function homeSelectionPanel(){const r=HSelection;if(!r||String(r.public_id||r.id)!==String(S.arg)||!Array.isArray(r.quality)||!r.quality.length)return '';return `<section class="panel"><h2>Причины проверки</h2>${r.quality.filter(x=>x.actionable!==false).map(x=>`<div><b>${esc(x.label||x.field)}</b> · ${esc(x.reason_label||'Причина пока не зафиксирована')}</div>`).join('')}<div class="note2">Диагностика на момент открытия списка. Пустое поле не доказывает, что робот уже искал.</div></section>`}
+async function openHomeCard(entity,id,raw=false){HSelection=S.view==='homeList'?(HLdata&&HLdata.rows||[]).find(r=>String(r.public_id||r.id)===String(id))||null:null;if(raw){S.homeReturn='homeList';if(go('homeDetail',id)===false)return;loadHomeDetail(entity,id,true);return}S.homeReturn=S.view==='homeDetail'?(S.homeReturn||'home'):S.view==='homeList'?'homeList':'home';if(entity==='events'){go('evcard',id);return}if(entity==='places'){go('plcard',id);return}if(go('homeDetail',id)!==false)loadHomeDetail(entity,id,false)}
+async function loadHomeDetail(entity,id,raw){const seq=++HDseq;HD=null;HDerr=null;HDbusy=true;render();try{const r=await homeDetailRead(entity,id,raw,hListParams());if(seq===HDseq)HD=r}catch(e){if(seq===HDseq)HDerr=e}finally{if(seq===HDseq){HDbusy=false;if(S.view==='homeDetail')render()}}}
+function homeDetail(){const r=HD;return `<button class="back" data-go="${S.homeReturn||'homeList'}">← ${S.homeReturn==='home'?'Главная':'К списку'}</button>`+(HDbusy?'<div class="empty">Загружаю карточку…</div>':HDerr?hApiError():!r?'<div class="empty">Запись не найдена.</div>':`<section class="panel"><div class="lbl">${esc(r.entity==='raw'?(['direct','direct_event'].includes(r.kind)?'Прямая запись события':'Сырая запись источника'):HOME_TYPES[r.entity]||'Карточка')} · ${esc(r.public_id||r.id||'')}</div><h1>${esc(r.name||r.title||'Без названия')}</h1>${r.description?`<p>${esc(r.description)}</p>`:''}<div class="fields">${Object.entries(r.fields||{}).map(([k,v])=>`<div class="f"><span class="lbl">${esc(k)}</span><span>${esc(v==null?'Не определено':Array.isArray(v)?v.join(', '):v)}</span></div>`).join('')}</div>${r.source_url&&qSafeUrl(r.source_url)?`<a href="${esc(qSafeUrl(r.source_url))}" target="_blank" rel="noopener noreferrer">Первоисточник ↗</a>`:''}${r.event_id?`<button class="btn" data-hopen="events" data-hid="${esc(r.event_id)}">Открыть связанную карточку события →</button>`:''}${Array.isArray(r.events)&&r.events.length?`<h2 style="margin-top:20px">Связанные события</h2><div class="ailinks">${r.events.map(e=>`<button class="btn" data-hopen="events" data-hid="${esc(e.id)}">${esc(e.title)} · ${esc(e.id)}</button>`).join('')}</div>`:''}<h2 style="margin-top:20px">Причины проверки</h2>${(r.issues||r.quality||[]).filter(x=>x.actionable!==false).map(x=>`<div class="panel"><b>${esc(x.label||x.field)}</b><div>${esc(x.reason_label||'Причина пока не зафиксирована')}</div></div>`).join('')||'<div class="note2">Зафиксированных причин проверки нет. Это не подтверждение всех фактов.</div>'}</section>`)}
+document.addEventListener('input',ev=>{if(ev.target.id!=='home-search')return;HSEARCH.q=ev.target.value;HSEARCH.seq++;HSEARCH.rows=[];HSEARCH.error='';HSEARCH.busy=false;clearTimeout(HSEARCH.timer);paintHomeSearch();HSEARCH.timer=setTimeout(runHomeSearch,250)});
+document.addEventListener('change',ev=>{if(ev.target.id==='home-search-mode'){HSEARCH.mode=ev.target.value;clearTimeout(HSEARCH.timer);runHomeSearch()}if(ev.target.id==='home-category'){HL.cat=ev.target.value;HL.offset=0;loadHomeList()}});
+document.addEventListener('click',ev=>{let t;
+ if(ev.target.closest('[data-home-refresh]')){loadHomeSummary();return}
+ if(ev.target.closest('[data-hall]')){openHomeList({entity:'events'});return}
+ if(ev.target.closest('[data-hquality]')){openHomeList({entity:'events',quality:true});return}
+ if(t=ev.target.closest('[data-hlist]')){openHomeList({entity:t.dataset.hlist});return}
+ if(t=ev.target.closest('[data-hperiod]')){openHomeList({entity:'events',period:t.dataset.hperiod});return}
+ if(t=ev.target.closest('[data-hbucket]')){openHomeList({bucket:t.dataset.hbucket});return}
+ if(t=ev.target.closest('[data-htype]')){HL.entity=t.dataset.htype;HL.cat='';HL.offset=0;loadHomeList();return}
+ if(t=ev.target.closest('[data-hrow]')){const r=(HLdata&&HLdata.rows||[]).find(x=>String(x.id)===t.dataset.hrow);openHomeCard(t.dataset.hentity,HL.bucket?t.dataset.hrow:r&&r.public_id||t.dataset.hrow,!!HL.bucket);return}
+ if(t=ev.target.closest('[data-hopen]')){openHomeCard(t.dataset.hopen,t.dataset.hid);return}
+ if(ev.target.closest('[data-hretry]')){loadHomeList();return}
+ if(t=ev.target.closest('[data-hpage]')){HL.offset=Math.max(0,HL.offset+(t.dataset.hpage==='next'?50:-50));loadHomeList()}
+});
+/* End Home control centre. */
+
 function tile(v,t,s,goV,patch,cls){return `<button class="tile ${cls||""}" data-go="${goV}" data-patch='${esc(JSON.stringify(patch||{}))}'><span class="v">${v}</span><span class="t">${t}</span>${s?`<span class="s">${s}</span>`:""}</button>`}
 
 function evFiltered(){
@@ -1825,7 +1851,7 @@ document.addEventListener("click",ev=>{
 
 window.addEventListener("beforeunload",ev=>{if((S.view==="evcard"&&(ECsave||evDirty()))||(S.view==="plcard"&&(PCsave||(PD&&PC&&JSON.stringify(PD)!==JSON.stringify(pdraftOf(PC)))))){ev.preventDefault();ev.returnValue=""}});
 APP_CAN_LEAVE=()=>{if(ECsave||PCsave)return false;return !(evDirty()||(PD&&PC&&JSON.stringify(PD)!==JSON.stringify(pdraftOf(PC))))||window.confirm("Есть несохранённые правки. Уйти без сохранения?")};
-render();loadStats();
+render();loadStats();loadHomeSummary();
 apiCall("legacy_data",{}).then(r=>{EV=r.events||[];PL=r.places||[];render()}).catch(()=>toast("Не удалось загрузить сводные счётчики. Рабочие реестры доступны отдельно."));
 
 }
