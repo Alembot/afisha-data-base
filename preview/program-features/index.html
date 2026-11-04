@@ -380,6 +380,7 @@ a.topup:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 const SUPA_URL="https://quzgkhzkrhdlyztzbgcc.supabase.co", SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1emdraHprcmhkbHl6dHpiZ2NjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2OTk1NzIsImV4cCI6MjEwNTI3NTU3Mn0.zA6OVgFkgUgXGwLTzgL9IdB7yMcRNJEIWWq-ZZGYACQ";
 const sb=window.supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
 let AUTH_ID=null,AUTH_EPOCH=0,APP_READY=false,AUTH_LOCKED=false,APP_CAN_LEAVE=()=>true,STARTING=false;
+let APP_CLEAR_PRIVATE_CACHE=()=>{};
 const authStatus=t=>document.getElementById("auth-status").textContent=t;
 async function apiCall(op,args={}){
  if(AUTH_LOCKED||!AUTH_ID)throw new Error("Сессия завершена. Войдите снова.");
@@ -394,14 +395,14 @@ async function apiCall(op,args={}){
 }
 async function startSession(session){
  const id=session?.user?.id||null;
- if(id!==AUTH_ID){AUTH_EPOCH++;AUTH_ID=id;if(APP_READY){AUTH_LOCKED=true;document.getElementById("app-shell").hidden=true;document.getElementById("auth-panel").hidden=false;authStatus("Сессия изменилась. Перезагрузите страницу для безопасного входа.");location.reload();return}}
+ if(id!==AUTH_ID){AUTH_EPOCH++;APP_CLEAR_PRIVATE_CACHE();AUTH_ID=id;if(APP_READY){AUTH_LOCKED=true;document.getElementById("app-shell").hidden=true;document.getElementById("auth-panel").hidden=false;authStatus("Сессия изменилась. Перезагрузите страницу для безопасного входа.");location.reload();return}}
  document.getElementById("auth-signout").hidden=!id;
  if(!id){document.getElementById("app-shell").hidden=true;document.getElementById("auth-panel").hidden=false;authStatus("Войдите в свой аккаунт.");return}
  if(APP_READY||STARTING)return;STARTING=true;const epoch=AUTH_EPOCH;authStatus("Загружаю рабочую базу…");
  try{const boot=await apiCall("bootstrap",{});if(epoch!==AUTH_EPOCH)return;if(!boot?.config)throw new Error("Неполный ответ сервера");initApp(boot);APP_READY=true;document.getElementById("auth-panel").hidden=true;document.getElementById("app-shell").hidden=false;}
  catch(e){authStatus(e.message);document.getElementById("auth-retry").hidden=false;}finally{STARTING=false}
 }
-async function signOut(){if(!APP_CAN_LEAVE())return;AUTH_EPOCH++;await sb.auth.signOut();location.reload()}
+async function signOut(){if(!APP_CAN_LEAVE())return;AUTH_EPOCH++;AUTH_LOCKED=true;APP_CLEAR_PRIVATE_CACHE();document.getElementById("app-shell").hidden=true;document.getElementById("auth-panel").hidden=false;await sb.auth.signOut();location.reload()}
 document.getElementById("app-signout").onclick=signOut;
 document.getElementById("auth-signout").onclick=signOut;
 document.getElementById("auth-retry").onclick=async()=>startSession((await sb.auth.getSession()).data.session);
@@ -591,11 +592,17 @@ async function svRegistryRead(params){const p={...params};if(p.place_group){p.gr
 function svValidateSummary(r){const count=n=>Number.isSafeInteger(n)&&n>=0;if(!r||!r.inventory||!count(r.inventory.events)||!count(r.inventory.places)||!r.public_totals||!['events','places'].every(k=>r.public_totals[k]===null||count(r.public_totals[k]))||!['categories','groups','moods','periods'].every(k=>Array.isArray(r[k]))||!['editorial','recommendations','demo'].every(k=>r[k]&&Array.isArray(r[k].rows)&&count(r[k].count)&&r[k].count===r[k].rows.length)||!['categories','groups','moods'].every(k=>r[k].every(x=>typeof x.name==='string'&&(x.inventory_count===null||count(x.inventory_count)))))throw Error('Incomplete showcase response');return r}
 
 /* Read-only public-showcase snapshot. Inventory is deliberately not an input.
- * Cache lives only inside the showcase screen family. Lists pin one snapshot.
+ * Cache lives in this authenticated page session. Lists pin one immutable snapshot.
  * Server authorization remains the existing owner-only apiCall boundary.
  */
-let SVV={data:null,error:null,busy:false,seq:0,promise:null};
-const SVV_VIEWS=['showcase','showcaseList','showcaseDetail'];
+let SVV={data:null,error:null,busy:false,seq:0,promise:null,receivedAt:0,ageTimer:null};
+APP_CLEAR_PRIVATE_CACHE=()=>{
+ clearTimeout(SVV.ageTimer);
+ SVV={data:null,error:null,busy:false,seq:SVV.seq+1,promise:null,receivedAt:0,ageTimer:null};
+ SVL.seq++;SVL.data=null;SVL.snapshot=null;SVL.error=null;SVL.busy=false;
+ SV.seq++;SV.data=null;SV.error=null;SV.busy=false;SVDseq++;SVD=null;
+ document.getElementById('main').innerHTML='';
+};
 function svvCount(n){return Number.isSafeInteger(n)&&n>=0}
 function svvText(x){return typeof x==='string'&&x.trim().length>0}
 function svvTime(x){return svvText(x)&&Number.isFinite(Date.parse(x))}
@@ -642,19 +649,45 @@ function svvValidate(raw){
 }
 async function svVisibleRead(){let timer;try{const raw=await Promise.race([apiCall('showcase_visible_snapshot',{}),new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('Время ожидания снимка истекло')),60000)})]);return svvValidate(raw)}finally{clearTimeout(timer)}}
 function svVisibleNavigate(from,to){
- if(SVV_VIEWS.includes(from)&&!SVV_VIEWS.includes(to)){
-  SVV.seq++;SVV.data=null;SVV.error=null;SVV.busy=false;SVV.promise=null;
-  if(SVL.mode==='visible'){SVL.seq++;SVL.data=null;SVL.snapshot=null;SVL.busy=false}
- }
+ // Session-only cache: navigation never clears data or starts a refresh.
+ // A snapshot is fetched only on first load or an explicit refresh click.
 }
 function loadVisibleSnapshot(force=false){
- if(!force&&SVV.busy)return SVV.promise;
+ if(AUTH_LOCKED||!AUTH_ID)return Promise.resolve(null);
+ if(SVV.promise)return SVV.promise; // Explicit refresh clicks coalesce too.
  if(!force&&SVV.data)return Promise.resolve(SVV.data);
- const seq=++SVV.seq;SVV.busy=true;SVV.error=null;SVV.data=null;
- const pending=Promise.resolve().then(svVisibleRead).then(d=>{if(seq===SVV.seq)SVV.data=d;return d}).catch(e=>{if(seq===SVV.seq)SVV.error=e;return null}).finally(()=>{if(seq===SVV.seq){SVV.busy=false;SVV.promise=null;if(S.view==='showcase')render()}});
+ const seq=++SVV.seq,epoch=AUTH_EPOCH,user=AUTH_ID;
+ const current=()=>seq===SVV.seq&&epoch===AUTH_EPOCH&&user===AUTH_ID&&!AUTH_LOCKED;
+ SVV.busy=true;SVV.error=null;
+ const pending=Promise.resolve().then(()=>current()?svVisibleRead():null).then(d=>{if(current()&&d){
+  const losesCoverage=SVV.data&&['events','places'].some(k=>SVV.data.verified_coverage[k]==='complete'&&d.verified_coverage[k]!=='complete');
+  if(losesCoverage){SVV.error=Error('Полноту нового снимка подтвердить не удалось');return null}
+  SVV.data=d;SVV.receivedAt=Date.now();svVisibleAgeTick();
+ }return current()?d:null}).catch(e=>{if(current())SVV.error=e;return null}).finally(()=>{if(current()){SVV.busy=false;SVV.promise=null;if(S.view==='showcase')render()}});
  SVV.promise=pending;
  if(S.view==='showcase')render();
  return pending;
+}
+function svVisibleAge(){
+ const minutes=Math.floor(Math.max(0,Date.now()-SVV.receivedAt)/60000);
+ const quantity=(n,one,few,many)=>n+' '+(n%10===1&&n%100!==11?one:n%10>=2&&n%10<=4&&(n%100<12||n%100>14)?few:many);
+ if(minutes<1)return 'только что';
+ if(minutes<60)return quantity(minutes,'минуту','минуты','минут')+' назад';
+ const hours=Math.floor(minutes/60);
+ return hours<24?quantity(hours,'час','часа','часов')+' назад':quantity(Math.floor(hours/24),'день','дня','дней')+' назад';
+}
+function svVisibleAgeTick(){
+ clearTimeout(SVV.ageTimer);
+ if(!SVV.data||AUTH_LOCKED||!AUTH_ID)return;
+ if(S.view==='showcase'){const age=document.querySelector('[data-svv-age]');if(age)age.textContent=svVisibleAge()}
+ // Display-only clock. Never renders the page, reads the API, or refreshes data.
+ SVV.ageTimer=setTimeout(svVisibleAgeTick,30000);
+ SVV.ageTimer?.unref?.();
+}
+function svVisibleFreshness(d){
+ const state=SVV.error?'error':SVV.busy?'refreshing':'cached';
+ const status=SVV.error?'Обновление не удалось подтвердить полностью. Показан последний подтверждённый снимок, актуальность не подтверждена.':SVV.busy?'Обновляю. Пока показан предыдущий подтверждённый снимок.':'Сохранённый снимок. Данные обновляются только по кнопке «Обновить».';
+ return `<div class="note${SVV.error?'':'2'}" data-svv-freshness="${state}" role="${SVV.error?'alert':'status'}">${status} Последняя успешная загрузка: <span data-svv-age="1">${esc(svVisibleAge())}</span> (${esc(dtf(new Date(SVV.receivedAt).toISOString()))}).${SVV.error?'<button class="btn" data-svvrefresh="1">Повторить проверку</button>':''}</div>`;
 }
 function svVisibleDiagnostics(d){
  const groups=[['Не удалось сопоставить карточки',d.unresolved],['Что мешает подтвердить полный итог',d.blockers||[]]].filter(([,rows])=>rows.length);
@@ -667,17 +700,17 @@ function svVisiblePanel(){
  if(!SVV.data&&!SVV.busy&&!SVV.error)loadVisibleSnapshot();
  const d=SVV.data;
  const title='<h2>Фактически доступно в приложении</h2>';
- if(SVV.busy)return '<section class="panel" data-svv-panel="loading">'+title+'<div class="empty" role="status">Проверяю состав публичной витрины…</div></section>';
- if(SVV.error)return '<section class="panel" data-svv-panel="error">'+title+'<div class="note" role="alert">Не удалось получить подтверждённый снимок. Итоги неизвестны, это не ноль. Числа каталога ниже не заменяют состав витрины.</div><button class="btn" data-svvrefresh="1">Повторить проверку</button></section>';
+ if(SVV.busy&&!d)return '<section class="panel" data-svv-panel="loading">'+title+'<div class="empty" role="status">Проверяю состав публичной витрины…</div></section>';
+ if(SVV.error&&!d)return '<section class="panel" data-svv-panel="error">'+title+'<div class="note" role="alert">Не удалось получить подтверждённый снимок. Итоги неизвестны, это не ноль. Числа каталога ниже не заменяют состав витрины.</div><button class="btn" data-svvrefresh="1">Повторить проверку</button></section>';
  if(!d)return '';
  const allComplete=['events','places'].every(k=>d.verified_coverage[k]==='complete');
  const notes=[d.public_totals.reason,...d.warnings.map(x=>typeof x==='string'?x:x?.message||x?.label)].filter(svvText);
  const subset=allComplete?'':`<section class="panel" data-svv-subset="1"><h2>Подтверждено в публичных каталогах</h2><div class="note">Это проверенная часть, не общий итог витрины.</div><div class="tiles" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:14px">${['events','places'].map(entity=>svTile(entity==='events'?'События':'Места',d.verified_subset[entity],`data-svvsubset="${entity}"`,'Открыть проверенный список')).join('')}</div><div class="note2">Число и список взяты из одного снимка. Неразрешённые соответствия перечислены ниже и не увеличивают эти числа.</div></section>`;
- return `<section class="panel" data-svv-panel="${allComplete?'complete':'incomplete'}">${title}<div class="note2">Уникальные карточки, доступные в публичных блоках на момент снимка, включая события на будущие даты. Одна карточка учитывается один раз.</div><div class="tiles" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:14px">${['events','places'].map(entity=>{const total=d.verified_totals[entity],label=entity==='events'?'События':'Места';return total===null?`<div class="tile"><span class="v">—</span><span class="t">${label}</span><span class="s">Полный итог не подтверждён</span></div>`:svTile(label,total,`data-svvlist="${entity}"`,'Проверенный полный список')}).join('')}</div>${allComplete?'':'<div class="note">Сверка неполная. Проверенная часть не является общим числом карточек приложения.</div>'}<div class="note2" style="overflow-wrap:anywhere">Снимок: ${esc(dtf(d.source.observed_at))} · ${esc(d.identity)} · правило ${esc(d.rule_version)}. Данные обновляются кнопкой «Обновить».</div>${notes.map(x=>`<p class="note2">${esc(x)}</p>`).join('')}</section>`+subset+svVisibleDiagnostics(d);
+ return `<section class="panel" data-svv-panel="${allComplete?'complete':'incomplete'}">${title}${svVisibleFreshness(d)}<div class="note2">Уникальные карточки, доступные в публичных блоках на момент снимка, включая события на будущие даты. Одна карточка учитывается один раз.</div><div class="tiles" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:14px">${['events','places'].map(entity=>{const total=d.verified_totals[entity],label=entity==='events'?'События':'Места';return total===null?`<div class="tile"><span class="v">—</span><span class="t">${label}</span><span class="s">Полный итог не подтверждён</span></div>`:svTile(label,total,`data-svvlist="${entity}"`,'Проверенный полный список')}).join('')}</div>${allComplete?'':'<div class="note">Сверка неполная. Проверенная часть не является общим числом карточек приложения.</div>'}<div class="note2" style="overflow-wrap:anywhere">Снимок: ${esc(dtf(d.source.observed_at))} · ${esc(d.identity)} · правило ${esc(d.rule_version)}. Дата относится к сохранённому снимку, не к текущему состоянию приложения.</div>${notes.map(x=>`<p class="note2">${esc(x)}</p>`).join('')}</section>`+subset+svVisibleDiagnostics(d);
 }
 
 function openVisibleList(entity,subset=false){
- const d=SVV.data;if(!d||SVV.busy||!['events','places'].includes(entity))return;
+ const d=SVV.data;if(!d||!['events','places'].includes(entity))return;
  if(!subset&&d.verified_totals[entity]===null)return;
  if(go('showcaseList')===false)return;
  SVL.seq++;SVL.mode='visible';SVL.snapshot=d;SVL.subset=subset;
