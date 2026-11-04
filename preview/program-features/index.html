@@ -482,6 +482,7 @@ function go(view,arg,patch){
   ECseq++;ECid=null;EC=null;ED=null;ECbusy=false;LK=null;lkSeq++;
  }
  if(!["evcard","plcard","homeList","homeDetail"].includes(view)){S.homeReturn=null;HSelection=null;}
+ svVisibleNavigate(S.view,view);
  S.view=view;S.arg=arg??null;if(patch)Object.assign(S,patch);$("#nav").classList.remove("open");render();window.scrollTo(0,0);return true}
 function navHtml(){const on=v=>S.view===v||(v==="docs"&&S.view==="doc")?" on":"";
 return `<button class="brand" data-go="home" aria-label="На главную">афиша<i>.</i>data</button><span class="tlinks"><button class="tl${["showcase","showcaseList","showcaseDetail"].includes(S.view)?" on":""}" data-svopen="1">Витрина</button><button class="tl${on("pick")}" data-go="pick">Отбор</button><button class="tl${on("sources")}" data-go="sources">Источники</button><button class="tl${on("robot")}" data-go="robot">Робот</button><button class="tl${on("dirs")}" data-go="dirs">Справочники и правила</button><button class="tl${on("docs")}" data-go="docs">Инструкции</button></span>`}
@@ -589,9 +590,125 @@ async function svRegistryRead(params){const p={...params};if(p.place_group){p.gr
 
 function svValidateSummary(r){const count=n=>Number.isSafeInteger(n)&&n>=0;if(!r||!r.inventory||!count(r.inventory.events)||!count(r.inventory.places)||!r.public_totals||!['events','places'].every(k=>r.public_totals[k]===null||count(r.public_totals[k]))||!['categories','groups','moods','periods'].every(k=>Array.isArray(r[k]))||!['editorial','recommendations','demo'].every(k=>r[k]&&Array.isArray(r[k].rows)&&count(r[k].count)&&r[k].count===r[k].rows.length)||!['categories','groups','moods'].every(k=>r[k].every(x=>typeof x.name==='string'&&(x.inventory_count===null||count(x.inventory_count)))))throw Error('Incomplete showcase response');return r}
 
+/* Read-only public-showcase snapshot. Inventory is deliberately not an input.
+ * Cache lives only inside the showcase screen family. Lists pin one snapshot.
+ * Server authorization remains the existing owner-only apiCall boundary.
+ */
+let SVV={data:null,error:null,busy:false,seq:0,promise:null};
+const SVV_VIEWS=['showcase','showcaseList','showcaseDetail'];
+function svvCount(n){return Number.isSafeInteger(n)&&n>=0}
+function svvText(x){return typeof x==='string'&&x.trim().length>0}
+function svvTime(x){return svvText(x)&&Number.isFinite(Date.parse(x))}
+function svvFreeze(x){if(x&&typeof x==='object'&&!Object.isFrozen(x)){Object.values(x).forEach(svvFreeze);Object.freeze(x)}return x}
+function svvValidate(raw){
+ const fail=()=>{throw Error('Неполный или противоречивый снимок витрины')};
+ if(!raw||!svvText(raw.rule_version)||!['public_showcase','verified_public_subset'].includes(raw.scope)||!['complete','incomplete'].includes(raw.coverage)||!svvTime(raw.at)||!raw.public_totals||!['events','places'].every(k=>raw.public_totals[k]===null||svvCount(raw.public_totals[k]))||!Array.isArray(raw.rows)||!Array.isArray(raw.unresolved)||!Array.isArray(raw.warnings)||!svvTime(raw.source?.observed_at)||!(svvText(raw.source?.snapshot_id)||/^[a-f0-9]{64}$/i.test(raw.source?.sha256||'')))fail();
+ const verifiedPublicUrl=(value,required=false)=>{if(value==null){if(required)fail();return null}if(!svvText(value))fail();let u;try{u=new URL(value)}catch{fail()}if(u.protocol!=='https:'||u.origin!=='https://afisha-kz-gpt.vercel.app'||u.username||u.password)fail();return value};
+ const d=JSON.parse(JSON.stringify(raw)),ids=new Set(),identities=new Set(),canonicalKeys=new Set();
+ for(const r of d.rows){
+  if(!r||!['events','places'].includes(r.entity)||!svvText(r.title)||!Array.isArray(r.membership)||!r.membership.length||!r.membership.every(x=>x&&svvText(x.block)))fail();
+  let identity;
+  if(r.kind==='editorial'){
+   if(r.id!==null||r.uuid!==null||!svvText(r.canonical_key))fail();
+   r.public_url=verifiedPublicUrl(r.public_url,true);identity=r.entity+':editorial:'+r.canonical_key;
+  }else{
+   if(!svvText(r.id)||!svvText(r.uuid)||!svvText(r.slug))fail();
+   const id=r.entity+':'+r.id;identity=r.entity+':uuid:'+r.uuid.toLowerCase();
+   if(ids.has(id))fail();ids.add(id);
+   // Only an exact rendered public href is evidence. Never derive routes from slugs.
+   r.public_url=verifiedPublicUrl(r.public_url);
+  }
+  if(identities.has(identity))fail();identities.add(identity);
+  if(r.canonical_key!==undefined){if(!svvText(r.canonical_key)||canonicalKeys.has(r.canonical_key))fail();canonicalKeys.add(r.canonical_key)}
+  if(r.moods!==undefined&&(!Array.isArray(r.moods)||!r.moods.every(x=>typeof x==='string')))fail();
+  if(r.sessions!==undefined&&!Array.isArray(r.sessions))fail();
+ }
+ if(d.entity_coverage!==undefined&&(!d.entity_coverage||!['events','places'].every(k=>['complete','incomplete'].includes(d.entity_coverage[k]))))fail();
+ const rowsByEntity={events:d.rows.filter(r=>r.entity==='events'),places:d.rows.filter(r=>r.entity==='places')};
+ const subset={events:rowsByEntity.events.length,places:rowsByEntity.places.length};
+ if(d.verified_subset!==undefined&&(!d.verified_subset||!['events','places'].every(k=>svvCount(d.verified_subset[k])&&d.verified_subset[k]===subset[k])))fail();
+ if(d.blockers!==undefined&&!Array.isArray(d.blockers))fail();
+ const totals={events:null,places:null},coverage={events:'incomplete',places:'incomplete'};
+ for(const entity of ['events','places']){
+  const complete=d.scope==='public_showcase'&&(d.entity_coverage?.[entity]||d.coverage)==='complete';
+  const unresolved=[...d.unresolved,...(d.blockers||[])].some(x=>!x||typeof x!=='object'||!['events','places'].includes(x.entity)||x.entity===entity);
+  if(complete&&unresolved)fail();
+  if(complete&&d.public_totals[entity]!==null){
+   if(d.public_totals[entity]!==rowsByEntity[entity].length)fail();
+   totals[entity]=d.public_totals[entity];coverage[entity]='complete';
+  }
+ }
+ return svvFreeze({...d,rowsByEntity,verified_subset:subset,verified_totals:totals,verified_coverage:coverage,identity:d.source.snapshot_id||d.source.sha256});
+}
+async function svVisibleRead(){let timer;try{const raw=await Promise.race([apiCall('showcase_visible_snapshot',{}),new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('Время ожидания снимка истекло')),60000)})]);return svvValidate(raw)}finally{clearTimeout(timer)}}
+function svVisibleNavigate(from,to){
+ if(SVV_VIEWS.includes(from)&&!SVV_VIEWS.includes(to)){
+  SVV.seq++;SVV.data=null;SVV.error=null;SVV.busy=false;SVV.promise=null;
+  if(SVL.mode==='visible'){SVL.seq++;SVL.data=null;SVL.snapshot=null;SVL.busy=false}
+ }
+}
+function loadVisibleSnapshot(force=false){
+ if(!force&&SVV.busy)return SVV.promise;
+ if(!force&&SVV.data)return Promise.resolve(SVV.data);
+ const seq=++SVV.seq;SVV.busy=true;SVV.error=null;SVV.data=null;
+ const pending=Promise.resolve().then(svVisibleRead).then(d=>{if(seq===SVV.seq)SVV.data=d;return d}).catch(e=>{if(seq===SVV.seq)SVV.error=e;return null}).finally(()=>{if(seq===SVV.seq){SVV.busy=false;SVV.promise=null;if(S.view==='showcase')render()}});
+ SVV.promise=pending;
+ if(S.view==='showcase')render();
+ return pending;
+}
+function svVisibleDiagnostics(d){
+ const groups=[['Не удалось сопоставить карточки',d.unresolved],['Что мешает подтвердить полный итог',d.blockers||[]]].filter(([,rows])=>rows.length);
+ if(!groups.length)return '';
+ const text=x=>typeof x==='string'?x:x==null?'':JSON.stringify(x);
+ const item=x=>{if(typeof x==='string')return '<li>'+esc(x)+'</li>';const name=x?.title||x?.name||x?.slug||x?.canonical_key||x?.path||x?.block||x?.id||x?.entity||'Без названия';const reason=x?.reason||x?.message||x?.detail||x?.label||x?.code||'Причина не указана';return '<li><b>'+esc(text(name))+'</b>: '+esc(text(reason))+'</li>'};
+ return '<details class="panel" data-svv-diagnostics="1" open><summary>Что ещё требует проверки</summary>'+groups.map(([name,rows])=>'<h3>'+esc(name)+' · '+nf(rows.length)+'</h3><ul>'+rows.map(item).join('')+'</ul>').join('')+'</details>';
+}
+function svVisiblePanel(){
+ if(!SVV.data&&!SVV.busy&&!SVV.error)loadVisibleSnapshot();
+ const d=SVV.data;
+ const title='<h2>Фактически доступно в приложении</h2>';
+ if(SVV.busy)return '<section class="panel" data-svv-panel="loading">'+title+'<div class="empty" role="status">Проверяю состав публичной витрины…</div></section>';
+ if(SVV.error)return '<section class="panel" data-svv-panel="error">'+title+'<div class="note" role="alert">Не удалось получить подтверждённый снимок. Итоги неизвестны, это не ноль. Числа каталога ниже не заменяют состав витрины.</div><button class="btn" data-svvrefresh="1">Повторить проверку</button></section>';
+ if(!d)return '';
+ const allComplete=['events','places'].every(k=>d.verified_coverage[k]==='complete');
+ const notes=[d.public_totals.reason,...d.warnings.map(x=>typeof x==='string'?x:x?.message||x?.label)].filter(svvText);
+ const subset=allComplete?'':`<section class="panel" data-svv-subset="1"><h2>Подтверждено в публичных каталогах</h2><div class="note">Это проверенная часть, не общий итог витрины.</div><div class="tiles" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:14px">${['events','places'].map(entity=>svTile(entity==='events'?'События':'Места',d.verified_subset[entity],`data-svvsubset="${entity}"`,'Открыть проверенный список')).join('')}</div><div class="note2">Число и список взяты из одного снимка. Неразрешённые соответствия перечислены ниже и не увеличивают эти числа.</div></section>`;
+ return `<section class="panel" data-svv-panel="${allComplete?'complete':'incomplete'}">${title}<div class="note2">Уникальные карточки, доступные в публичных блоках на момент снимка, включая события на будущие даты. Одна карточка учитывается один раз.</div><div class="tiles" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:14px">${['events','places'].map(entity=>{const total=d.verified_totals[entity],label=entity==='events'?'События':'Места';return total===null?`<div class="tile"><span class="v">—</span><span class="t">${label}</span><span class="s">Полный итог не подтверждён</span></div>`:svTile(label,total,`data-svvlist="${entity}"`,'Проверенный полный список')}).join('')}</div>${allComplete?'':'<div class="note">Сверка неполная. Проверенная часть не является общим числом карточек приложения.</div>'}<div class="note2" style="overflow-wrap:anywhere">Снимок: ${esc(dtf(d.source.observed_at))} · ${esc(d.identity)} · правило ${esc(d.rule_version)}. Данные обновляются кнопкой «Обновить».</div>${notes.map(x=>`<p class="note2">${esc(x)}</p>`).join('')}</section>`+subset+svVisibleDiagnostics(d);
+}
+
+function openVisibleList(entity,subset=false){
+ const d=SVV.data;if(!d||SVV.busy||!['events','places'].includes(entity))return;
+ if(!subset&&d.verified_totals[entity]===null)return;
+ if(go('showcaseList')===false)return;
+ SVL.seq++;SVL.mode='visible';SVL.snapshot=d;SVL.subset=subset;
+ SVL.params={entity,offset:0,limit:50};SVL.title=(entity==='events'?'События':'Места')+(subset?' · проверенная часть витрины':' · публичная витрина');
+ loadVisibleList();
+}
+function loadVisibleList(){
+ const d=SVL.snapshot,entity=SVL.params.entity;if(!d)return;
+ const rows=d.rowsByEntity[entity],limit=50;
+ SVL.params.offset=Math.max(0,Math.min(SVL.params.offset,Math.max(0,Math.ceil(rows.length/limit)-1)*limit));
+ SVL.data={at:d.at,total:rows.length,rows:rows.slice(SVL.params.offset,SVL.params.offset+limit)};
+ SVL.busy=false;SVL.error=null;if(S.view==='showcaseList')render();
+}
+function visibleShowcaseList(){
+ const d=SVL.data,snapshot=SVL.snapshot,p=SVL.params;
+ const head=`<button class="back" data-go="showcase">← Витрина</button><div class="head"><div><h1>${esc(SVL.title)}</h1><div class="sub">Состав сохранённого снимка · все доступные даты</div></div></div>`;
+ if(!d||!snapshot)return head+'<div class="note">Снимок больше не загружен. Вернитесь в витрину и обновите данные.</div>';
+ return head+`<div class="note2" style="overflow-wrap:anywhere">${SVL.subset?'Только проверенная часть. Полный итог не подтверждён.':'Тот же снимок, что и счётчик. Состав не пересчитывается при открытии.'} Снимок: ${esc(dtf(snapshot.source.observed_at))} · ${esc(snapshot.identity)}.</div><div class="lbl">${nf(d.total)} уникальных карточек${SVL.subset?' в проверенной части':''}</div><div class="tablewrap"><table><thead><tr><th>Название</th><th>ID</th><th>Категория</th><th>Публичные блоки</th></tr></thead><tbody>${d.rows.map((r,i)=>`<tr><td><button class="lnk" data-svrow="${i}"><b>${esc(r.title)}</b></button></td><td>${esc(r.kind==='editorial'?'Редакционная страница':r.id)}</td><td>${esc(r.cat||'Не определена')}</td><td>${esc([...new Set(r.membership.map(x=>x.block+(x.display_date?' · '+x.display_date:'')))].join(', '))}</td></tr>`).join('')||'<tr><td colspan="4">В этой выборке карточек нет.</td></tr>'}</tbody></table></div><div class="row"><button class="btn" data-svpage="prev"${p.offset===0?' disabled':''}>← Назад</button><span class="note2">${d.total?p.offset+1:0}–${Math.min(p.offset+d.rows.length,d.total)} из ${nf(d.total)}</span><button class="btn" data-svpage="next"${p.offset+d.rows.length>=d.total?' disabled':''}>Далее →</button></div>`;
+}
+function svVisibleDetailNote(){return SVL.mode==='visible'&&SVL.snapshot?`<div class="note2">Участие в витрине: снимок ${esc(SVL.snapshot.identity)} от ${esc(dtf(SVL.snapshot.source.observed_at))}. Поля карточки загружаются из базы на момент просмотра.</div>`:''}
+function openVisibleEditorial(row,entity){if(go('showcaseDetail')===false)return;SVDseq++;SVD={kind:'visibleEditorial',row,entity};render()}
+function visibleEditorialDetail(x){return `<button class="back" data-go="showcaseList">← К выбранному списку</button><section class="panel"><div class="lbl">Редакционная страница · просмотр</div><h1>${esc(x.row.title)}</h1><p>Публичная страница подтверждена. Нет связи с записью базы.</p><div class="note2">${esc(x.row.canonical_key)}${SVL.snapshot?' · снимок '+esc(SVL.snapshot.identity)+' от '+esc(dtf(SVL.snapshot.source.observed_at)):''}</div><p>${esc(x.row.membership.map(m=>m.block).join(', '))}</p>${svExternal(x.row.public_url,'Открыть страницу в приложении ↗')}</section>`}
+document.addEventListener('click',ev=>{
+ let t;if(ev.target.closest('[data-svvrefresh]')){loadVisibleSnapshot(true);return}
+ if(t=ev.target.closest('[data-svvlist]')){openVisibleList(t.dataset.svvlist);return}
+ if(t=ev.target.closest('[data-svvsubset]'))openVisibleList(t.dataset.svvsubset,true);
+});
+
 /* Read-only public catalog inspection. No publication flags or collector actions. */
 let SV={data:null,error:null,busy:false,seq:0,period:'all',date:''};
-let SVL={data:null,error:null,busy:false,seq:0,params:{entity:'events',offset:0,limit:50},title:''};
+let SVL={data:null,error:null,busy:false,seq:0,params:{entity:'events',offset:0,limit:50},title:'',mode:'inventory',snapshot:null,subset:false};
 let SVD=null,SVDseq=0;
 const SV_PERIODS={all:'Всё',today:'Сегодня',tomorrow:'Завтра',weekend:'Выходные',date:'Выбрать дату'};
 function svCount(n){return Number.isSafeInteger(n)&&n>=0?nf(n):'—'}
@@ -600,11 +717,12 @@ function svTile(title,count,attrs,sub=''){return `<button class="tile" ${attrs}>
 async function loadShowcase(){const seq=++SV.seq;SV.busy=true;SV.error=null;SV.data=null;if(S.view==='showcase')render();try{const r=await svSummaryRead();if(seq!==SV.seq)return;if(!r||!r.inventory)throw Error('Invalid showcase summary');SV.data=r}catch(e){if(seq===SV.seq)SV.error=e}finally{if(seq===SV.seq){SV.busy=false;if(S.view==='showcase')render()}}}
 function svPeriodControls(){return `<div class="row" style="margin:14px 0">${Object.entries(SV_PERIODS).map(([k,label])=>`<button class="chip${SV.period===k?' on':''}" data-svperiod="${k}">${label}${k!=='date'?' · '+svCount(k==='all'?SV.data?.inventory.events:(SV.data?.periods||[]).find(x=>x.key===k)?.count):''}</button>`).join('')}${SV.period==='date'?`<label class="f"><span class="lbl">Дата · Алматы</span><input id="sv-date" type="date" value="${esc(SV.date)}"></label>`:''}</div>`}
 function showcase(){if(!SV.data&&!SV.busy&&!SV.error&&!(SV.period==='date'&&!SV.date)){SV.busy=true;setTimeout(loadShowcase,0)}const d=SV.data;
- const head=`<button class="back" data-go="home">← Главная</button><div class="head"><div><h1>Витрина</h1><div class="sub">Состав публичного приложения${d?` · данные на ${dtf(d.at)}`:''}</div></div><button class="btn" data-svrefresh="1"${SV.busy?' disabled':''}>${SV.busy?'Обновляю…':'Обновить'}</button></div>`;
- if(SV.period==='date'&&!SV.date)return head+svPeriodControls()+'<div class="note">Выберите дату для просмотра каталога событий.</div>';
- if(!d)return head+(SV.error?svError()+'<button class="btn" data-svrefresh="1">Повторить</button>':'<div class="empty" role="status">Загружаю витрину…</div>');
- return head+(SV.error?svError():'')+`<section class="panel"><h2>Фактически показано в приложении</h2><div class="tiles" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:14px"><div class="tile"><span class="v">${svCount(d.public_totals?.events)}</span><span class="t">События</span></div><div class="tile"><span class="v">${svCount(d.public_totals?.places)}</span><span class="t">Места</span></div></div><div class="note2">${esc(d.public_totals?.reason||'Нет единого подтверждённого состава всех публичных блоков.')}</div></section>
- <section class="panel"><h2>Доступно каталогу приложения</h2><div class="tiles" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:14px">${svTile('События',d.inventory.events,'data-svlist="events"','Все актуальные записи публичного запроса')}${svTile('Места',d.inventory.places,'data-svlist="places"','Записи публичного запроса мест')}</div><div class="note2">${esc(d.inventory.label||'Не равно числу карточек, показанных на главной приложения.')}</div></section>
+ const actual=svVisiblePanel();
+ const head=`<button class="back" data-go="home">← Главная</button><div class="head"><div><h1>Витрина</h1><div class="sub">Публичная витрина и отдельный каталог базы</div></div><button class="btn" data-svrefresh="1"${SV.busy?' disabled':''}>${SV.busy?'Обновляю…':'Обновить'}</button></div>`;
+ if(SV.period==='date'&&!SV.date)return head+actual+svPeriodControls()+'<div class="note">Выберите дату для просмотра каталога событий.</div>';
+ if(!d)return head+actual+(SV.error?svError()+'<button class="btn" data-svrefresh="1">Повторить</button>':'<div class="empty" role="status">Загружаю витрину…</div>');
+ return head+actual+(SV.error?svError():'')+`
+ <section class="panel"><h2>Каталог базы · не фактическая витрина</h2><div class="tiles" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:14px">${svTile('События',d.inventory.events,'data-svlist="events"','Все актуальные записи публичного запроса')}${svTile('Места',d.inventory.places,'data-svlist="places"','Записи публичного запроса мест')}</div><div class="note2">${esc(d.inventory.label||'Не равно числу карточек, показанных на главной приложения.')}</div></section>
  <section class="panel"><h2>Каталог: события по датам и категориям</h2>${svPeriodControls()}<button class="btn" data-svselected="1">События выбранного периода · ${svCount(d.selected?.inventory_events)}</button><div class="note2">Точные даты сеансов · Алматы. Подстановка событий других дат не применяется.</div><div class="tiles" style="margin-top:14px">${(d.categories||[]).map(x=>svTile(x.name,x.count,`data-svcat="${esc(x.name)}"`)).join('')}</div></section>
  <section class="panel"><h2>Афиша рекомендует</h2><div class="note2">Редакционные подборки. Их точный состав пока не связан с карточками базы.</div><div class="tiles" style="margin-top:14px">${(d.recommendations||[]).map((x,i)=>svTile(x.name,null,`data-sveditorial="recommendations:${i}"`,'Состав не подтверждён')).join('')}</div></section>
  <section class="panel"><h2>Каталог: куда сходить</h2><div class="note2">${d.groups.length} групп действующего справочника. Каталог мест не зависит от выбранной даты события.</div><div class="tiles" style="margin-top:14px">${(d.groups||[]).map(x=>svTile(x.name,x.count,`data-svgroup="${esc(x.name)}"`)).join('')}</div></section>
@@ -614,16 +732,16 @@ function showcase(){if(!SV.data&&!SV.busy&&!SV.error&&!(SV.period==='date'&&!SV.
  <details class="panel"><summary>Расхождения с публичным приложением</summary>${(d.warnings||[]).map(x=>`<p>${esc(typeof x==='string'?x:x.message||x.label)}</p>`).join('')}<p>Административный флаг «На витрине» не определяет состав публичных запросов. Редакционные карточки и каталог учитываются отдельно. Публичная главная может обслуживаться из кеша.</p></details>`;
 }
 function svParams(entity,extra={}){return {entity,period:entity==='events'?SV.period:'all',...(entity==='events'&&SV.period==='date'?{date:SV.date}:{}),offset:0,limit:50,...extra}}
-function openShowcaseList(entity,extra={},title=''){if(entity==='events'&&(extra.period||SV.period)==='date'&&!SV.date){toast('Выберите дату');return}if(go('showcaseList')===false)return;SVL.params=svParams(entity,extra);SVL.title=title||({events:'События каталога',places:'Места каталога'}[entity]);SVL.data=null;SVL.error=null;loadShowcaseList()}
-async function loadShowcaseList(){const seq=++SVL.seq;SVL.busy=true;SVL.error=null;SVL.data=null;if(S.view==='showcaseList')render();try{const r=await svRegistryRead({...SVL.params});if(seq!==SVL.seq)return;if(!r||!Array.isArray(r.rows)||!Number.isSafeInteger(r.total)||r.total<0)throw Error('Invalid showcase registry');SVL.data=r}catch(e){if(seq===SVL.seq)SVL.error=e}finally{if(seq===SVL.seq){SVL.busy=false;if(S.view==='showcaseList')render()}}}
-function showcaseList(){const d=SVL.data,p=SVL.params;return `<button class="back" data-go="showcase">← Витрина</button><div class="head"><div><h1>${esc(SVL.title)}</h1><div class="sub">${p.entity==='events'?esc(SV_PERIODS[p.period]||p.period)+(p.date?' · '+esc(p.date):'')+' · Алматы':'Места · все даты'}</div></div></div>${SVL.busy?'<div class="empty">Загружаю список…</div>':SVL.error?svError()+'<button class="btn" data-svretry="1">Повторить</button>':d?`<div class="note2">${esc(d.scope_label||'Каталог публичных запросов, не состав всех полок приложения')}${d.at?' · '+dtf(d.at):''} · список пересчитан при открытии</div><div class="lbl">${nf(d.total)} карточек</div><div class="tablewrap"><table><thead><tr><th>Название</th><th>ID</th><th>Категория</th></tr></thead><tbody>${d.rows.map((r,i)=>`<tr><td><button class="lnk" data-svrow="${i}"><b>${esc(r.title||r.name||'Без названия')}</b></button></td><td>${esc(r.id)}</td><td>${esc(r.cat||r.category||'—')}</td></tr>`).join('')||'<tr><td colspan="3">В этой выборке карточек нет.</td></tr>'}</tbody></table></div><div class="row"><button class="btn" data-svpage="prev"${p.offset===0?' disabled':''}>← Назад</button><span class="note2">${d.total?p.offset+1:0}–${Math.min(p.offset+d.rows.length,d.total)} из ${nf(d.total)}</span><button class="btn" data-svpage="next"${p.offset+d.rows.length>=d.total?' disabled':''}>Далее →</button></div>`:''}`}
+function openShowcaseList(entity,extra={},title=''){if(entity==='events'&&(extra.period||SV.period)==='date'&&!SV.date){toast('Выберите дату');return}if(go('showcaseList')===false)return;SVL.mode='inventory';SVL.snapshot=null;SVL.subset=false;SVL.params=svParams(entity,extra);SVL.title=title||({events:'События каталога',places:'Места каталога'}[entity]);SVL.data=null;SVL.error=null;loadShowcaseList()}
+async function loadShowcaseList(){if(SVL.mode==='visible'){loadVisibleList();return}const seq=++SVL.seq;SVL.busy=true;SVL.error=null;SVL.data=null;if(S.view==='showcaseList')render();try{const r=await svRegistryRead({...SVL.params});if(seq!==SVL.seq)return;if(!r||!Array.isArray(r.rows)||!Number.isSafeInteger(r.total)||r.total<0)throw Error('Invalid showcase registry');SVL.data=r}catch(e){if(seq===SVL.seq)SVL.error=e}finally{if(seq===SVL.seq){SVL.busy=false;if(S.view==='showcaseList')render()}}}
+function showcaseList(){if(SVL.mode==='visible')return visibleShowcaseList();const d=SVL.data,p=SVL.params;return `<button class="back" data-go="showcase">← Витрина</button><div class="head"><div><h1>${esc(SVL.title)}</h1><div class="sub">${p.entity==='events'?esc(SV_PERIODS[p.period]||p.period)+(p.date?' · '+esc(p.date):'')+' · Алматы':'Места · все даты'}</div></div></div>${SVL.busy?'<div class="empty">Загружаю список…</div>':SVL.error?svError()+'<button class="btn" data-svretry="1">Повторить</button>':d?`<div class="note2">${esc(d.scope_label||'Каталог публичных запросов, не состав всех полок приложения')}${d.at?' · '+dtf(d.at):''} · список пересчитан при открытии</div><div class="lbl">${nf(d.total)} карточек</div><div class="tablewrap"><table><thead><tr><th>Название</th><th>ID</th><th>Категория</th></tr></thead><tbody>${d.rows.map((r,i)=>`<tr><td><button class="lnk" data-svrow="${i}"><b>${esc(r.title||r.name||'Без названия')}</b></button></td><td>${esc(r.id)}</td><td>${esc(r.cat||r.category||'—')}</td></tr>`).join('')||'<tr><td colspan="3">В этой выборке карточек нет.</td></tr>'}</tbody></table></div><div class="row"><button class="btn" data-svpage="prev"${p.offset===0?' disabled':''}>← Назад</button><span class="note2">${d.total?p.offset+1:0}–${Math.min(p.offset+d.rows.length,d.total)} из ${nf(d.total)}</span><button class="btn" data-svpage="next"${p.offset+d.rows.length>=d.total?' disabled':''}>Далее →</button></div>`:''}`}
 function svExternal(url,label){const safe=qSafeUrl(url);return safe?`<a href="${esc(safe)}" target="_blank" rel="noopener noreferrer">${esc(label)}</a>`:'—'}
-function showcaseDetail(){const x=SVD;if(x?.kind==='catalog')return showcaseCatalogDetail(x);if(!x)return '<button class="back" data-go="showcase">← Витрина</button>';return `<button class="back" data-go="showcase">← Витрина</button><section class="panel"><div class="lbl">${esc(x.kind==='demo'?'Демо · продюсерский проект':x.kind==='editorial'?'Редакционная карточка':'Редакционная подборка')}</div><h1>${esc(x.name)}</h1><p>${esc(x.kind==='demo'?'Демонстрационный проект. Не входит в фактические счётчики. Проведение и доступность покупки не подтверждены.':x.kind==='editorial'?'Карточка опубликована в редакционном блоке «Новые места». Связь с записью базы и дата открытия не подтверждены.':'Точный список участников подборки и их количество не подтверждены. Число в названии не является проверенным количеством карточек.')}</p>${svExternal(x.public_url,'Открыть в приложении ↗')}</section>`}
-document.addEventListener('click',ev=>{let t;if(t=ev.target.closest('[data-svopen]')){if(go('showcase')!==false&&!SV.data&&!SV.busy)loadShowcase();return}if(ev.target.closest('[data-svrefresh]')){loadShowcase();return}if(t=ev.target.closest('[data-svperiod]')){SV.period=t.dataset.svperiod;if(SV.period==='date'&&!SV.date){SV.seq++;SV.busy=false;SV.data=null;render();return}loadShowcase();return}if(t=ev.target.closest('[data-svlist]')){openShowcaseList(t.dataset.svlist,{period:'all',date:undefined});return}if(ev.target.closest('[data-svselected]')){openShowcaseList('events',{},'События выбранного периода');return}if(t=ev.target.closest('[data-svcat]')){openShowcaseList('events',{cat:t.dataset.svcat},t.dataset.svcat);return}if(t=ev.target.closest('[data-svgroup]')){openShowcaseList('places',{place_group:t.dataset.svgroup},t.dataset.svgroup);return}if(t=ev.target.closest('[data-svmood]')){openShowcaseList('events',{mood:t.dataset.svmood},(SV.data?.moods||[]).find(x=>x.code===t.dataset.svmood)?.name||'По настроению');return}if(t=ev.target.closest('[data-sveditorial]')){const [kind,n]=t.dataset.sveditorial.split(':');const x=SV.data?.[kind]?.[Number(n)];if(x&&go('showcaseDetail')!==false){SVDseq++;SVD={...x,kind};render()}return}if(ev.target.closest('[data-svretry]')){loadShowcaseList();return}if(t=ev.target.closest('[data-svpage]')){SVL.params.offset=Math.max(0,SVL.params.offset+(t.dataset.svpage==='next'?50:-50));loadShowcaseList();return}if(t=ev.target.closest('[data-svrow]')){const x=SVL.data?.rows[Number(t.dataset.svrow)];if(x)openShowcaseCard(x,SVL.params.entity);return}});
+function showcaseDetail(){const x=SVD;if(x?.kind==='visibleEditorial')return visibleEditorialDetail(x);if(x?.kind==='catalog')return showcaseCatalogDetail(x);if(!x)return '<button class="back" data-go="showcase">← Витрина</button>';return `<button class="back" data-go="showcase">← Витрина</button><section class="panel"><div class="lbl">${esc(x.kind==='demo'?'Демо · продюсерский проект':x.kind==='editorial'?'Редакционная карточка':'Редакционная подборка')}</div><h1>${esc(x.name)}</h1><p>${esc(x.kind==='demo'?'Демонстрационный проект. Не входит в фактические счётчики. Проведение и доступность покупки не подтверждены.':x.kind==='editorial'?'Карточка опубликована в редакционном блоке «Новые места». Связь с записью базы и дата открытия не подтверждены.':'Точный список участников подборки и их количество не подтверждены. Число в названии не является проверенным количеством карточек.')}</p>${svExternal(x.public_url,'Открыть в приложении ↗')}</section>`}
+document.addEventListener('click',ev=>{let t;if(t=ev.target.closest('[data-svopen]')){if(go('showcase')!==false&&!SV.data&&!SV.busy)loadShowcase();return}if(ev.target.closest('[data-svrefresh]')){loadVisibleSnapshot(true);loadShowcase();return}if(t=ev.target.closest('[data-svperiod]')){SV.period=t.dataset.svperiod;if(SV.period==='date'&&!SV.date){SV.seq++;SV.busy=false;SV.data=null;render();return}loadShowcase();return}if(t=ev.target.closest('[data-svlist]')){openShowcaseList(t.dataset.svlist,{period:'all',date:undefined});return}if(ev.target.closest('[data-svselected]')){openShowcaseList('events',{},'События выбранного периода');return}if(t=ev.target.closest('[data-svcat]')){openShowcaseList('events',{cat:t.dataset.svcat},t.dataset.svcat);return}if(t=ev.target.closest('[data-svgroup]')){openShowcaseList('places',{place_group:t.dataset.svgroup},t.dataset.svgroup);return}if(t=ev.target.closest('[data-svmood]')){openShowcaseList('events',{mood:t.dataset.svmood},(SV.data?.moods||[]).find(x=>x.code===t.dataset.svmood)?.name||'По настроению');return}if(t=ev.target.closest('[data-sveditorial]')){const [kind,n]=t.dataset.sveditorial.split(':');const x=SV.data?.[kind]?.[Number(n)];if(x&&go('showcaseDetail')!==false){SVDseq++;SVD={...x,kind};render()}return}if(ev.target.closest('[data-svretry]')){loadShowcaseList();return}if(t=ev.target.closest('[data-svpage]')){SVL.params.offset=Math.max(0,SVL.params.offset+(t.dataset.svpage==='next'?50:-50));loadShowcaseList();return}if(t=ev.target.closest('[data-svrow]')){const x=SVL.data?.rows[Number(t.dataset.svrow)];if(x)openShowcaseCard(x,SVL.params.entity);return}});
 document.addEventListener('change',ev=>{if(ev.target.id==='sv-date'){SV.date=ev.target.value;if(SV.date)loadShowcase();else{SV.seq++;SV.busy=false;SV.data=null;render()}}});
 
-async function openShowcaseCard(row,entity){if(go('showcaseDetail')===false)return;const seq=++SVDseq;SVD={kind:'catalog',row,entity,busy:true};render();try{const card=await apiCall(entity==='places'?'places_card':'events_card',{p_id:row.id});if(seq===SVDseq){if(!card||card.id!==row.id)throw Error('Wrong card');SVD={kind:'catalog',row,entity,card}}}catch(e){if(seq===SVDseq)SVD={kind:'catalog',row,entity,error:true}}finally{if(seq===SVDseq&&S.view==='showcaseDetail')render()}}
-function showcaseCatalogDetail(x){const c=x.card;const head='<button class="back" data-go="showcaseList">← К выбранному списку</button>';if(x.busy)return head+'<div class="empty">Загружаю карточку…</div>';if(x.error)return head+svError()+'<button class="btn" data-svdetailretry="1">Повторить</button>';if(!c)return head;const place=x.entity==='places';const fields=place?{'Тип':c.type,'Категория':c.cat,'Адрес':c.addr,'Район':c.district,'Статус':c.status}:{'Тип':c.type,'Категория':c.cat,'Возраст':c.age,'Язык':c.language,'Цена от':c.price_from,'Цена до':c.price_to,'Статус':c.status};return head+`<section class="panel"><div class="lbl">${place?'Место':'Событие'} · ${esc(c.id)} · просмотр</div><h1>${esc(c.title||c.name||x.row.title)}</h1><div class="fields">${Object.entries(fields).map(([label,val])=>`<div class="f"><span class="lbl">${esc(label)}</span><span>${esc(val==null||val===''?'Не определено':val)}</span></div>`).join('')}</div>${c.descr||c.spec?`<p style="white-space:pre-wrap">${esc(c.descr||c.spec)}</p>`:''}${Array.isArray(c.dates)&&c.dates.length?`<h2>Даты</h2><p>${c.dates.map(d=>esc(d.at?dtf(d.at):'Дата не определена')).join('<br>')}</p>`:''}${x.row.public_url?svExternal(x.row.public_url,'Карточка в приложении ↗'):''}<div style="margin-top:12px">${svExternal(c.url||c.site||c.social,'Первоисточник ↗')}</div></section>`}
+async function openShowcaseCard(row,entity){if(row.kind==='editorial'){openVisibleEditorial(row,entity);return}if(go('showcaseDetail')===false)return;const seq=++SVDseq;SVD={kind:'catalog',row,entity,busy:true};render();try{const card=await apiCall(entity==='places'?'places_card':'events_card',{p_id:row.id});if(seq===SVDseq){if(!card||card.id!==row.id)throw Error('Wrong card');SVD={kind:'catalog',row,entity,card}}}catch(e){if(seq===SVDseq)SVD={kind:'catalog',row,entity,error:true}}finally{if(seq===SVDseq&&S.view==='showcaseDetail')render()}}
+function showcaseCatalogDetail(x){const c=x.card;const head='<button class="back" data-go="showcaseList">← К выбранному списку</button>'+svVisibleDetailNote();if(x.busy)return head+'<div class="empty">Загружаю карточку…</div>';if(x.error)return head+svError()+'<button class="btn" data-svdetailretry="1">Повторить</button>';if(!c)return head;const place=x.entity==='places';const fields=place?{'Тип':c.type,'Категория':c.cat,'Адрес':c.addr,'Район':c.district,'Статус':c.status}:{'Тип':c.type,'Категория':c.cat,'Возраст':c.age,'Язык':c.language,'Цена от':c.price_from,'Цена до':c.price_to,'Статус':c.status};return head+`<section class="panel"><div class="lbl">${place?'Место':'Событие'} · ${esc(c.id)} · просмотр</div><h1>${esc(c.title||c.name||x.row.title)}</h1><div class="fields">${Object.entries(fields).map(([label,val])=>`<div class="f"><span class="lbl">${esc(label)}</span><span>${esc(val==null||val===''?'Не определено':val)}</span></div>`).join('')}</div>${c.descr||c.spec?`<p style="white-space:pre-wrap">${esc(c.descr||c.spec)}</p>`:''}${Array.isArray(c.dates)&&c.dates.length?`<h2>Даты</h2><p>${c.dates.map(d=>esc(d.at?dtf(d.at):'Дата не определена')).join('<br>')}</p>`:''}${x.row.public_url?svExternal(x.row.public_url,'Карточка в приложении ↗'):''}<div style="margin-top:12px">${svExternal(c.url||c.site||c.social,'Первоисточник ↗')}</div></section>`}
 document.addEventListener('click',ev=>{if(ev.target.closest('[data-svdetailretry]')&&SVD?.row)openShowcaseCard(SVD.row,SVD.entity)});
 
 function home(){
