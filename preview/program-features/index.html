@@ -718,7 +718,7 @@ function svEditorialNote(d){
 function svVisiblePanel(){
  if(!SVV.data&&!SVV.busy&&!SVV.error)loadVisibleSnapshot();
  const d=SVV.data;
- const title='<h2>Фактически доступно в приложении</h2>';
+ const title='<h2>Доступно в приложении</h2>';
  if(SVV.busy&&!d)return '<section class="panel" data-svv-panel="loading">'+title+'<div class="empty" role="status">Проверяю состав публичной витрины…</div></section>';
  if(SVV.error&&!d)return '<section class="panel" data-svv-panel="error">'+title+'<div class="note" role="alert">Не удалось получить подтверждённый снимок. Итоги неизвестны, это не ноль. Числа каталога ниже не заменяют состав витрины.</div><button class="btn" data-svvrefresh="1">Повторить проверку</button></section>';
  if(!d)return '';
