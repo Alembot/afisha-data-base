@@ -153,6 +153,14 @@ main{flex:1;min-width:0;padding-block:28px 60px;padding-inline:clamp(16px,3.5vw,
 .note2{font-size:14px;color:var(--ink2)}
 @media (max-width:560px){.srow{grid-template-columns:14px 1fr auto}.srow .wh{grid-column:2 / -1;grid-row:2}}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px}
+/* Home overview: database and showcase share the first panel. */
+.home-overview{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0}
+.home-overview-part{min-width:0;padding-right:20px}
+.home-overview-part+.home-overview-part{border-left:1px solid var(--line);padding:0 0 0 20px}
+.home-overview-tiles{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:14px}
+.home-overview .tile{min-width:0;overflow-wrap:anywhere}
+.home-overview .note2{margin-top:10px}
+@media(max-width:700px){.home-overview{grid-template-columns:1fr;gap:20px}.home-overview-part{padding-right:0}.home-overview-part+.home-overview-part{border-left:0;border-top:1px solid var(--line);padding:20px 0 0}}
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
 .cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
 .cat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;cursor:pointer;text-align:left;font-weight:600;display:flex;justify-content:space-between;gap:8px}
@@ -785,12 +793,11 @@ function home(){
  const windows=Object.keys(HOME_PERIODS).map(k=>hLink(c[k],HOME_PERIODS[k],`data-hperiod="${k}"`,c.labels&&c.labels[k]||'')).join('');
  const health=Array.isArray(HS.health)?HS.health:[];
  return head+(HSerr?'<div class="note">Обновление не удалось. Ниже сохранённые данные на указанное время.</div>':'')+
- `<section class="panel"><h2>Состояние базы</h2><div class="tiles" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:14px">${hLink(HS.total,'Всего карточек','data-hall="1"')}${hLink(HS.quality_total,'На проверке','data-hquality="1"')}</div><div class="note2" style="margin-top:10px">${esc(HS.scope_label||'Состав выборки указан под каждым типом. Архив отдельно.')}</div></section>
+ `<section class="panel home-overview"><div class="home-overview-part"><h2>Состояние базы</h2><div class="tiles home-overview-tiles">${hLink(HS.total,'Всего карточек','data-hall="1"')}${hLink(HS.quality_total,'На проверке','data-hquality="1"')}</div><div class="note2">${esc(HS.scope_label||'Состав выборки указан под каждым типом. Архив отдельно.')}</div></div><div class="home-overview-part"><h2>Витрина</h2><div class="tiles home-overview-tiles">${hLink(sh.events,'Событий на витрине','data-svopen="1"','Флаг базы · открыть сверку с приложением')}${hLink(sh.places,'Мест на витрине','data-svopen="1"','Флаг базы · открыть сверку с приложением')}</div></div></section>
  <section class="tiles">${types}</section>
  <section class="panel"><h2>Робот Афиша за сутки</h2><div class="note2">${f.from&&f.to?`${dtf(f.from)} — ${dtf(f.to)} · последние 24 часа`: 'Окно данных не получено'}</div><div class="tiles" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-top:14px">${hLink(f.raw,'Сырые','data-hbucket="raw"')}${hLink(f.base,'В базу','data-hbucket="base"')}${hLink(f.trash,'В корзине','data-hbucket="trash"')}</div>${f.processing||f.review?`<div class="row" style="margin-top:10px">${f.processing?`<button class="chip" data-hbucket="processing">В обработке: ${nf(f.processing)}</button>`:''}${f.review?`<button class="chip" data-hbucket="review">Ожидают решения: ${nf(f.review)}</button>`:''}</div>`:''}</section>
  <section><div class="row" style="justify-content:space-between;margin-bottom:10px"><h2>События по датам</h2><span class="note2">без кино · фильмов в прокате: ${hCount(c.films)}</span></div><div class="tiles">${windows}</div></section>
- <section class="panel"><h2>Состояние робота</h2><div class="tiles" style="margin-top:14px">${health.map(r=>`<button class="tile" data-go="robot"><span class="pill ${r.state==='ok'?'':r.state==='failed'?'bad':'warn'}">${esc(HOME_HEALTH[r.state]||HOME_HEALTH.unknown)}</span><span class="t">${esc(r.label)}</span>${r.last_success?`<span class="s">Успех: ${dtf(r.last_success)}</span>`:''}</button>`).join('')||'<div class="note2">Состояние функций неизвестно.</div>'}</div></section>
- <section class="tiles">${hLink(sh.events,'События на витрине','data-svopen="1"','Флаг базы · открыть сверку с приложением')}${hLink(sh.places,'Места на витрине','data-svopen="1"','Флаг базы · открыть сверку с приложением')}</section>`;
+ <section class="panel"><h2>Состояние робота</h2><div class="tiles" style="margin-top:14px">${health.map(r=>`<button class="tile" data-go="robot"><span class="pill ${r.state==='ok'?'':r.state==='failed'?'bad':'warn'}">${esc(HOME_HEALTH[r.state]||HOME_HEALTH.unknown)}</span><span class="t">${esc(r.label)}</span>${r.last_success?`<span class="s">Успех: ${dtf(r.last_success)}</span>`:''}</button>`).join('')||'<div class="note2">Состояние функций неизвестно.</div>'}</div></section>`;
 }
 function hListTitle(){return HL.bucket?({raw:'Сырые записи',base:'В базу',trash:'В корзине',processing:'В обработке',review:'Ожидают решения'}[HL.bucket]):HL.quality?'На проверке':HOME_TYPES[HL.entity]||'Карточки базы'}
 function hListParams(){const f=HLFunnel||{};return {...HL,at:HS&&HS.at,from:f.from,to:f.to,limit:50}}
