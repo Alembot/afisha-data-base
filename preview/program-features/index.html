@@ -671,9 +671,9 @@ function loadVisibleSnapshot(force=false){
   const losesCoverage=SVV.data&&['events','places'].some(k=>SVV.data.verified_coverage[k]==='complete'&&d.verified_coverage[k]!=='complete');
   if(losesCoverage){SVV.error=Error('Полноту нового снимка подтвердить не удалось');return null}
   SVV.data=d;SVV.receivedAt=Date.now();svVisibleAgeTick();
- }return current()?d:null}).catch(e=>{if(current())SVV.error=e;return null}).finally(()=>{if(current()){SVV.busy=false;SVV.promise=null;if(S.view==='showcase')render()}});
+ }return current()?d:null}).catch(e=>{if(current())SVV.error=e;return null}).finally(()=>{if(current()){SVV.busy=false;SVV.promise=null;if(['home','showcase'].includes(S.view))render()}});
  SVV.promise=pending;
- if(S.view==='showcase')render();
+ if(['home','showcase'].includes(S.view))render();
  return pending;
 }
 function svVisibleAge(){
@@ -687,7 +687,7 @@ function svVisibleAge(){
 function svVisibleAgeTick(){
  clearTimeout(SVV.ageTimer);
  if(!SVV.data||AUTH_LOCKED||!AUTH_ID)return;
- if(S.view==='showcase'){const age=document.querySelector('[data-svv-age]');if(age)age.textContent=svVisibleAge()}
+ if(['home','showcase'].includes(S.view)){const age=document.querySelector('[data-svv-age]');if(age)age.textContent=svVisibleAge()}
  // Display-only clock. Never renders the page, reads the API, or refreshes data.
  SVV.ageTimer=setTimeout(svVisibleAgeTick,30000);
  SVV.ageTimer?.unref?.();
@@ -786,14 +786,16 @@ function showcaseCatalogDetail(x){const c=x.card;const head='<button class="back
 document.addEventListener('click',ev=>{if(ev.target.closest('[data-svdetailretry]')&&SVD?.row)openShowcaseCard(SVD.row,SVD.entity)});
 
 function home(){
- const head=`<div class="head"><div><div class="lbl">Алматы${HS?` · данные на ${dtf(HS.at)}`:''}</div><h1>Главная</h1></div><div class="row"><button class="btn" data-home-refresh="1"${HSbusy?' disabled':''}>${HSbusy?'Обновляю…':'Обновить'}</button><button class="btn pri aibtn" data-aiopen="1" aria-expanded="${AI.open}">✦ Ассистент базы</button></div></div>${AI.open?aiPanel():''}`;
+ if(HS&&!SVV.data&&!SVV.busy&&!SVV.error)loadVisibleSnapshot();
+ const head=`<div class="head"><div><div class="lbl">Алматы${HS?` · данные на ${dtf(HS.at)}`:''}</div><h1>Главная</h1></div><div class="row"><button class="btn" data-home-refresh="1"${HSbusy||SVV.busy?' disabled':''}>${HSbusy||SVV.busy?'Обновляю…':'Обновить'}</button><button class="btn pri aibtn" data-aiopen="1" aria-expanded="${AI.open}">✦ Ассистент базы</button></div></div>${AI.open?aiPanel():''}`;
  if(!HS)return head+(HSerr?hApiError()+`<button class="btn" data-home-refresh="1">Повторить</button>`:'<div class="empty" role="status">Загружаю состояние базы…</div>');
- const f=HS.funnel||{},c=HS.calendar||{},sh=HS.showcase||{};
+ const f=HS.funnel||{},c=HS.calendar||{},sh=SVV.data?.verified_totals||{};
+ const showcaseStatus=SVV.data?svVisibleFreshness(SVV.data)+(['events','places'].some(k=>SVV.data.verified_totals[k]===null)?'<div class="note2">Полный итог не подтверждён. Подробности доступны в витрине.</div>':''):SVV.error?'<div class="note" role="alert">Не удалось подтвердить состав витрины. Итоги неизвестны, это не ноль. <button class="btn" data-svvrefresh="1">Повторить проверку</button></div>':'<div class="note2" role="status">Проверяю состав публичной витрины…</div>';
  const types=Object.keys(HOME_TYPES).map(k=>hLink(HS.counts[k],HOME_TYPES[k],`data-hlist="${k}"`,HS.scope_labels&&HS.scope_labels[k]||'')).join('');
  const windows=Object.keys(HOME_PERIODS).map(k=>hLink(c[k],HOME_PERIODS[k],`data-hperiod="${k}"`,c.labels&&c.labels[k]||'')).join('');
  const health=Array.isArray(HS.health)?HS.health:[];
  return head+(HSerr?'<div class="note">Обновление не удалось. Ниже сохранённые данные на указанное время.</div>':'')+
- `<section class="panel home-overview"><div class="home-overview-part"><h2>Состояние базы</h2><div class="tiles home-overview-tiles">${hLink(HS.total,'Всего карточек','data-hall="1"')}${hLink(HS.quality_total,'На проверке','data-hquality="1"')}</div><div class="note2">${esc(HS.scope_label||'Состав выборки указан под каждым типом. Архив отдельно.')}</div></div><div class="home-overview-part"><h2>Витрина</h2><div class="tiles home-overview-tiles">${hLink(sh.events,'Событий на витрине','data-svopen="1"','Флаг базы · открыть сверку с приложением')}${hLink(sh.places,'Мест на витрине','data-svopen="1"','Флаг базы · открыть сверку с приложением')}</div></div></section>
+ `<section class="panel home-overview"><div class="home-overview-part"><h2>Состояние базы</h2><div class="tiles home-overview-tiles">${hLink(HS.total,'Всего карточек','data-hall="1"')}${hLink(HS.quality_total,'На проверке','data-hquality="1"')}</div><div class="note2">${esc(HS.scope_label||'Состав выборки указан под каждым типом. Архив отдельно.')}</div></div><div class="home-overview-part"><h2>Витрина</h2><div class="tiles home-overview-tiles">${hLink(sh.events,'Событий на витрине','data-svopen="1"','Открыть витрину')}${hLink(sh.places,'Мест на витрине','data-svopen="1"','Открыть витрину')}</div>${showcaseStatus}</div></section>
  <section class="tiles">${types}</section>
  <section class="panel"><h2>Робот Афиша за сутки</h2><div class="note2">${f.from&&f.to?`${dtf(f.from)} — ${dtf(f.to)} · последние 24 часа`: 'Окно данных не получено'}</div><div class="tiles" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-top:14px">${hLink(f.raw,'Сырые','data-hbucket="raw"')}${hLink(f.base,'В базу','data-hbucket="base"')}${hLink(f.trash,'В корзине','data-hbucket="trash"')}</div>${f.processing||f.review?`<div class="row" style="margin-top:10px">${f.processing?`<button class="chip" data-hbucket="processing">В обработке: ${nf(f.processing)}</button>`:''}${f.review?`<button class="chip" data-hbucket="review">Ожидают решения: ${nf(f.review)}</button>`:''}</div>`:''}</section>
  <section><div class="row" style="justify-content:space-between;margin-bottom:10px"><h2>События по датам</h2><span class="note2">без кино · фильмов в прокате: ${hCount(c.films)}</span></div><div class="tiles">${windows}</div></section>
@@ -813,7 +815,7 @@ function homeDetail(){const r=HD;return `<button class="back" data-go="${S.homeR
 document.addEventListener('input',ev=>{if(ev.target.id!=='home-search')return;HSEARCH.q=ev.target.value;HSEARCH.seq++;HSEARCH.rows=[];HSEARCH.error='';HSEARCH.busy=false;clearTimeout(HSEARCH.timer);paintHomeSearch();HSEARCH.timer=setTimeout(runHomeSearch,250)});
 document.addEventListener('change',ev=>{if(ev.target.id==='home-search-mode'){HSEARCH.mode=ev.target.value;clearTimeout(HSEARCH.timer);runHomeSearch()}if(ev.target.id==='home-category'){HL.cat=ev.target.value;HL.offset=0;loadHomeList()}});
 document.addEventListener('click',ev=>{let t;
- if(ev.target.closest('[data-home-refresh]')){loadHomeSummary();return}
+ if(ev.target.closest('[data-home-refresh]')){loadHomeSummary();loadVisibleSnapshot(true);return}
  if(ev.target.closest('[data-hall]')){openHomeList({entity:'events'});return}
  if(ev.target.closest('[data-hquality]')){openHomeList({entity:'events',quality:true});return}
  if(t=ev.target.closest('[data-hlist]')){openHomeList({entity:t.dataset.hlist});return}
