@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Эстетика Афиши — разметка</title>
+<style>
+:root{--bg:#f6f4f5;--card:#fff;--ink:#1c1b1d;--ink2:#6b6870;--line:#e6e1e4;--accent:#c0127f;--accent2:#8f07a6;--ok:#1e7a48}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+main{max-width:860px;margin:0 auto;padding:20px 16px 120px}
+h1{font-size:22px;margin:0 0 4px}
+.sub{color:var(--ink2);margin:0 0 16px;font-size:14px}
+.bar{height:6px;background:var(--line);border-radius:6px;overflow:hidden;margin:6px 0 4px}
+.bar span{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));width:0;transition:width .3s}
+.meta{display:flex;justify-content:space-between;color:var(--ink2);font-size:13px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.opt{position:relative;background:var(--card);border:3px solid transparent;border-radius:16px;overflow:hidden;cursor:pointer;padding:0;text-align:left;font:inherit;color:inherit}
+.opt.sel{border-color:var(--accent)}
+.opt.dim{opacity:.45}
+.media{aspect-ratio:4/5;background:#ddd;display:block;width:100%;object-fit:cover}
+.cap{padding:8px 10px;font-size:13px;line-height:1.3}
+.cap b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cap small{color:var(--ink2)}
+.mark{position:absolute;top:8px;right:8px;background:var(--accent);color:#fff;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600;display:none}
+.opt.sel .mark{display:block}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.btn{border:1px solid var(--line);background:var(--card);border-radius:12px;padding:10px 14px;font:inherit;font-size:14px;cursor:pointer;color:var(--ink)}
+.btn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:20px;padding:6px 12px;font-size:13px;cursor:pointer}
+.chip.on{background:#fce4f3;border-color:var(--accent);color:var(--accent2)}
+.lbl{margin-top:16px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2)}
+textarea{width:100%;margin-top:8px;border:1px solid var(--line);border-radius:12px;padding:10px;font:inherit;min-height:54px;resize:vertical}
+.foot{position:fixed;left:0;right:0;bottom:0;background:rgba(246,244,245,.96);border-top:1px solid var(--line);padding:12px 16px calc(12px + env(safe-area-inset-bottom,0))}
+.foot div{max-width:860px;margin:0 auto;display:flex;gap:10px;align-items:center}
+.go{flex:1;border:0;border-radius:14px;padding:14px;font:inherit;font-weight:700;color:#fff;background:linear-gradient(90deg,var(--accent),var(--accent2));cursor:pointer}
+.go:disabled{opacity:.4}
+.skip{border:0;background:none;color:var(--ink2);font:inherit;cursor:pointer;padding:10px}
+.msg{background:var(--card);border-radius:16px;padding:20px;margin-top:20px}
+.msg a{color:var(--accent)}
+.err{color:#b00020;font-size:13px;margin-top:8px;min-height:18px}
+@media(min-width:700px){.pair{gap:16px}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Эстетика Афиши</h1>
+  <p class="sub">Какая обложка больше похожа на Афишу? Смысл и информация у пары одинаковые — выбираем по виду: свет, цвет, кадр, настроение. Из ответов собирается документ «Эстетика Афиши», по нему робот отбирает контент на витрину.</p>
+  <div id="app"><div class="msg">Загружаю…</div></div>
+</main>
+<div class="foot" id="foot" hidden><div>
+  <button class="skip" id="skip" type="button">Пропустить</button>
+  <button class="go" id="next" type="button" disabled>Дальше</button>
+</div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+const SUPA_URL="https://quzgkhzkrhdlyztzbgcc.supabase.co";
+const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1emdraHprcmhkbHl6dHpiZ2NjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2OTk1NzIsImV4cCI6MjEwNTI3NTU3Mn0.zA6OVgFkgUgXGwLTzgL9IdB7yMcRNJEIWWq-ZZGYACQ";
+const sb=supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
+const APP="https://afisha-kz-gpt.vercel.app";
+const PAIRS_PER_ROUND=40;
+const SUB_NAMES={standup:"Стендап",concerts:"Концерт",theater:"Театр",parties:"Вечеринка","master-class":"Мастер-класс",wellness:"Отдых",show:"Шоу",exhibitions:"Выставка",lectures:"Лекция",festivals:"Фестиваль",games:"Игры",food:"Еда",excursions:"Экскурсия",other:"Другое",restaurants:"Ресторан",cafes:"Кафе",bars:"Бар",reels:"Reels"};
+const REELS=[
+ ["euro-circus","Euro Circus"],["kaleo","KALEO"],["rafting","Рафтинг на Чилике"],["today-theatre","Спектакль «Чарли Гордон»"],
+ ["today-contemporary-music","Концерт современной музыки"],["today-sumerki","Вечеринка «Сумерки»"],["today-pumpkin","Фестиваль тыквы"],["today-spot-film","Кинофестиваль Spot"]
+].map(([f,t])=>({kind:"reels",sub:"reels",slug:"reels:"+f,title:t,img:APP+"/reels/posters/"+f+".webp",video:APP+"/reels/"+f+".mp4"}));
+const WHY=["Свет","Цвет","Живые люди","Атмосфера","Чистый кадр","Стильно","Темно","Дёшево смотрится","Много текста","Шаблонный дизайн","Плохое качество","Скучный кадр"];
+
+const $=s=>document.querySelector(s);
+const app=$("#app");
+let pairs=[],i=0,choice=null,why=new Set(),done=0;
+
+function shuffle(a){for(let k=a.length-1;k>0;k--){const j=Math.floor(Math.random()*(k+1));[a[k],a[j]]=[a[j],a[k]]}return a}
+function esc(s){return String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+
+async function start(){
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){app.innerHTML=`<div class="msg">Нужно войти в базу Афиши.<br><br><a href="../">Открыть базу и войти</a>, затем вернитесь на эту страницу.</div>`;return}
+  const email=(session.user.email||"").toLowerCase();
+  const {data:role}=await sb.from("aesthetic_editors").select("role").eq("email",email).maybeSingle();
+  if(!role){app.innerHTML=`<div class="msg">У аккаунта ${esc(email)} нет роли «Редактор витрины». Попросите добавить.</div>`;return}
+  const [{data:pool,error},{data:voted}]=await Promise.all([
+    sb.from("aesthetic_pool").select("kind,sub,slug,title,img").limit(3000),
+    sb.from("aesthetic_votes").select("left_slug,right_slug").limit(5000)
+  ]);
+  if(error){app.innerHTML=`<div class="msg">Не удалось загрузить обложки: ${esc(error.message)}</div>`;return}
+  const seen=new Set((voted||[]).flatMap(v=>[v.left_slug,v.right_slug]));
+  done=(voted||[]).length;
+  // Пары внутри одного типа: стендап со стендапом, бар с баром
+  const groups={};
+  for(const p of shuffle([...(pool||[]),...REELS])){if(seen.has(p.slug))continue;(groups[p.kind+"|"+p.sub]??=[]).push(p)}
+  const made=[];
+  const keys=shuffle(Object.keys(groups));
+  // По кругу берём по паре из каждого типа — чтобы было разнообразно
+  let more=true;
+  while(made.length<PAIRS_PER_ROUND&&more){more=false;for(const k of keys){const g=groups[k];if(g.length>=2&&made.length<PAIRS_PER_ROUND){made.push([g.pop(),g.pop()]);more=true}}}
+  pairs=made;
+  if(!pairs.length){app.innerHTML=`<div class="msg">Все пары размечены — спасибо! Всего ответов: ${done}.</div>`;return}
+  $("#foot").hidden=false;render();
+}
+
+function mediaHtml(p){
+  return p.video
+    ? `<video class="media" src="${esc(p.video)}" poster="${esc(p.img)}" muted loop playsinline preload="none" onmouseenter="this.play()" onmouseleave="this.pause()"></video>`
+    : `<img class="media" src="${esc(p.img)}" alt="" loading="lazy">`;
+}
+function render(){
+  const [L,R]=pairs[i];choice=null;why=new Set();
+  const pct=Math.round(i/pairs.length*100);
+  app.innerHTML=`
+   <div class="meta"><span>Пара ${i+1} из ${pairs.length} · ${esc(SUB_NAMES[L.sub]||L.sub)}</span><span>Всего ответов: ${done}</span></div>
+   <div class="bar"><span style="width:${pct}%"></span></div>
+   <div class="pair">
+     ${[L,R].map((p,k)=>`<button class="opt" type="button" data-side="${k?"right":"left"}">${mediaHtml(p)}<span class="mark">В духе Афиши</span><div class="cap"><b>${esc(p.title)}</b><small>${esc(SUB_NAMES[p.sub]||p.sub)}</small></div></button>`).join("")}
+   </div>
+   <div class="row">
+     <button class="btn" type="button" data-side="both">Обе подходят</button>
+     <button class="btn" type="button" data-side="none">Обе не подходят</button>
+   </div>
+   <div class="lbl">Почему (необязательно)</div>
+   <div class="row" id="why">${WHY.map(w=>`<button class="chip" type="button">${esc(w)}</button>`).join("")}</div>
+   <textarea id="note" placeholder="Своими словами — если хочется"></textarea>
+   <div class="err" id="err"></div>`;
+  app.querySelectorAll("[data-side]").forEach(b=>b.onclick=()=>pick(b.dataset.side));
+  app.querySelectorAll("#why .chip").forEach(c=>c.onclick=()=>{c.classList.toggle("on");c.classList.contains("on")?why.add(c.textContent):why.delete(c.textContent)});
+  app.querySelectorAll("video").forEach(v=>v.addEventListener("click",e=>{v.paused?v.play():v.pause()}));
+  $("#next").disabled=true;
+  window.scrollTo({top:0});
+}
+function pick(side){
+  choice=side;
+  app.querySelectorAll(".opt").forEach(o=>{const s=o.dataset.side;o.classList.toggle("sel",side===s||side==="both");o.classList.toggle("dim",side==="none"||(side!=="both"&&side!==s))});
+  app.querySelectorAll(".btn[data-side]").forEach(b=>b.classList.toggle("on",b.dataset.side===side));
+  $("#next").disabled=false;
+}
+async function save(){
+  const [L,R]=pairs[i];
+  $("#next").disabled=true;
+  const {error}=await sb.from("aesthetic_votes").insert({kind:L.kind,sub:L.sub,left_slug:L.slug,left_title:L.title,left_img:L.img,right_slug:R.slug,right_title:R.title,right_img:R.img,choice,reasons:[...why],note:$("#note").value.trim()||null});
+  if(error){$("#err").textContent="Не сохранилось: "+error.message;$("#next").disabled=false;return}
+  done++;next();
+}
+function next(){
+  i++;
+  if(i>=pairs.length){$("#foot").hidden=true;app.innerHTML=`<div class="msg"><b>Готово — спасибо!</b><br>Всего ответов: ${done}. Из них соберём первую версию «Эстетики Афиши».<br><br><a href="" onclick="location.reload();return false">Ещё 40 пар</a></div>`;return}
+  render();
+}
+$("#next").onclick=save;
+$("#skip").onclick=next;
+start();
+</script>
+</body>
+</html>
