@@ -598,6 +598,13 @@ const HOME_TYPES={events:'События',places:'Места',organizers:'Орг
 const HOME_PERIODS={today:'Сегодня',week:'Ближайшие 7 дней',month:'До конца месяца',quarter:'Ближайшие 3 месяца'};
 const HOME_HEALTH={ok:'Работает',failed:'Ошибка',stale:'Данные устарели',unknown:'Нет данных',never:'Нет успешных запусков',disabled:'Выключено',warning:'Требует внимания'};
 let HS=null,HSerr=null,HSbusy=false,HSseq=0;
+// Главная не перезагружается при каждом переходе (решение Кайрата 05.11.2026): числа держим,
+// пока не нажата «Обновить»; сами обновляем только при новом входе после 2 часов отсутствия.
+const HOME_CACHE_KEY='afdb:home:v1',HOME_STALE_MS=2*3600*1000;
+function homeCacheSave(){try{localStorage.setItem(HOME_CACHE_KEY,JSON.stringify({savedAt:Date.now(),hs:HS,sc:(typeof SC!=='undefined'&&SC.data)||null}))}catch{}}
+function homeCacheLoad(){try{const c=JSON.parse(localStorage.getItem(HOME_CACHE_KEY)||'null');if(c&&c.hs&&Date.now()-c.savedAt<HOME_STALE_MS)return c}catch{}return null}
+function homeStart(){const c=homeCacheLoad();if(c){HS=c.hs;if(c.sc)SC.data=c.sc;render();return}loadHomeSummary();}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState!=='visible'||HSbusy)return;let t=0;try{t=JSON.parse(localStorage.getItem(HOME_CACHE_KEY)||'null')?.savedAt||0}catch{}if(Date.now()-t>HOME_STALE_MS){loadHomeSummary();SC.err=false;loadShowcaseCounts()}});
 let HLFunnel=null;
 let HL={entity:'events',quality:false,period:'',cat:'',bucket:'',offset:0},HLdata=null,HLerr=null,HLbusy=false,HLseq=0;
 let HD=null,HDerr=null,HDbusy=false,HDseq=0,HSelection=null;
@@ -606,7 +613,7 @@ const hCount=n=>Number.isSafeInteger(n)&&n>=0?nf(n):'—';
 const hCats=()=>(HS&&Array.isArray(HS.categories)?HS.categories:CATS).filter(c=>c!=='Частные праздники');
 function hApiError(){return '<div class="note">Не удалось получить данные. Значение неизвестно, это не ноль.</div>'}
 function hLink(v,label,attrs,sub=''){return `<button class="tile" ${attrs}><span class="v">${hCount(v)}</span><span class="t">${esc(label)}</span>${sub?`<span class="s">${esc(sub)}</span>`:''}</button>`}
-async function loadHomeSummary(){const seq=++HSseq;HSbusy=true;HSerr=null;if(S.view==='home')render();try{const r=await homeSummaryRead();if(seq!==HSseq)return;if(!r||!r.counts||!r.quality_counts||Object.keys(HOME_TYPES).some(k=>!Number.isSafeInteger(r.counts[k])||r.counts[k]<0||!Number.isSafeInteger(r.quality_counts[k])||r.quality_counts[k]<0||r.quality_counts[k]>r.counts[k])||r.total!==Object.values(r.counts).reduce((a,b)=>a+b,0)||r.quality_total!==Object.values(r.quality_counts).reduce((a,b)=>a+b,0))throw Error('invalid summary');HS=r}catch(e){if(seq===HSseq)HSerr=e}finally{if(seq===HSseq){HSbusy=false;if(S.view==='home')render()}}}
+async function loadHomeSummary(){const seq=++HSseq;HSbusy=true;HSerr=null;if(S.view==='home')render();try{const r=await homeSummaryRead();if(seq!==HSseq)return;if(!r||!r.counts||!r.quality_counts||Object.keys(HOME_TYPES).some(k=>!Number.isSafeInteger(r.counts[k])||r.counts[k]<0||!Number.isSafeInteger(r.quality_counts[k])||r.quality_counts[k]<0||r.quality_counts[k]>r.counts[k])||r.total!==Object.values(r.counts).reduce((a,b)=>a+b,0)||r.quality_total!==Object.values(r.quality_counts).reduce((a,b)=>a+b,0))throw Error('invalid summary');HS=r;homeCacheSave()}catch(e){if(seq===HSseq)HSerr=e}finally{if(seq===HSseq){HSbusy=false;if(S.view==='home')render()}}}
 function homeSearchResults(){return HSEARCH.busy?'<div class="note2" role="status">Ищу…</div>':HSEARCH.error?'<div class="note2">Поиск недоступен. Повторите ввод.</div>':HSEARCH.rows.length?`<div class="ailinks">${HSEARCH.rows.map(r=>`<button class="btn" data-hopen="${esc(r.entity)}" data-hid="${esc(r.id)}" style="text-align:left;justify-content:flex-start"><b>${esc(r.name||r.title||'Без названия')}</b> · ${esc(HOME_TYPES[r.entity]||r.entity)} · ${esc(r.id)}</button>`).join('')}</div>`:HSEARCH.q.trim().length>=2?'<div class="note2">По собственному названию или ID ничего не найдено.</div>':''}
 function homeSearch(){return `<section class="panel"><div class="row"><label class="f" style="flex:1"><span class="lbl">Поиск карточки</span><input id="home-search" autocomplete="off" value="${esc(HSEARCH.q)}" placeholder="Начните название или введите ID"></label><label class="f"><span class="lbl">Тип поиска</span><select id="home-search-mode"><option value="entities"${HSEARCH.mode==='entities'?' selected':''}>Места, организаторы, перформеры</option><option value="events"${HSEARCH.mode==='events'?' selected':''}>События</option></select></label></div><div id="home-search-results" aria-live="polite">${homeSearchResults()}</div></section>`}
 function paintHomeSearch(){const el=document.getElementById('home-search-results');if(el&&S.view==='home')el.innerHTML=homeSearchResults()}
@@ -730,17 +737,10 @@ function svEditorialNote(d){
  return out;
 }
 function svVisiblePanel(){
- if(!SVV.data&&!SVV.busy&&!SVV.error)loadVisibleSnapshot();
- const d=SVV.data;
- const title='<h2>Доступно в приложении</h2>';
- if(SVV.busy&&!d)return '<section class="panel" data-svv-panel="loading">'+title+'<div class="empty" role="status">Проверяю состав публичной витрины…</div></section>';
- if(SVV.error&&!d)return '<section class="panel" data-svv-panel="error">'+title+'<div class="note" role="alert">Не удалось получить подтверждённый снимок. Итоги неизвестны, это не ноль. Числа каталога ниже не заменяют состав витрины.</div><button class="btn" data-svvrefresh="1">Повторить проверку</button></section>';
- if(!d)return '';
- const allComplete=['events','places'].every(k=>d.verified_coverage[k]==='complete');
- const notes=[d.public_totals.reason,...d.warnings.map(x=>typeof x==='string'?x:x?.message||x?.label)].filter(svvText);
- const subset=allComplete?'':`<section class="panel" data-svv-subset="1"><h2>Подтверждено в публичных каталогах</h2><div class="note">Это проверенная часть, не общий итог витрины.</div><div class="tiles" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:14px">${['events','places'].map(entity=>svTile(entity==='events'?'События':'Места',d.verified_subset[entity],`data-svvsubset="${entity}"`,'Открыть проверенный список')).join('')}</div><div class="note2">Число и список взяты из одного снимка. Неразрешённые соответствия перечислены ниже и не увеличивают эти числа.</div></section>`;
- const tile=entity=>{const total=d.verified_totals[entity],label=entity==='events'?'событий':'мест';if(total===null)return `<div class="tile"><span class="v">—</span><span class="t">${label}</span></div>`;const ed=(d.rowsByEntity&&d.rowsByEntity[entity]||[]).filter(r=>r.kind==='editorial'&&!r.physical_identity);return `<div class="tile" style="cursor:default"><button class="lnk" data-svvlist="${entity}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;gap:6px"><span class="v">${svCount(total)}</span><span class="t">${label}</span></button>${ed.length?`<details style="font-size:13px;color:var(--ink2)"><summary style="cursor:pointer">${nf(ed.length)} ${entity==='events'?(ed.length===1?'событие':ed.length<5?'события':'событий'):'мест'} без карточки в базе</summary><ul style="margin:6px 0 0;padding-left:18px">${ed.map(r=>'<li>'+esc(r.title)+'</li>').join('')}</ul></details>`:''}</div>`};
- return `<section class="panel" data-svv-panel="${allComplete?'complete':'incomplete'}"><h2>Доступно в приложении</h2><div class="tiles" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:14px">${tile('events')}${tile('places')}</div>${allComplete?'':'<div class="note">Сверка неполная.</div>'}</section>`+subset;
+ // Числа приложения — те же, что на главной; тяжёлая проверка сайта больше не запускается сама (05.11.2026)
+ if(!SC.data&&!SC.busy&&!SC.err)loadShowcaseCounts();
+ const sc=SC.data||{};
+ return `<section class="panel"><h2>Доступно в приложении</h2><div class="tiles" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:14px">${svTile('События',sc.events,'data-hlist="events"')}${svTile('Места',sc.places,'data-hlist="places"')}</div></section>`;
 }
 
 function openVisibleList(entity,subset=false){
@@ -813,7 +813,7 @@ document.addEventListener('click',ev=>{if(ev.target.closest('[data-svdetailretry
 // Блок «Витрина» на главной: сколько событий и мест сейчас в приложении (решение Кайрата 05.11.2026).
 // Считается по тем же данным, что читает приложение, — без проверки сборки сайта.
 let SC={data:null,busy:false,err:false};
-function loadShowcaseCounts(){if(SC.busy)return;SC.busy=true;sb.rpc('app_showcase_counts').then(({data,error})=>{SC.data=error?SC.data:data;SC.err=!!error}).catch(()=>{SC.err=true}).finally(()=>{SC.busy=false;if(S.view==='home')render()})}
+function loadShowcaseCounts(){if(SC.busy)return;SC.busy=true;sb.rpc('app_showcase_counts').then(({data,error})=>{SC.data=error?SC.data:data;SC.err=!!error;if(!error)homeCacheSave()}).catch(()=>{SC.err=true}).finally(()=>{SC.busy=false;if(S.view==='home')render()})}
 function home(){
  if(HS&&!SC.data&&!SC.busy&&!SC.err)loadShowcaseCounts();
  const head=`<div class="head"><div><h1>Главная</h1></div><div><div class="row"><button class="btn" data-home-refresh="1"${HSbusy?' disabled':''}>${HSbusy?'Обновляю…':'Обновить'}</button><button class="btn pri aibtn" data-aiopen="1" aria-expanded="${AI.open}">✦ Ассистент базы</button></div>${HS?`<div class="updated">Обновлено ${dtf(HS.at)}</div>`:''}</div></div>${AI.open?aiPanel():''}`;
@@ -2075,7 +2075,7 @@ document.addEventListener("click",ev=>{
 
 window.addEventListener("beforeunload",ev=>{if((S.view==="evcard"&&(ECsave||evDirty()))||(S.view==="plcard"&&(PCsave||(PD&&PC&&JSON.stringify(PD)!==JSON.stringify(pdraftOf(PC)))))){ev.preventDefault();ev.returnValue=""}});
 APP_CAN_LEAVE=()=>{if(ECsave||PCsave)return false;return !(evDirty()||(PD&&PC&&JSON.stringify(PD)!==JSON.stringify(pdraftOf(PC))))||window.confirm("Есть несохранённые правки. Уйти без сохранения?")};
-render();loadStats();loadHomeSummary();
+render();loadStats();homeStart();
 apiCall("legacy_data",{}).then(r=>{EV=r.events||[];PL=r.places||[];render()}).catch(()=>toast("Не удалось загрузить сводные счётчики. Рабочие реестры доступны отдельно."));
 
 }
