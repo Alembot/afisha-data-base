@@ -255,6 +255,7 @@ tr.grp td{background:var(--bg);font-weight:700;font-size:12px;letter-spacing:.06
 }
 /* верхняя строка вместо бокового меню */
 .top{background:var(--nav);position:sticky;top:0;z-index:30;padding-top:env(safe-area-inset-top,0px)}
+.tlink{text-decoration:none}.tlc{display:inline-block;min-width:0;margin-left:2px;color:var(--accent,#c0127f);font-weight:700}
 .topin{display:flex;justify-content:space-between;align-items:center;gap:8px 16px;flex-wrap:wrap;padding-block:10px;padding-inline:clamp(16px,3.5vw,44px)}
 button.brand{background:none;border:0;cursor:pointer;padding:6px 0;margin:0;font-size:18px}
 .tlinks{display:flex;gap:4px;flex-wrap:wrap}
@@ -499,11 +500,20 @@ function go(view,arg,patch){
  svVisibleNavigate(S.view,view);
  S.view=view;S.arg=arg??null;if(patch)Object.assign(S,patch);$("#nav").classList.remove("open");render();window.scrollTo(0,0);return true}
 function navHtml(){const on=v=>S.view===v||(v==="docs"&&S.view==="doc")?" on":"";
-return `<button class="brand" data-go="home" aria-label="На главную">афиша<i>.</i>data</button><span class="tlinks"><button class="tl${["showcase","showcaseList","showcaseDetail"].includes(S.view)?" on":""}" data-svopen="1">Витрина</button><button class="tl${on("pick")}" data-go="pick">Отбор</button><button class="tl${on("sources")}" data-go="sources">Источники</button><button class="tl${on("robot")}" data-go="robot">Робот</button><button class="tl${on("dirs")}" data-go="dirs">Справочники и правила</button><button class="tl${on("docs")}" data-go="docs">Инструкции</button></span>`}
+return `<button class="brand" data-go="home" aria-label="На главную">афиша<i>.</i>data</button><span class="tlinks"><button class="tl${["showcase","showcaseList","showcaseDetail"].includes(S.view)?" on":""}" data-svopen="1">Витрина</button><a class="tl tlink" href="soglasovanie-reels/" title="Очередь Reels для «Чем заняться»">Согласовать Reels<span class="tlc" id="reels-count"></span></a><button class="tl${on("pick")}" data-go="pick">Отбор</button><button class="tl${on("sources")}" data-go="sources">Источники</button><button class="tl${on("robot")}" data-go="robot">Робот</button><button class="tl${on("dirs")}" data-go="dirs">Справочники и правила</button><button class="tl${on("docs")}" data-go="docs">Инструкции</button></span>`}
 
+// Сколько Reels ждут согласования — число на пункте меню (05.11.2026)
+let REELS_N=null,REELS_AT=0;
+function reelsCount(){
+  const put=()=>{const el=document.getElementById("reels-count");if(el)el.textContent=REELS_N?` ${REELS_N}`:""};
+  put();
+  if(Date.now()-REELS_AT<60000)return;REELS_AT=Date.now();
+  sb.from("reels_queue").select("id",{count:"exact",head:true}).eq("status","review").then(({count})=>{REELS_N=count||0;put()}).catch(()=>{});
+}
 function render(force=false){
   if(!force&&S.view==="evcard"&&(ECsave||evDirty()))return;
   $("#nav").innerHTML=navHtml();
+  reelsCount();
   const m=$("#main");
   if(S.view!=="showcase"&&S.view!=="showcaseList"&&S.view!=="showcaseDetail"&&S.view!=="homeList"&&S.view!=="homeDetail"&&S.view!=="home"&&S.view!=="dirs"&&S.view!=="events"&&S.view!=="evcard"&&S.view!=="places"&&S.view!=="plcard"&&S.view!=="sources"&&S.view!=="robot"&&S.view!=="pick"&&!loaded.e){m.innerHTML=db===false?`<div class="empty">Раздел требует загрузки данных рабочей базы.</div>`:`<div class="empty">Загружаю базу…</div>`;return}
   const V={home,homeList,homeDetail,showcase,showcaseList,showcaseDetail,events:eventsLive,evcard:evCardLive,eventsOld:events,places:placesLive,plcard:plCardLive,robot:robotView,pick:pickView,placesOld:places,category,event:eventCard,place:placeCard,queue,dirs,docs,sources,doc:docView}[S.view]||home;
