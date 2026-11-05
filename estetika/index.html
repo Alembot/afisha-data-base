@@ -148,7 +148,7 @@ function next(){
 }
 $("#next").onclick=save;
 $("#skip").onclick=next;
-start();
+start().catch(e=>{app.innerHTML=`<div class="msg">Сервер не ответил. <a href="" onclick="location.reload();return false">Обновить</a><br><small>${esc(e&&e.message)}</small></div>`});
 </script>
 </body>
 </html>
