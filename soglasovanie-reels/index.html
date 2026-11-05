@@ -32,6 +32,12 @@ select{width:100%;margin-top:6px;border:1px solid var(--line);border-radius:12px
 .acts button:disabled{opacity:.4}
 .msg{background:var(--card);border-radius:16px;padding:20px;margin-top:12px}
 .msg a{color:var(--accent)}
+.evbox{background:#fce4f3;border-radius:16px;padding:12px 14px;margin-top:10px;display:flex;flex-direction:column;gap:2px}
+.evbox span{font-size:12px;color:var(--ink2)}
+.evbox b{font-size:16px}
+.evbox small{font-size:12px;color:var(--accent2);margin-top:4px}
+.evchange{margin-top:8px;font-size:13px;color:var(--ink2)}
+.evchange select{margin-top:6px}
 .err{color:var(--bad);font-size:13px;margin-top:8px;min-height:18px}
 </style>
 </head>
@@ -61,7 +67,7 @@ async function start(){
   const {data:role}=await sb.from("aesthetic_editors").select("role").eq("email",email).maybeSingle();
   if(!role){app.innerHTML=`<div class="msg">У аккаунта ${esc(email)} нет роли «Редактор витрины».</div>`;return}
   const [{data:q,error},{data:ev}]=await Promise.all([
-    sb.from("reels_queue").select("id,account,caption,post_url,taken_at,video_path,poster_path,event_id").eq("status","review").order("taken_at",{ascending:false}).limit(100),
+    sb.from("reels_queue").select("id,account,caption,post_url,taken_at,video_path,poster_path,event_id,match_reason").eq("status","review").not("matched_at","is",null).not("event_id","is",null).order("taken_at",{ascending:false}).limit(100),
     sb.from("reels_queue_events").select("queue_id,event_id,title,date_start").order("date_start").limit(2000)
   ]);
   if(error){app.innerHTML=`<div class="msg">Не удалось загрузить очередь: ${esc(error.message)}</div>`;return}
@@ -70,23 +76,27 @@ async function start(){
   render();
 }
 function render(){
-  if(i>=items.length){app.innerHTML=`<div class="msg"><b>Очередь пуста.</b><br>Новые Reels робот добавляет сам, когда находит свежие видео площадок с будущими событиями. <a href="" onclick="location.reload();return false">Обновить</a></div>`;return}
+  if(i>=items.length){app.innerHTML=`<div class="msg"><b>Очередь пуста.</b><br>Робот показывает только ролики, которые точно про конкретное будущее событие. Новые появляются каждое утро после сбора. <a href="" onclick="location.reload();return false">Обновить</a></div>`;return}
   const r=items[i];why=new Set();
   const opts=(events[r.id]||[]).filter((e,k,a)=>a.findIndex(x=>x.event_id===e.event_id)===k);
   app.innerHTML=`
    <div class="meta"><span>${i+1} из ${items.length}</span><span>${r.taken_at?fmt(r.taken_at):""}</span></div>
    <div class="player"><video id="v" src="${FILES+esc(r.video_path)}" ${r.poster_path?`poster="${FILES+esc(r.poster_path)}"`:""} autoplay muted loop playsinline></video><button class="sound" id="snd" type="button">Звук</button></div>
    <div class="info"><b>@${esc(r.account)}</b><p>${esc(r.caption)}</p>${r.post_url?`<a href="${esc(r.post_url)}" target="_blank" rel="noopener">Открыть в Instagram</a>`:""}</div>
-   <label>К какому событию</label>
-   <select id="ev">${opts.length?opts.map(e=>`<option value="${e.event_id}" ${e.event_id===r.event_id?"selected":""}>${esc(e.title)} · ${fmt(e.date_start)}</option>`).join(""):`<option value="">Будущих событий площадки нет</option>`}</select>
+   <div class="evbox" id="evbox"></div>
+   <details class="evchange"><summary>Другое событие</summary><select id="ev">${opts.map(e=>`<option value="${e.event_id}" ${e.event_id===r.event_id?"selected":""}>${esc(e.title)} · ${fmt(e.date_start)}</option>`).join("")}</select></details>
    <label>Почему (необязательно)</label>
    <div class="row" id="why">${WHY.map(w=>`<button class="chip" type="button">${esc(w)}</button>`).join("")}</div>
    <div class="acts"><button class="yes" data-d="approved" type="button">Да</button><button class="no" data-d="rejected" type="button">Нет</button><button class="style" data-d="style" type="button">Не наша эстетика</button></div>
    <div class="err" id="err"></div>`;
+  const evSel=document.getElementById("ev");
+  const showEv=()=>{const e=opts.find(x=>x.event_id===evSel.value);document.getElementById("evbox").innerHTML=e?`<span>Ролик будет на карточке события</span><b>${esc(e.title)}</b><span>${fmt(e.date_start)}</span>${r.match_reason?`<small>Робот: ${esc(r.match_reason)}</small>`:""}`:"<b>Событие не выбрано</b>";app.querySelector(".yes").disabled=!e};
+  evSel.onchange=showEv;
   const v=document.getElementById("v");
   document.getElementById("snd").onclick=()=>{v.muted=!v.muted;document.getElementById("snd").textContent=v.muted?"Звук":"Без звука";v.play()};
   app.querySelectorAll("#why .chip").forEach(c=>c.onclick=()=>{c.classList.toggle("on");c.classList.contains("on")?why.add(c.textContent):why.delete(c.textContent)});
   app.querySelectorAll(".acts button").forEach(b=>b.onclick=()=>decide(b.dataset.d));
+  showEv();
 }
 async function decide(d){
   const r=items[i];
