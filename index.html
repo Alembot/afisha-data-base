@@ -781,7 +781,7 @@ const SV_PERIODS={all:'Всё',today:'Сегодня',tomorrow:'Завтра',we
 function svCount(n){return Number.isSafeInteger(n)&&n>=0?nf(n):'—'}
 function svError(){return '<div class="note">Не удалось получить данные. Счётчики неизвестны, это не ноль.</div>'}
 function svTile(title,count,attrs,sub=''){return `<button class="tile" ${attrs}><span class="v">${svCount(count)}</span><span class="t">${esc(title)}</span>${sub?`<span class="s">${esc(sub)}</span>`:''}</button>`}
-async function loadShowcase(){const seq=++SV.seq;SV.busy=true;SV.error=null;SV.data=null;if(S.view==='showcase')render();try{const r=await svSummaryRead();if(seq!==SV.seq)return;if(!r||!r.inventory)throw Error('Invalid showcase summary');SV.data=r}catch(e){if(seq===SV.seq)SV.error=e}finally{if(seq===SV.seq){SV.busy=false;if(S.view==='showcase')render()}}}
+async function loadShowcase(){const seq=++SV.seq;SV.busy=true;SV.error=null;SV.data=null;if(S.view==='showcase')render();try{const r=await svSummaryRead();if(seq!==SV.seq)return;if(!r||!r.inventory)throw Error('Invalid showcase summary');SV.data=r}catch(e){if(seq===SV.seq)SV.error=e}finally{if(seq===SV.seq){SV.busy=false;if(['showcase','showcasePlaces','showcaseEvents'].includes(S.view))render()}}}
 function svPeriodControls(){return `<div class="row" style="margin:14px 0">${Object.entries(SV_PERIODS).map(([k,label])=>`<button class="chip${SV.period===k?' on':''}" data-svperiod="${k}">${label}${k!=='date'?' · '+svCount(k==='all'?SV.data?.inventory.events:(SV.data?.periods||[]).find(x=>x.key===k)?.count):''}</button>`).join('')}${SV.period==='date'?`<label class="f"><span class="lbl">Дата · Алматы</span><input id="sv-date" type="date" value="${esc(SV.date)}"></label>`:''}</div>`}
 // Витрина → Места / События: сразу плитки категорий с числами, внутри — реестр (решение Кайрата 05.11.2026)
 let SV_RET='showcase';
@@ -825,7 +825,7 @@ document.addEventListener('click',ev=>{if(ev.target.closest('[data-svdetailretry
 // Блок «Витрина» на главной: сколько событий и мест сейчас в приложении (решение Кайрата 05.11.2026).
 // Считается по тем же данным, что читает приложение, — без проверки сборки сайта.
 let SC={data:null,busy:false,err:false};
-function loadShowcaseCounts(){if(SC.busy)return;SC.busy=true;sb.rpc('app_showcase_counts').then(({data,error})=>{SC.data=error?SC.data:data;SC.err=!!error;if(!error)homeCacheSave()}).catch(()=>{SC.err=true}).finally(()=>{SC.busy=false;if(S.view==='home')render()})}
+function loadShowcaseCounts(){if(SC.busy)return;SC.busy=true;sb.rpc('app_showcase_counts').then(({data,error})=>{SC.data=error?SC.data:data;SC.err=!!error;if(!error)homeCacheSave()}).catch(()=>{SC.err=true}).finally(()=>{SC.busy=false;if(['home','showcase'].includes(S.view))render()})}
 function home(){
  if(HS&&!SC.data&&!SC.busy&&!SC.err)loadShowcaseCounts();
  const head=`<div class="head"><div><h1>Главная</h1></div><div><div class="row"><button class="btn" data-home-refresh="1"${HSbusy?' disabled':''}>${HSbusy?'Обновляю…':'Обновить'}</button><button class="btn pri aibtn" data-aiopen="1" aria-expanded="${AI.open}">✦ Ассистент базы</button></div>${HS?`<div class="updated">Обновлено ${dtf(HS.at)}</div>`:''}</div></div>${AI.open?aiPanel():''}`;
