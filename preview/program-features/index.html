@@ -154,6 +154,10 @@ main{flex:1;min-width:0;padding-block:28px 60px;padding-inline:clamp(16px,3.5vw,
 @media (max-width:560px){.srow{grid-template-columns:14px 1fr auto}.srow .wh{grid-column:2 / -1;grid-row:2}}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px}
 /* Home overview: database and showcase share the first panel. */
+.home-top{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:16px}
+.home-top .panel{margin:0}
+.updated{font-size:12px;color:var(--ink2);margin-top:6px;text-align:right}
+@media(max-width:700px){.home-top{grid-template-columns:1fr}}
 .home-overview{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0}
 .home-overview-part{min-width:0;padding-right:20px}
 .home-overview-part+.home-overview-part{border-left:1px solid var(--line);padding:0 0 0 20px}
@@ -806,20 +810,24 @@ async function openShowcaseCard(row,entity){if(row.kind==='editorial'){openVisib
 function showcaseCatalogDetail(x){const c=x.card;const head='<button class="back" data-go="showcaseList">← К выбранному списку</button>'+svVisibleDetailNote();if(x.busy)return head+'<div class="empty">Загружаю карточку…</div>';if(x.error)return head+svError()+'<button class="btn" data-svdetailretry="1">Повторить</button>';if(!c)return head;const place=x.entity==='places';const fields=place?{'Тип':c.type,'Категория':c.cat,'Адрес':c.addr,'Район':c.district,'Статус':c.status}:{'Тип':c.type,'Категория':c.cat,'Возраст':c.age,'Язык':c.language,'Цена от':c.price_from,'Цена до':c.price_to,'Статус':c.status};return head+`<section class="panel"><div class="lbl">${place?'Место':'Событие'} · ${esc(c.id)} · просмотр</div><h1>${esc(c.title||c.name||x.row.title)}</h1><div class="fields">${Object.entries(fields).map(([label,val])=>`<div class="f"><span class="lbl">${esc(label)}</span><span>${esc(val==null||val===''?'Не определено':val)}</span></div>`).join('')}</div>${c.descr||c.spec?`<p style="white-space:pre-wrap">${esc(c.descr||c.spec)}</p>`:''}${Array.isArray(c.dates)&&c.dates.length?`<h2>Даты</h2><p>${c.dates.map(d=>esc(d.at?dtf(d.at):'Дата не определена')).join('<br>')}</p>`:''}${x.row.public_url?svExternal(x.row.public_url,'Карточка в приложении ↗'):''}<div style="margin-top:12px">${svExternal(c.url||c.site||c.social,'Первоисточник ↗')}</div></section>`}
 document.addEventListener('click',ev=>{if(ev.target.closest('[data-svdetailretry]')&&SVD?.row)openShowcaseCard(SVD.row,SVD.entity)});
 
+// Блок «Витрина» на главной: сколько событий и мест сейчас в приложении (решение Кайрата 05.11.2026).
+// Считается по тем же данным, что читает приложение, — без проверки сборки сайта.
+let SC={data:null,busy:false,err:false};
+function loadShowcaseCounts(){if(SC.busy)return;SC.busy=true;sb.rpc('app_showcase_counts').then(({data,error})=>{SC.data=error?SC.data:data;SC.err=!!error}).catch(()=>{SC.err=true}).finally(()=>{SC.busy=false;if(S.view==='home')render()})}
 function home(){
- if(HS&&!SVV.data&&!SVV.busy&&!SVV.error)loadVisibleSnapshot();
- const head=`<div class="head"><div><div class="lbl">Алматы${HS?` · данные на ${dtf(HS.at)}`:''}</div><h1>Главная</h1></div><div class="row"><button class="btn" data-home-refresh="1"${HSbusy||SVV.busy?' disabled':''}>${HSbusy||SVV.busy?'Обновляю…':'Обновить'}</button><button class="btn pri aibtn" data-aiopen="1" aria-expanded="${AI.open}">✦ Ассистент базы</button></div></div>${AI.open?aiPanel():''}`;
+ if(HS&&!SC.data&&!SC.busy&&!SC.err)loadShowcaseCounts();
+ const head=`<div class="head"><div><h1>Главная</h1></div><div><div class="row"><button class="btn" data-home-refresh="1"${HSbusy?' disabled':''}>${HSbusy?'Обновляю…':'Обновить'}</button><button class="btn pri aibtn" data-aiopen="1" aria-expanded="${AI.open}">✦ Ассистент базы</button></div>${HS?`<div class="updated">Обновлено ${dtf(HS.at)}</div>`:''}</div></div>${AI.open?aiPanel():''}`;
  if(!HS)return head+(HSerr?hApiError()+`<button class="btn" data-home-refresh="1">Повторить</button>`:'<div class="empty" role="status">Загружаю состояние базы…</div>');
  const f=HS.funnel||{},c=HS.calendar||{},sh=SVV.data?.verified_totals||{};
- const showcaseStatus=SVV.data?svVisibleFreshness(SVV.data)+(['events','places'].some(k=>SVV.data.verified_totals[k]===null)?'<div class="note2">Полный итог не подтверждён. Подробности доступны в витрине.</div>':''):SVV.error?'<div class="note" role="alert">Не удалось подтвердить состав витрины. Итоги неизвестны, это не ноль. <button class="btn" data-svvrefresh="1">Повторить проверку</button></div>':'<div class="note2" role="status">Проверяю состав публичной витрины…</div>';
- const types=Object.keys(HOME_TYPES).map(k=>hLink(HS.counts[k],HOME_TYPES[k],`data-hlist="${k}"`,HS.scope_labels&&HS.scope_labels[k]||'')).join('');
- const windows=Object.keys(HOME_PERIODS).map(k=>hLink(c[k],HOME_PERIODS[k],`data-hperiod="${k}"`,c.labels&&c.labels[k]||'')).join('');
+ const sc=SC.data||{};
+ const types=Object.keys(HOME_TYPES).map(k=>hLink(HS.counts[k],HOME_TYPES[k],`data-hlist="${k}"`)).join('');
+ const windows=Object.keys(HOME_PERIODS).map(k=>hLink(c[k],HOME_PERIODS[k],`data-hperiod="${k}"`)).join('');
  const health=Array.isArray(HS.health)?HS.health:[];
  return head+(HSerr?'<div class="note">Обновление не удалось. Ниже сохранённые данные на указанное время.</div>':'')+
- `<section class="panel home-overview"><div class="home-overview-part"><h2>Состояние базы</h2><div class="tiles home-overview-tiles">${hLink(HS.total,'Всего карточек','data-hall="1"')}${hLink(HS.quality_total,'На проверке','data-hquality="1"')}</div><div class="note2">${esc(HS.scope_label||'Состав выборки указан под каждым типом. Архив отдельно.')}</div></div><div class="home-overview-part"><h2>Витрина</h2><div class="tiles home-overview-tiles">${hLink(sh.events,'Событий на витрине','data-svopen="1"','Открыть витрину')}${hLink(sh.places,'Мест на витрине','data-svopen="1"','Открыть витрину')}</div>${showcaseStatus}</div></section>
+ `<div class="home-top"><section class="panel"><h2>Состояние базы</h2><div class="tiles home-overview-tiles">${hLink(HS.total,'Всего карточек','data-hall="1"')}${hLink(HS.quality_total,'На проверке','data-hquality="1"')}</div></section><section class="panel"><h2>Витрина</h2><div class="tiles home-overview-tiles">${hLink(sc.events,'Событий в приложении','data-svopen="1"')}${hLink(sc.places,'Мест в приложении','data-svopen="1"')}</div>${SC.err&&!SC.data?'<div class="note2">Не удалось получить числа. <button class="btn" data-home-refresh="1">Повторить</button></div>':''}</section></div>
  <section class="tiles">${types}</section>
- <section class="panel"><h2>Робот Афиша за сутки</h2><div class="note2">${f.from&&f.to?`${dtf(f.from)} — ${dtf(f.to)} · последние 24 часа`: 'Окно данных не получено'}</div><div class="tiles" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-top:14px">${hLink(f.raw,'Сырые','data-hbucket="raw"')}${hLink(f.base,'В базу','data-hbucket="base"')}${hLink(f.trash,'В корзине','data-hbucket="trash"')}</div>${f.processing||f.review?`<div class="row" style="margin-top:10px">${f.processing?`<button class="chip" data-hbucket="processing">В обработке: ${nf(f.processing)}</button>`:''}${f.review?`<button class="chip" data-hbucket="review">Ожидают решения: ${nf(f.review)}</button>`:''}</div>`:''}</section>
- <section><div class="row" style="justify-content:space-between;margin-bottom:10px"><h2>События по датам</h2><span class="note2">без кино · фильмов в прокате: ${hCount(c.films)}</span></div><div class="tiles">${windows}</div></section>
+ <section class="panel"><h2>Робот Афиша за сутки</h2><div class="tiles" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-top:14px">${hLink(f.raw,'Сырые','data-hbucket="raw"')}${hLink(f.base,'В базу','data-hbucket="base"')}${hLink(f.trash,'В корзине','data-hbucket="trash"')}</div>${f.processing||f.review?`<div class="row" style="margin-top:10px">${f.processing?`<button class="chip" data-hbucket="processing">В обработке: ${nf(f.processing)}</button>`:''}${f.review?`<button class="chip" data-hbucket="review">Ожидают решения: ${nf(f.review)}</button>`:''}</div>`:''}</section>
+ <section><div class="row" style="justify-content:space-between;margin-bottom:10px"><h2>События по датам</h2><span class="note2">Фильмов в прокате: ${hCount(c.films)}</span></div><div class="tiles">${windows}</div></section>
  <section class="panel"><h2>Состояние робота</h2><div class="tiles" style="margin-top:14px">${health.map(r=>`<button class="tile" data-go="robot"><span class="pill ${r.state==='ok'?'':r.state==='failed'?'bad':'warn'}">${esc(HOME_HEALTH[r.state]||HOME_HEALTH.unknown)}</span><span class="t">${esc(r.label)}</span>${r.last_success?`<span class="s">Успех: ${dtf(r.last_success)}</span>`:''}</button>`).join('')||'<div class="note2">Состояние функций неизвестно.</div>'}</div></section>`;
 }
 function hListTitle(){return HL.bucket?({raw:'Сырые записи',base:'В базу',trash:'В корзине',processing:'В обработке',review:'Ожидают решения'}[HL.bucket]):HL.quality?'На проверке':HOME_TYPES[HL.entity]||'Карточки базы'}
@@ -836,7 +844,7 @@ function homeDetail(){const r=HD;return `<button class="back" data-go="${S.homeR
 document.addEventListener('input',ev=>{if(ev.target.id!=='home-search')return;HSEARCH.q=ev.target.value;HSEARCH.seq++;HSEARCH.rows=[];HSEARCH.error='';HSEARCH.busy=false;clearTimeout(HSEARCH.timer);paintHomeSearch();HSEARCH.timer=setTimeout(runHomeSearch,250)});
 document.addEventListener('change',ev=>{if(ev.target.id==='home-search-mode'){HSEARCH.mode=ev.target.value;clearTimeout(HSEARCH.timer);runHomeSearch()}if(ev.target.id==='home-category'){HL.cat=ev.target.value;HL.offset=0;loadHomeList()}});
 document.addEventListener('click',ev=>{let t;
- if(ev.target.closest('[data-home-refresh]')){loadHomeSummary();loadVisibleSnapshot(true);return}
+ if(ev.target.closest('[data-home-refresh]')){loadHomeSummary();SC.err=false;loadShowcaseCounts();return}
  if(ev.target.closest('[data-hall]')){openHomeList({entity:'events'});return}
  if(ev.target.closest('[data-hquality]')){openHomeList({entity:'events',quality:true});return}
  if(t=ev.target.closest('[data-hlist]')){openHomeList({entity:t.dataset.hlist});return}
