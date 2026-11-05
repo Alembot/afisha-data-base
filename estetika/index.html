@@ -17,13 +17,20 @@ h1{font-size:22px;margin:0 0 4px}
 .pair{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
 .opt{position:relative;background:var(--card);border:3px solid transparent;border-radius:16px;overflow:hidden;cursor:pointer;padding:0;text-align:left;font:inherit;color:inherit}
 .opt.sel{border-color:var(--accent)}
-.opt.dim{opacity:.45}
 .media{aspect-ratio:4/5;background:#ddd;display:block;width:100%;object-fit:cover}
 .cap{padding:8px 10px;font-size:13px;line-height:1.3}
 .cap b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cap small{color:var(--ink2)}
 .mark{position:absolute;top:8px;right:8px;background:var(--accent);color:#fff;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600;display:none}
-.opt.sel .mark{display:block}
+.opt.sel .mark:not(.no){display:block}
+.mark.no{background:#4a4650}
+.opt.dim .mark.no{display:block}
+.opt.dim{opacity:.55}
+.col{display:flex;flex-direction:column;min-width:0}
+.why .lbl{margin-top:8px;font-size:11px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.chips .chip{font-size:12px;padding:5px 10px}
+.chip.bad.on{background:#f1e9e9;border-color:#b00020;color:#8a0019}
 .row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .btn{border:1px solid var(--line);background:var(--card);border-radius:12px;padding:10px 14px;font:inherit;font-size:14px;cursor:pointer;color:var(--ink)}
 .btn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
@@ -65,11 +72,13 @@ const REELS=[
  ["euro-circus","Euro Circus"],["kaleo","KALEO"],["rafting","Рафтинг на Чилике"],["today-theatre","Спектакль «Чарли Гордон»"],
  ["today-contemporary-music","Концерт современной музыки"],["today-sumerki","Вечеринка «Сумерки»"],["today-pumpkin","Фестиваль тыквы"],["today-spot-film","Кинофестиваль Spot"]
 ].map(([f,t])=>({kind:"reels",sub:"reels",slug:"reels:"+f,title:t,img:APP+"/reels/posters/"+f+".webp",video:APP+"/reels/"+f+".mp4"}));
-const WHY=["Свет","Цвет","Живые люди","Атмосфера","Чистый кадр","Стильно","Темно","Дёшево смотрится","Много текста","Шаблонный дизайн","Плохое качество","Скучный кадр"];
+// Причины у каждой карточки свои (правка Кайрата 05.11.2026): у прошедшей — чем хороша, у непрошедшей — почему нет
+const GOOD=["Свет","Цвет","Живые люди","Атмосфера","Чистый кадр","Стильно"];
+const BAD=["Темно","Дёшево смотрится","Много текста","Шаблонный дизайн","Плохое качество","Скучный кадр"];
 
 const $=s=>document.querySelector(s);
 const app=$("#app");
-let pairs=[],i=0,choice=null,why=new Set(),done=0;
+let pairs=[],i=0,choice=null,why={left:new Set(),right:new Set()},done=0;
 
 function shuffle(a){for(let k=a.length-1;k>0;k--){const j=Math.floor(Math.random()*(k+1));[a[k],a[j]]=[a[j],a[k]]}return a}
 function esc(s){return String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
@@ -106,24 +115,21 @@ function mediaHtml(p){
     : `<img class="media" src="${esc(p.img)}" alt="" loading="lazy">`;
 }
 function render(){
-  const [L,R]=pairs[i];choice=null;why=new Set();
+  const [L,R]=pairs[i];choice=null;why={left:new Set(),right:new Set()};
   const pct=Math.round(i/pairs.length*100);
   app.innerHTML=`
    <div class="meta"><span>Пара ${i+1} из ${pairs.length} · ${esc(SUB_NAMES[L.sub]||L.sub)}</span><span>Всего ответов: ${done}</span></div>
    <div class="bar"><span style="width:${pct}%"></span></div>
    <div class="pair">
-     ${[L,R].map((p,k)=>`<button class="opt" type="button" data-side="${k?"right":"left"}">${mediaHtml(p)}<span class="mark">В духе Афиши</span><div class="cap"><b>${esc(p.title)}</b><small>${esc(SUB_NAMES[p.sub]||p.sub)}</small></div></button>`).join("")}
+     ${[L,R].map((p,k)=>`<div class="col"><button class="opt" type="button" data-side="${k?"right":"left"}">${mediaHtml(p)}<span class="mark">В духе Афиши</span><span class="mark no">Не проходит</span><div class="cap"><b>${esc(p.title)}</b><small>${esc(SUB_NAMES[p.sub]||p.sub)}</small></div></button><div class="why" id="why-${k?"right":"left"}"></div></div>`).join("")}
    </div>
    <div class="row">
      <button class="btn" type="button" data-side="both">Обе подходят</button>
      <button class="btn" type="button" data-side="none">Обе не подходят</button>
    </div>
-   <div class="lbl">Почему (необязательно)</div>
-   <div class="row" id="why">${WHY.map(w=>`<button class="chip" type="button">${esc(w)}</button>`).join("")}</div>
    <textarea id="note" placeholder="Своими словами — если хочется"></textarea>
    <div class="err" id="err"></div>`;
   app.querySelectorAll("[data-side]").forEach(b=>b.onclick=()=>pick(b.dataset.side));
-  app.querySelectorAll("#why .chip").forEach(c=>c.onclick=()=>{c.classList.toggle("on");c.classList.contains("on")?why.add(c.textContent):why.delete(c.textContent)});
   app.querySelectorAll("video").forEach(v=>v.addEventListener("click",e=>{v.paused?v.play():v.pause()}));
   $("#next").disabled=true;
   window.scrollTo({top:0});
@@ -132,12 +138,20 @@ function pick(side){
   choice=side;
   app.querySelectorAll(".opt").forEach(o=>{const s=o.dataset.side;o.classList.toggle("sel",side===s||side==="both");o.classList.toggle("dim",side==="none"||(side!=="both"&&side!==s))});
   app.querySelectorAll(".btn[data-side]").forEach(b=>b.classList.toggle("on",b.dataset.side===side));
+  // Под каждой карточкой — свои причины: прошла → «Чем хороша», не прошла → «Почему не проходит»
+  for(const s of ["left","right"]){
+    const ok=side==="both"||side===s;
+    why[s]=new Set();
+    const box=document.getElementById("why-"+s);
+    box.innerHTML=`<div class="lbl">${ok?"Чем хороша":"Почему не проходит"}</div><div class="chips">${(ok?GOOD:BAD).map(w=>`<button class="chip ${ok?"good":"bad"}" type="button">${esc(w)}</button>`).join("")}</div>`;
+    box.querySelectorAll(".chip").forEach(c=>c.onclick=()=>{c.classList.toggle("on");c.classList.contains("on")?why[s].add(c.textContent):why[s].delete(c.textContent)});
+  }
   $("#next").disabled=false;
 }
 async function save(){
   const [L,R]=pairs[i];
   $("#next").disabled=true;
-  const {error}=await sb.from("aesthetic_votes").insert({kind:L.kind,sub:L.sub,left_slug:L.slug,left_title:L.title,left_img:L.img,right_slug:R.slug,right_title:R.title,right_img:R.img,choice,reasons:[...why],note:$("#note").value.trim()||null});
+  const {error}=await sb.from("aesthetic_votes").insert({kind:L.kind,sub:L.sub,left_slug:L.slug,left_title:L.title,left_img:L.img,right_slug:R.slug,right_title:R.title,right_img:R.img,choice,reasons:[...why.left,...why.right],left_reasons:[...why.left],right_reasons:[...why.right],note:$("#note").value.trim()||null});
   if(error){$("#err").textContent="Не сохранилось: "+error.message;$("#next").disabled=false;return}
   done++;next();
 }
