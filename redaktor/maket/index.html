@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Редактор витрины — макет «Чем заняться»</title>
+<style>
+:root{--bg:#121212;--card:#1e1c20;--card2:#2a2730;--ink:#f4f1f3;--ink2:#a9a3ab;--line:#34303a;--accent:#e91e8c;--accent2:#8b5cf6;--ok:#3ecf8e;--warn:#ffb020}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-text-size-adjust:100%}
+button{font:inherit;color:inherit}
+.wrap{max-width:1100px;margin:0 auto;padding:calc(10px + env(safe-area-inset-top,0)) 16px calc(40px + env(safe-area-inset-bottom,0))}
+.mk{background:linear-gradient(90deg,var(--accent),var(--accent2));color:#fff;font-size:12px;font-weight:700;border-radius:10px;padding:6px 10px;margin-bottom:12px;text-align:center}
+header{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+header a{color:var(--accent);text-decoration:none;font-size:14px}
+header h1{font-size:20px;margin:0;flex:1}
+.lead{color:var(--ink2);font-size:13px;margin:0 0 14px}
+/* полки главной */
+.shelf{background:var(--card);border-radius:18px;margin-bottom:12px;overflow:hidden}
+.sh{display:flex;align-items:center;gap:10px;padding:14px 14px 10px;cursor:pointer}
+.sh b{font-size:18px;flex:1}
+.sh .n{color:var(--ink2);font-size:13px}
+.sh .ch{color:var(--ink2);transition:transform .2s}
+.shelf.open .sh .ch{transform:rotate(90deg)}
+.shelf.dim{opacity:.55}
+.shelf.dim .sh{cursor:default}
+.soon{font-size:11px;color:var(--ink2);border:1px solid var(--line);border-radius:10px;padding:2px 8px}
+.body{padding:0 0 14px}
+/* вкладки дней */
+.days{display:flex;gap:8px;padding:0 14px 12px;overflow-x:auto}
+.days button{flex-shrink:0;border:1px solid var(--line);background:none;border-radius:22px;padding:8px 14px;cursor:pointer;font-weight:600}
+.days button span{display:inline-block;margin-left:6px;background:var(--card2);border-radius:10px;padding:0 7px;font-size:12px;color:var(--ink2);font-weight:700}
+.days button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.days button.on span{background:rgba(255,255,255,.25);color:#fff}
+.meta{display:flex;justify-content:space-between;align-items:center;padding:0 14px 8px;font-size:12px;color:var(--ink2)}
+.meta b{color:var(--ink)}
+/* лента карточек как в приложении */
+.strip{display:flex;gap:10px;overflow-x:auto;padding:0 14px 6px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+.strip::-webkit-scrollbar{display:none}
+.rc{position:relative;flex-shrink:0;width:132px;aspect-ratio:9/16;border-radius:14px;overflow:hidden;background:var(--card2);scroll-snap-align:start;cursor:pointer;border:0;padding:0;text-align:left}
+@media (min-width:900px){.rc{width:168px}}
+.rc img,.rc video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.rc .num{position:absolute;top:6px;left:8px;font-weight:800;font-size:15px;text-shadow:0 1px 4px #000}
+.rc .tag{position:absolute;top:6px;right:34px;font-size:10px;font-weight:700;background:rgba(0,0,0,.55);border-radius:8px;padding:2px 6px}
+.rc .tag.me{background:var(--accent)}
+.rc .x{position:absolute;top:4px;right:4px;width:26px;height:26px;border-radius:13px;border:0;background:rgba(0,0,0,.6);color:#fff;font-size:15px;line-height:26px;text-align:center;cursor:pointer}
+.rc .cap{position:absolute;inset:auto 0 0 0;padding:28px 8px 8px;background:linear-gradient(transparent,rgba(0,0,0,.85));font-size:12px;font-weight:700;line-height:1.2}
+.rc .cap small{display:block;font-weight:400;color:#ddd;font-size:10px;margin-top:2px}
+.rc .play{position:absolute;bottom:44px;right:8px;font-size:10px;background:rgba(0,0,0,.55);border-radius:8px;padding:2px 6px}
+.add{flex-shrink:0;width:132px;aspect-ratio:9/16;border-radius:14px;border:2px dashed var(--line);background:none;color:var(--accent);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;font-weight:700;scroll-snap-align:start}
+@media (min-width:900px){.add{width:168px}}
+.add i{font-style:normal;font-size:34px;line-height:1}
+.note{padding:8px 14px 0;font-size:12px;color:var(--ink2)}
+.undo{margin:8px 14px 0;background:var(--card2);border-radius:12px;padding:8px 12px;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.undo button{border:0;background:none;color:var(--accent);font-weight:700;cursor:pointer}
+/* полноэкранная карточка */
+.ov{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center}
+.card{width:100%;max-width:420px;height:100%;max-height:100dvh;display:flex;flex-direction:column;background:#000;position:relative}
+@media (min-width:700px){.card{height:auto;max-height:92vh;border-radius:20px;overflow:hidden}}
+.card .media{position:relative;flex:1;min-height:0;background:#000}
+@media (min-width:700px){.card .media{flex:none;aspect-ratio:9/16;max-height:62vh}}
+.card .media video,.card .media img{width:100%;height:100%;object-fit:cover;display:block}
+.card .close{position:absolute;top:calc(10px + env(safe-area-inset-top,0));right:10px;z-index:2;width:36px;height:36px;border-radius:18px;border:0;background:rgba(0,0,0,.6);color:#fff;font-size:20px;cursor:pointer}
+.card .snd{position:absolute;bottom:12px;right:12px;z-index:2;border:0;background:rgba(0,0,0,.6);color:#fff;border-radius:16px;padding:6px 12px;font-size:13px;cursor:pointer}
+.card .noreel{position:absolute;inset:auto 12px 12px 12px;background:rgba(0,0,0,.7);border-radius:12px;padding:8px 10px;font-size:12px;color:var(--warn)}
+.card .info{padding:14px 16px calc(14px + env(safe-area-inset-bottom,0));background:var(--card)}
+.card .info .k{font-size:12px;color:var(--accent);font-weight:700}
+.card .info h3{margin:4px 0;font-size:19px}
+.card .info p{margin:0;color:var(--ink2);font-size:13px}
+.acts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.acts button,.acts a{border:0;border-radius:12px;padding:12px 8px;font-weight:700;cursor:pointer;text-align:center;text-decoration:none;font-size:14px}
+.b1{background:linear-gradient(90deg,var(--accent),var(--accent2));color:#fff}
+.b2{background:var(--card2);color:var(--ink)}
+.b3{background:none;border:1px solid var(--line)!important;color:var(--ink)}
+/* лист «Добавить» */
+.sheet-bg{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center}
+@media (min-width:700px){.sheet-bg{align-items:center}}
+.sheet{background:var(--card);width:100%;max-width:520px;max-height:88dvh;border-radius:20px 20px 0 0;display:flex;flex-direction:column}
+@media (min-width:700px){.sheet{border-radius:20px}}
+.sheet .top{padding:14px 16px 8px}
+.sheet .top h3{margin:0 0 2px;font-size:17px}
+.sheet .top p{margin:0;color:var(--ink2);font-size:13px}
+.sheet input{width:100%;margin-top:10px;border:1px solid var(--line);background:var(--bg);border-radius:12px;padding:10px 12px;color:var(--ink);font:inherit}
+.seg{display:flex;gap:6px;margin-top:8px}
+.seg button{border:1px solid var(--line);background:none;border-radius:16px;padding:5px 10px;font-size:12px;cursor:pointer}
+.seg button.on{background:var(--card2);border-color:var(--accent)}
+.lst{overflow:auto;padding:0 8px calc(12px + env(safe-area-inset-bottom,0))}
+.it{display:flex;align-items:center;gap:10px;padding:8px;border-radius:12px}
+.it:hover{background:var(--card2)}
+.it .th{width:46px;height:62px;border-radius:8px;object-fit:cover;background:var(--card2);flex-shrink:0;cursor:pointer}
+.it .tx{flex:1;min-width:0;cursor:pointer}
+.it .tx b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.it .tx small{display:block;color:var(--ink2);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.it .tx .r{color:var(--ok)}
+.it .tx .nr{color:var(--warn)}
+.pl{width:38px;height:38px;border-radius:19px;border:0;background:var(--accent);color:#fff;font-size:22px;cursor:pointer;flex-shrink:0}
+.pl.on{background:var(--ok)}
+.sheet .cl{border:0;background:none;color:var(--ink2);padding:12px;cursor:pointer;border-top:1px solid var(--line)}
+.msg{background:var(--card);border-radius:16px;padding:18px}
+.msg a{color:var(--accent)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0));background:#fff;color:#111;padding:10px 16px;border-radius:20px;font-size:14px;z-index:60;max-width:90vw;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="mk">МАКЕТ · можно нажимать, но в приложении ничего не меняется</div>
+  <header><a href="../">← Редактор</a><h1>Витрина</h1></header>
+  <p class="lead">Полки в том же порядке, что на главной приложения. Нажмите на полку — откроется, что сейчас видят люди.</p>
+  <div id="app"><div class="msg">Загружаю…</div></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+const SUPA_URL="https://quzgkhzkrhdlyztzbgcc.supabase.co";
+const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1emdraHprcmhkbHl6dHpiZ2NjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2OTk1NzIsImV4cCI6MjEwNTI3NTU3Mn0.zA6OVgFkgUgXGwLTzgL9IdB7yMcRNJEIWWq-ZZGYACQ";
+const sb=supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
+const APP="https://afisha-kz-gpt.vercel.app";
+const MANIFEST=[{"key": "m0", "title": "Euro Circus — цирковое шоу из Европы", "video": "https://afisha-kz-gpt.vercel.app/reels/euro-circus.mp4", "poster": "https://afisha-kz-gpt.vercel.app/reels/posters/euro-circus.webp", "kicker": "Цирк · Алматинский цирк", "date": "Сб и вс, 16:00 · до 29 нояб", "eventSlug": null, "href": "/events/euro-circus/"}, {"key": "m1", "title": "KALEO. Way Down We Go Tour", "video": "https://afisha-kz-gpt.vercel.app/reels/kaleo.mp4", "poster": "https://afisha-kz-gpt.vercel.app/reels/posters/kaleo.webp", "kicker": "Концерт · Halyk Arena", "date": "29 нояб, 19:00", "eventSlug": null, "href": "/events/kaleo-almaty/"}, {"key": "m2", "title": "Рафтинг на реке Чилик", "video": "https://afisha-kz-gpt.vercel.app/reels/rafting.mp4", "poster": "https://afisha-kz-gpt.vercel.app/reels/posters/rafting.webp", "kicker": "Активный отдых · 150 км от Алматы", "date": "Летом, по выходным", "eventSlug": null, "href": "/events/rafting-chilik/"}, {"key": "m3", "title": "Спектакль «Чарли Гордон»", "video": "https://afisha-kz-gpt.vercel.app/reels/today-theatre.mp4", "poster": "https://afisha-kz-gpt.vercel.app/reels/posters/today-theatre.webp", "kicker": null, "date": null, "eventSlug": "chyarli-gordan-ev-0359", "href": null}, {"key": "m4", "title": "Şeksiz Äuen — концерт современной музыки", "video": "https://afisha-kz-gpt.vercel.app/reels/today-contemporary-music.mp4", "poster": "https://afisha-kz-gpt.vercel.app/reels/posters/today-contemporary-music.webp", "kicker": "Концерт · British Council", "date": null, "eventSlug": null, "href": null}, {"key": "m5", "title": "Вечеринка «Сумерки»", "video": "https://afisha-kz-gpt.vercel.app/reels/today-sumerki.mp4", "poster": "https://afisha-kz-gpt.vercel.app/reels/posters/today-sumerki.webp", "kicker": null, "date": null, "eventSlug": "sumerki-novolunie-kino-ev-0554", "href": null}, {"key": "m6", "title": "Фестиваль тыквы", "video": "https://afisha-kz-gpt.vercel.app/reels/today-pumpkin.mp4", "poster": "https://afisha-kz-gpt.vercel.app/reels/posters/today-pumpkin.webp", "kicker": "Фестиваль · С семьёй", "date": null, "eventSlug": null, "href": null}, {"key": "m7", "title": "Андрей Съедин: куда сходить поесть", "video": "https://afisha-kz-gpt.vercel.app/reels/andrey-syedin-gourmet.mp4", "poster": "https://afisha-kz-gpt.vercel.app/reels/posters/andrey-syedin-gourmet.webp", "kicker": "Рекомендации Афиши · ГурмЭ", "date": null, "eventSlug": null, "href": null}, {"key": "m8", "title": "Кинофестиваль Spot", "video": "https://afisha-kz-gpt.vercel.app/reels/today-spot-film.mp4", "poster": "https://afisha-kz-gpt.vercel.app/reels/posters/today-spot-film.webp", "kicker": "Кино", "date": null, "eventSlug": null, "href": null}];
+const LIMIT=10, DAY=864e5, OFF=5*3600e3;
+const SHELVES=["Чем заняться?","Категории","Афиша рекомендует","Куда сходить?","Событие за Х тенге","Новые места в городе","Календарь событий","Журнал Афиша и спецпроекты","Настроение","Сложно выбрать?"];
+const SUBL={concerts:"Концерт",standup:"Стендап",theater:"Спектакль",teatr:"Спектакль",parties:"Вечеринка",lectures:"Лекция",festivals:"Фестиваль",kids:"Детям",sport:"Спорт",exhibitions:"Выставка",cinema:"Кино",games:"Квест",excursions:"Экскурсия","master-class":"Мастер-класс",show:"Шоу"};
+const app=document.getElementById("app");
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const loc=d=>new Date(new Date(d).getTime()+OFF);
+const WD=["Вс","Пн","Вт","Ср","Чт","Пт","Сб"],MS=["янв","фев","мар","апр","мая","июн","июл","авг","сент","окт","нояб","дек"];
+const hm=d=>{const l=loc(d);return String(l.getUTCHours()).padStart(2,"0")+":"+String(l.getUTCMinutes()).padStart(2,"0")};
+let EV=[],TABS=[],tab=0,open=true,STATE={},UNDO=null;
+function toast(t){const d=document.createElement("div");d.className="toast";d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.remove(),2400)}
+
+/* те же окна, что в приложении: Сегодня / Завтра / Выходные (в субботу — «На неделе») */
+function buildTabs(){
+ const nowL=new Date(Date.now()+OFF);const t0=new Date(Date.UTC(nowL.getUTCFullYear(),nowL.getUTCMonth(),nowL.getUTCDate())-OFF);
+ const dow=nowL.getUTCDay();const off=dow===6?2:dow===0?6:6-dow;const len=dow===6?5:2;
+ const w0=new Date(t0.getTime()+off*DAY),w1=new Date(w0.getTime()+len*DAY);
+ const T1=new Date(t0.getTime()+DAY),T2=new Date(t0.getTime()+2*DAY);
+ const inW=(e,a,b)=>{const d=new Date(e.date);return a===null?d<b:(d>=a&&d<b)};
+ return [
+  {key:"today",label:"Сегодня",from:t0,to:T1,list:EV.filter(e=>inW(e,null,T1))},
+  {key:"tomorrow",label:"Завтра",from:T1,to:T2,list:EV.filter(e=>inW(e,T1,T2))},
+  {key:"weekend",label:dow===6?"На неделе":"Выходные",from:w0,to:w1,list:EV.filter(e=>inW(e,w0,w1))}
+ ];
+}
+/* что сейчас на полке: как в приложении — рилсы редакции, затем события с Reels, максимум 10 */
+function autoShelf(t){
+ const man=MANIFEST.filter(m=>!m.eventSlug&&m.title).map(m=>({key:m.key,kind:"reel",title:m.title,video:m.video,poster:m.poster,kicker:m.kicker||"Рекомендации Афиши",date:m.date||"",href:m.href?APP+m.href:null,src:"Ролик редакции"}));
+ const withReel=t.list.filter(e=>e.video).map(evCard);
+ return [...man,...withReel].slice(0,LIMIT);
+}
+function evCard(e){
+ const l=loc(e.date);
+ return {key:"e"+e.slug,kind:"event",slug:e.slug,title:e.title,video:e.video,poster:e.poster||e.img,img:e.img,kicker:(SUBL[e.sub]||"Событие")+(e.venue?" · "+e.venue:""),date:`${WD[l.getUTCDay()]}, ${l.getUTCDate()} ${MS[l.getUTCMonth()]} · ${hm(e.date)}`,href:APP+"/events/"+e.slug+"/",src:e.video?"Робот: есть Reels":"Без Reels",price:e.price};
+}
+function shelfOf(i){
+ const s=STATE[i]||(STATE[i]={items:autoShelf(TABS[i])});
+ return s.items;
+}
+
+function render(){
+ app.innerHTML=SHELVES.map((name,si)=>si===0?chem():`<section class="shelf dim"><div class="sh"><b>${esc(name)}</b><span class="soon">следующим шагом</span></div></section>`).join("");
+ bind();
+}
+function chem(){
+ const t=TABS[tab];const items=shelfOf(tab);
+ return `<section class="shelf ${open?"open":""}" id="chem"><div class="sh" id="chemh"><b>Чем заняться?</b><span class="n">${TABS.map((x,i)=>shelfOf(i).length).join(" · ")}</span><span class="ch">›</span></div>
+ ${open?`<div class="body">
+  <div class="days">${TABS.map((x,i)=>`<button type="button" data-tab="${i}" class="${i===tab?"on":""}">${x.label}<span>${shelfOf(i).length}</span></button>`).join("")}</div>
+  <div class="meta"><span>На полке <b>${items.length}</b> из ${LIMIT} · в базе на этот день ${t.list.length} событий</span></div>
+  <div class="strip">${items.map((x,k)=>`
+   <div class="rc" role="button" tabindex="0" data-open="${k}">
+    ${x.poster?`<img src="${esc(x.poster)}" alt="" loading="lazy">`:""}
+    <span class="num">${k+1}</span>
+    <span class="tag ${x.manual?"me":""}">${x.manual?"вы":x.kind==="reel"?"редакция":"робот"}</span>
+    <button class="x" type="button" data-rm="${k}" aria-label="Убрать">×</button>
+    ${x.video?`<span class="play">▶ Reels</span>`:""}
+    <div class="cap">${esc(x.title)}<small>${esc(x.date)}</small></div>
+   </div>`).join("")}
+   <button class="add" type="button" id="addb"><i>+</i>Добавить</button>
+  </div>
+  ${UNDO?`<div class="undo"><span>Убрано: ${esc(UNDO.item.title)}</span><button type="button" id="undo">Вернуть</button></div>`:""}
+  <div class="note">Нажмите на карточку — откроется так, как её видят люди. × — убрать с полки. Порядок — кнопкой «Поставить первым» в карточке.</div>
+ </div>`:""}</section>`;
+}
+function bind(){
+ document.getElementById("chemh").onclick=()=>{open=!open;render()};
+ app.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{tab=Number(b.dataset.tab);UNDO=null;render()});
+ app.querySelectorAll("[data-rm]").forEach(b=>b.onclick=e=>{e.stopPropagation();remove(Number(b.dataset.rm))});
+ app.querySelectorAll("[data-open]").forEach(c=>c.onclick=()=>openCard(shelfOf(tab)[Number(c.dataset.open)],{onShelf:true,idx:Number(c.dataset.open)}));
+ const a=document.getElementById("addb");if(a)a.onclick=openAdd;
+ const u=document.getElementById("undo");if(u)u.onclick=()=>{shelfOf(tab).splice(UNDO.idx,0,UNDO.item);UNDO=null;render()};
+}
+function remove(k){
+ const items=shelfOf(tab);const [it]=items.splice(k,1);UNDO={item:it,idx:k};
+ toast("Убрано с полки «"+TABS[tab].label+"»");render();
+}
+
+/* карточка как в приложении */
+function openCard(x,opt){
+ const ov=document.createElement("div");ov.className="ov";
+ const noReel=!x.video;
+ ov.innerHTML=`<div class="card">
+  <div class="media">${x.video?`<video src="${esc(x.video)}" ${x.poster?`poster="${esc(x.poster)}"`:""} autoplay muted loop playsinline></video><button class="snd" type="button">Звук</button>`:(x.img||x.poster?`<img src="${esc(x.img||x.poster)}" alt="">`:"")}
+   <button class="close" type="button" aria-label="Закрыть">×</button>
+   ${noReel?`<div class="noreel">Нет Reels. На «Чем заняться» показываем только ролики — без него карточка не встанет. Ролик найдёт робот при следующем сборе, или пришлите ссылку.</div>`:""}
+  </div>
+  <div class="info"><div class="k">${esc(x.kicker||"")}</div><h3>${esc(x.title)}</h3><p>${esc(x.date||"")}${x.price?" · от "+Number(x.price).toLocaleString("ru-RU")+" ₸":""}</p>
+   <div class="acts">${opt.onShelf?`<button class="b2" type="button" data-a="first">Поставить первым</button><button class="b3" type="button" data-a="rm">Убрать с полки</button>`:`<button class="b1" type="button" data-a="add" ${noReel?"disabled style='opacity:.4'":""}>+ На полку</button><button class="b3" type="button" data-a="close">Назад</button>`}
+   ${x.href?`<a class="b3" href="${esc(x.href)}" target="_blank" rel="noopener" style="grid-column:1/-1">Открыть в приложении</a>`:""}</div>
+  </div></div>`;
+ document.body.appendChild(ov);
+ const close=()=>ov.remove();
+ ov.querySelector(".close").onclick=close;
+ ov.onclick=e=>{if(e.target===ov)close()};
+ const v=ov.querySelector("video"),s=ov.querySelector(".snd");if(s)s.onclick=()=>{v.muted=!v.muted;s.textContent=v.muted?"Звук":"Без звука";v.play()};
+ ov.querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>{
+  const a=b.dataset.a;const items=shelfOf(tab);
+  if(a==="close")return close();
+  if(a==="rm"){close();remove(opt.idx);return}
+  if(a==="first"){const [it]=items.splice(opt.idx,1);items.unshift(it);close();toast("Теперь первая");render();return}
+  if(a==="add"){addItem(x);close();opt.after&&opt.after()}
+ });
+}
+function addItem(x){
+ const items=shelfOf(tab);
+ if(items.some(i=>i.key===x.key)){toast("Уже на полке");return}
+ items.unshift({...x,manual:true});
+ if(items.length>LIMIT){const out=items.pop();toast(`Добавлено. Чтобы осталось ${LIMIT}, ушла последняя: «${out.title}»`)}else toast("Добавлено первой");
+ render();
+}
+
+/* «+ Добавить»: события этого дня из базы */
+function openAdd(){
+ const t=TABS[tab];let q="",only="all";
+ const bg=document.createElement("div");bg.className="sheet-bg";
+ bg.innerHTML=`<div class="sheet"><div class="top"><h3>Добавить в «${esc(t.label)}»</h3><p>События этого дня из базы. Зелёные — с Reels, их можно ставить сразу.</p>
+  <input type="search" placeholder="Название или площадка" id="aq">
+  <div class="seg"><button type="button" data-f="all" class="on">Все ${t.list.length}</button><button type="button" data-f="reel">С Reels ${t.list.filter(e=>e.video).length}</button><button type="button" data-f="img">С фото ${t.list.filter(e=>e.img).length}</button></div></div>
+  <div class="lst" id="al"></div><button class="cl" type="button">Закрыть</button></div>`;
+ document.body.appendChild(bg);
+ const draw=()=>{
+  const on=new Set(shelfOf(tab).map(i=>i.key));
+  const L=t.list.filter(e=>(only==="all"||(only==="reel"?e.video:e.img))&&(!q||(e.title+" "+(e.venue||"")).toLowerCase().includes(q))).sort((a,b)=>(!!b.video-!!a.video)||(!!b.img-!!a.img));
+  bg.querySelector("#al").innerHTML=L.length?L.map(e=>{const c=evCard(e);const has=on.has(c.key);return `<div class="it">${c.poster?`<img class="th" src="${esc(c.poster)}" alt="" loading="lazy" data-v="${esc(e.slug)}">`:`<div class="th" data-v="${esc(e.slug)}"></div>`}<div class="tx" data-v="${esc(e.slug)}"><b>${esc(e.title)}</b><small>${esc(c.date)} · ${esc(e.venue||"")}</small><small class="${e.video?"r":"nr"}">${e.video?"Есть Reels":"Нет Reels — не встанет"}</small></div><button class="pl ${has?"on":""}" type="button" data-p="${esc(e.slug)}" ${!e.video&&!has?"style='background:var(--card2)'":""}>${has?"✓":"+"}</button></div>`}).join(""):`<div class="msg">Ничего не нашлось.</div>`;
+  bg.querySelectorAll("[data-v]").forEach(el=>el.onclick=()=>{const e=t.list.find(z=>z.slug===el.dataset.v);openCard(evCard(e),{onShelf:false,after:draw})});
+  bg.querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{const e=t.list.find(z=>z.slug===b.dataset.p);const c=evCard(e);
+   if(on.has(c.key)){toast("Уже на полке");return}
+   if(!e.video){openCard(c,{onShelf:false,after:draw});return}
+   addItem(c);draw()});
+ };
+ bg.querySelector("#aq").oninput=e=>{q=e.target.value.trim().toLowerCase();draw()};
+ bg.querySelectorAll("[data-f]").forEach(b=>b.onclick=()=>{only=b.dataset.f;bg.querySelectorAll("[data-f]").forEach(x=>x.classList.toggle("on",x===b));draw()});
+ bg.querySelector(".cl").onclick=()=>bg.remove();
+ bg.onclick=e=>{if(e.target===bg)bg.remove()};
+ draw();
+}
+
+async function start(){
+ const {data:{session}}=await sb.auth.getSession();
+ if(!session){app.innerHTML=`<div class="msg">Нужно войти — без пароля, по ссылке из письма.<br><br><a href="../../?next=redaktor/maket/">Войти</a> — после входа вернётесь сюда.</div>`;return}
+ const {data,error}=await sb.rpc("showcase_events_window",{p_days:9});
+ if(error){app.innerHTML=`<div class="msg">Не загрузилось: ${esc(error.message)}</div>`;return}
+ EV=data||[];TABS=buildTabs();render();
+}
+start().catch(e=>{app.innerHTML=`<div class="msg">Сервер не ответил. <a href="" onclick="location.reload();return false">Обновить</a></div>`});
+</script>
+</body>
+</html>
