@@ -128,7 +128,7 @@ const app=document.getElementById("app");
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const fmt=d=>d?new Date(d).toLocaleString("ru-RU",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit",timeZone:"Asia/Almaty"}):"";
 const fmtD=d=>d?new Date(d).toLocaleDateString("ru-RU",{day:"numeric",month:"short",timeZone:"Asia/Almaty"}):"";
-let tab=(()=>{try{return localStorage.getItem("afdb:redaktor:tab")||"shelves"}catch{return "shelves"}})();
+let tab=(()=>{try{const t=localStorage.getItem("afdb:redaktor:tab");return t&&t!=="shelves"?t:"agree"}catch{return "agree"}})();
 let SHELVES=[],COUNTS={reels:null},Q="",KIND=null,RESULTS=[],CHAT=[];
 function toast(t){const d=document.createElement("div");d.className="toast";d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.remove(),2600)}
 const inShelves=ref=>SHELVES.filter(s=>s.picks.some(p=>p.ref===ref)).map(s=>s.title);
@@ -136,7 +136,7 @@ const link=x=>x.slug?APP+(x.kind==="event"?"/events/":"/search/?q=")+(x.kind==="
 
 function renderTabs(){
  document.getElementById("tabs").innerHTML=TABS.map(([k,l,ic])=>`<button type="button" data-t="${k}" class="${tab===k?"on":""}">${ic}<span>${l}</span>${k==="agree"&&COUNTS.reels?`<span class="cnt">${COUNTS.reels}</span>`:""}</button>`).join("");
- document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>{tab=b.dataset.t;try{localStorage.setItem("afdb:redaktor:tab",tab)}catch{};render();window.scrollTo(0,0)});
+ document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>{if(b.dataset.t==="shelves"){location.href="vitrina/";return}tab=b.dataset.t;try{localStorage.setItem("afdb:redaktor:tab",tab)}catch{};render();window.scrollTo(0,0)});
 }
 function render(){renderTabs();({agree:rAgree,shelves:rShelves,search:rSearch,bot:rBot})[tab]()}
 
