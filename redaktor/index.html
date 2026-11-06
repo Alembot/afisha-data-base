@@ -3,7 +3,6 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes">
 <title>Редактор витрины — Афиша</title>
 <style>
 :root{--bg:#f6f4f5;--card:#fff;--ink:#1c1b1d;--ink2:#6b6870;--line:#e6e1e4;--accent:#c0127f;--accent2:#8f07a6;--soft:#fce4f3;--bad:#b00020;--ok:#1e7a48}
@@ -283,7 +282,7 @@ async function loadState(){
 }
 async function start(){
  const {data:{session}}=await sb.auth.getSession();
- if(!session){app.innerHTML=`<div class="msg">Нужно войти в базу Афиши.<br><br><a href="../">Открыть базу и войти</a>, затем вернитесь сюда.</div>`;return}
+ if(!session){app.innerHTML=`<div class="msg">Нужно войти — без пароля, по ссылке из письма.<br><br><a href="../?next=redaktor/">Войти</a> — после входа вернётесь сюда.</div>`;return}
  const email=(session.user.email||"").toLowerCase();
  const {data:role}=await sb.from("aesthetic_editors").select("role").eq("email",email).maybeSingle();
  if(!role){app.innerHTML=`<div class="msg">У аккаунта ${esc(email)} нет роли «Редактор витрины». Её выдаёт руководитель.</div>`;return}
