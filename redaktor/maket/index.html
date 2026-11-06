@@ -108,7 +108,7 @@ select.mv{background:var(--card2);color:var(--ink);border:1px solid var(--line);
 .sheet .top{padding:14px 16px 8px}
 .sheet .top h3{margin:0 0 2px;font-size:17px}
 .sheet .top p{margin:0;color:var(--ink2);font-size:13px}
-.sheet input{width:100%;margin-top:10px;border:1px solid var(--line);background:var(--bg);border-radius:12px;padding:10px 12px;color:var(--ink);font:inherit}
+.sheet input,.lst input{width:100%;margin-top:10px;border:1px solid var(--line);background:var(--bg);border-radius:12px;padding:10px 12px;color:var(--ink);font:inherit}
 .seg{display:flex;gap:6px;margin-top:8px}
 .seg button{border:1px solid var(--line);background:none;border-radius:16px;padding:5px 10px;font-size:12px;cursor:pointer}
 .seg button.on{background:var(--card2);border-color:var(--accent)}
@@ -152,7 +152,7 @@ const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&g
 const loc=d=>new Date(new Date(d).getTime()+OFF);
 const WD=["Вс","Пн","Вт","Ср","Чт","Пт","Сб"],MS=["янв","фев","мар","апр","мая","июн","июл","авг","сент","окт","нояб","дек"];
 const hm=d=>{const l=loc(d);return String(l.getUTCHours()).padStart(2,"0")+":"+String(l.getUTCMinutes()).padStart(2,"0")};
-let ALL=[],EV=[],TABS=[],tab=0,open=true,STATE={},UNDO=null,openCat=false,CATSTATE=null;
+let ALL=[],EV=[],TABS=[],tab=0,open=true,STATE={},UNDO=null,openCat=false,CATSTATE=null,openRek=false,openKuda=false,KUDA=null,REK=null;
 function toast(t){const d=document.createElement("div");d.className="toast";d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.remove(),2400)}
 
 /* те же окна, что в приложении: Сегодня / Завтра / Выходные (в субботу — «На неделе») */
@@ -184,7 +184,8 @@ function shelfOf(i){
 }
 
 function render(){
- app.innerHTML=SHELVES.map((name,si)=>si===0?chem():si===1?cats():`<section class="shelf dim"><div class="sh"><b>${esc(name)}</b><span class="soon">следующим шагом</span></div></section>`).join("");
+ const BY={"Чем заняться?":chem,"Категории":cats,"Афиша рекомендует":rek,"Куда сходить?":kuda};
+ app.innerHTML=SHELVES.map((name,si)=>BY[name]?BY[name]():`<section class="shelf dim"><div class="sh"><b>${esc(name)}</b><span class="soon">следующим шагом</span></div></section>`).join("");
  bind();
 }
 function chem(){
@@ -210,7 +211,7 @@ function chem(){
 }
 function bind(){
  document.getElementById("chemh").onclick=()=>{open=!open;render()};
- bindCats();
+ bindCats();bindRek();bindKuda();
  app.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{tab=Number(b.dataset.tab);UNDO=null;render()});
  app.querySelectorAll("[data-rm]").forEach(b=>b.onclick=e=>{e.stopPropagation();remove(Number(b.dataset.rm))});
  app.querySelectorAll("[data-open]").forEach(c=>c.onclick=()=>openCard(shelfOf(tab)[Number(c.dataset.open)],{onShelf:true,idx:Number(c.dataset.open)}));
@@ -311,10 +312,10 @@ function catList(id){
 function cats(){
  const S=catState();const lost=ALL.filter(e=>!catOf(e));
  return `<section class="shelf ${openCat?"open":""}"><div class="sh" id="cath"><b>Категории</b><span class="n">${S.order.length-S.hidden.size} из ${LC.length}</span><span class="ch">›</span></div>
- ${openCat?`<div class="body"><div class="meta"><span>14 категорий из справочника. На главной лента листается — листайте вправо.</span></div>
- <div class="cg">${S.order.map((id,k)=>{const c=lcById(id);const n=catList(id).length;return `<button type="button" class="ct ${S.hidden.has(id)?"off":""}" data-cat="${id}">${(S.pins[id]||[]).length?`<span class="pin">📌 ${(S.pins[id]||[]).length}</span>`:""}<span class="emo">${EMO[c.slug]||"✨"}</span><b>${esc(c.name)}</b><small>${S.hidden.has(id)?"скрыта":nEv(n)}</small><small>${nPl(c.places)}</small></button>`}).join("")}
+ ${openCat?`<div class="body"><div class="meta"><span>Что происходит: события по 14 категориям справочника. Лента листается вправо, как в приложении.</span></div>
+ <div class="cg">${S.order.map((id,k)=>{const c=lcById(id);const n=catList(id).length;return `<button type="button" class="ct ${S.hidden.has(id)?"off":""}" data-cat="${id}">${(S.pins[id]||[]).length?`<span class="pin">📌 ${(S.pins[id]||[]).length}</span>`:""}<span class="emo">${EMO[c.slug]||"✨"}</span><b>${esc(c.name)}</b><small>${S.hidden.has(id)?"скрыта":nEv(n)}</small></button>`}).join("")}
   ${lost.length?`<button type="button" class="ct lost" data-cat="__lost"><span class="emo">❓</span><b>Без категории</b><small>${nEv(lost.length)} не видно</small></button>`:""}
- </div><div class="note">Плитка без событий и мест на главной выглядит пусто — скройте её или опустите в конец.</div></div>`:""}</section>`;
+ </div><div class="note">Плитка без событий на главной выглядит пусто — скройте её или опустите в конец.</div></div>`:""}</section>`;
 }
 function bindCats(){
  const h=document.getElementById("cath");if(h)h.onclick=()=>{openCat=!openCat;render()};
@@ -343,7 +344,7 @@ function openCatSheet(id){
    body=`<div class="lst">${ps.length?ps.map(p=>`<div class="row2">${p.img?`<img class="th" src="${esc(p.img)}" alt="" loading="lazy">`:`<div class="th"></div>`}<div class="tx"><b>${esc(p.title)}</b><small>${esc([p.type,p.district].filter(Boolean).join(" · "))}${p.rating?" · ★ "+p.rating:""}</small></div><div class="ctr"><button class="mini" type="button" data-ppin="1" aria-label="Закрепить">📌</button><select class="mv" data-pmv="1"><option value="">Перенести в…</option>${opts()}</select><button class="mini" type="button" data-pout="1" aria-label="Убрать">×</button></div></div>`).join(""):`<div class="msg">Мест нет.</div>`}</div>`;
   }
   bg.innerHTML=`<div class="sheet"><div class="top"><h3>${lostMode?"Без категории":(EMO[c.slug]||"")+" "+esc(c.name)}</h3><p>${lostMode?"Эти события есть в базе, но без категории — на главной их не видно. Выберите, куда поставить.":"Направления по справочнику: "+esc(c.dirs.join(", ")||"—")}</p>
-   ${lostMode?"":`<div class="seg" style="margin-top:10px"><button type="button" data-view="ev" class="${view==="ev"?"on":""}">События ${evs.length}</button><button type="button" data-view="pl" class="${view==="pl"?"on":""}">Места ${c.places}</button></div>`}</div>
+   ${lostMode?"":`<p style="margin-top:6px">Событий: ${evs.length}. Места этой категории — в полке «Куда сходить?».</p>`}</div>
    ${lostMode?"":`<div class="tbar"><button type="button" class="p" data-t="add">+ Добавить</button><button type="button" data-t="up" ${i<=0?"disabled":""}>← Раньше в ленте</button><button type="button" data-t="down" ${i>=S.order.length-1?"disabled":""}>Позже →</button><button type="button" data-t="hide">${S.hidden.has(id)?"Показать плитку":"Скрыть плитку"}</button></div>`}
    ${body}<button class="cl" type="button">Закрыть</button></div>`;
   bg.querySelector(".cl").onclick=()=>{bg.remove();render()};
@@ -373,6 +374,126 @@ function pickAny(id,after){
   bg.querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>{const sl=b.dataset.a;const S=catState();S.move[sl]=id;const p=S.pins[id]||(S.pins[id]=[]);if(!p.includes(sl))p.unshift(sl);toast("Добавлено в «"+c.name+"» и закреплено");draw();after&&after()});
  };
  bg.querySelector("#pq").oninput=e=>{q=e.target.value.trim().toLowerCase();draw()};
+ bg.querySelector(".bylink").onclick=()=>byLink(c.name);
+ bg.querySelector(".cl").onclick=()=>bg.remove();
+ draw();
+}
+
+/* ── Афиша рекомендует: наши ролики-подборки + ручные события и места ── */
+function rekState(){
+ if(REK)return REK;
+ REK={items:[["coffee","Топ-10 кофеен","/cafes/"],["hookah","Топ-10 кальянных","/bars/"],["fish","Рыбные рестораны","/restaurants/"],["party","Топ-10 вечеринок","/nightclubs/"],["yards","Уютные дворики Алматы","/excursions/"]].map(([k,t,h])=>({key:"r"+k,kind:"reel",title:t,href:APP+h,video:APP+"/recommends/"+k+".mp4",poster:APP+"/recommends/"+k+".webp",kicker:"Подборка редакции",date:""}))};
+ return REK;
+}
+function rek(){
+ const R=rekState().items;
+ return `<section class="shelf ${openRek?"open":""}"><div class="sh" id="rekh"><b>Афиша рекомендует</b><span class="n">${R.length}</span><span class="ch">›</span></div>
+ ${openRek?`<div class="body"><div class="meta"><span>Наши ролики-подборки, после них — события и места, которые вы добавили.</span><button type="button" class="addtop" id="rekadd">+ Добавить</button></div>
+ <div class="strip">${R.map((x,k)=>`<div class="rc" role="button" tabindex="0" data-rk="${k}">${x.poster?`<img src="${esc(x.poster)}" alt="" loading="lazy">`:""}<span class="num">${k+1}</span><span class="tag ${x.manual?"me":""}">${x.kind==="reel"?"подборка":x.kind==="place"?"место":"событие"}</span><button class="x" type="button" data-rkx="${k}" aria-label="Убрать">×</button>${x.video?`<span class="play">▶</span>`:""}<div class="cap">${esc(x.title)}<small>${esc(x.date||x.kicker||"")}</small></div></div>`).join("")}</div>
+ <div class="note">Нажмите на подборку — можно сменить название, ссылку, видео или поставить первой.</div></div>`:""}</section>`;
+}
+function bindRek(){
+ const h=document.getElementById("rekh");if(!h)return;h.onclick=()=>{openRek=!openRek;render()};
+ const R=rekState().items;
+ app.querySelectorAll("[data-rkx]").forEach(b=>b.onclick=e=>{e.stopPropagation();const [it]=R.splice(Number(b.dataset.rkx),1);toast("Убрано: "+it.title);render()});
+ app.querySelectorAll("[data-rk]").forEach(c=>c.onclick=()=>editRek(Number(c.dataset.rk)));
+ const a=document.getElementById("rekadd");if(a)a.onclick=addRek;
+}
+function editRek(k){
+ const R=rekState().items;const x=R[k];
+ if(x.kind!=="reel"){openCard(x,{onShelf:false,view:true});return}
+ const bg=document.createElement("div");bg.className="sheet-bg";
+ bg.innerHTML=`<div class="sheet"><div class="top"><h3>Подборка</h3><p>То, что видят люди: ролик, название и куда ведёт.</p></div>
+  <div class="lst"><video src="${esc(x.video)}" poster="${esc(x.poster||"")}" autoplay muted loop playsinline style="width:160px;aspect-ratio:9/16;border-radius:14px;object-fit:cover;display:block;margin:4px auto 10px;background:#000"></video>
+  <label style="font-size:13px;color:var(--ink2)">Название<input id="rt" value="${esc(x.title)}"></label>
+  <label style="font-size:13px;color:var(--ink2);display:block;margin-top:10px">Куда ведёт<input id="rh" value="${esc(x.href||"")}"></label>
+  <div class="acts" style="margin-top:12px"><button class="b2" type="button" id="rv">Заменить видео</button><button class="b2" type="button" id="rf">Поставить первой</button></div></div>
+  <button class="b1" type="button" id="rs" style="margin:0 16px 8px;border:0;border-radius:12px;padding:12px;font-weight:700">Сохранить</button><button class="cl" type="button">Закрыть</button></div>`;
+ document.body.appendChild(bg);
+ const close=()=>bg.remove();bg.querySelector(".cl").onclick=close;bg.onclick=e=>{if(e.target===bg)close()};
+ bg.querySelector("#rv").onclick=()=>toast("Макет: здесь выбираете видео с телефона");
+ bg.querySelector("#rf").onclick=()=>{R.splice(k,1);R.unshift(x);close();toast("Теперь первая");render()};
+ bg.querySelector("#rs").onclick=()=>{x.title=bg.querySelector("#rt").value.trim()||x.title;x.href=bg.querySelector("#rh").value.trim();close();toast("Сохранено");render()};
+}
+function addRek(){
+ const bg=document.createElement("div");bg.className="sheet-bg";let q="";
+ bg.innerHTML=`<div class="sheet"><div class="top"><h3>Добавить в «Афиша рекомендует»</h3><p>Новая подборка — ваш ролик. Или любое событие или место из базы.</p>
+  <button class="b1" type="button" id="nr" style="width:100%;margin-top:10px;border:0;border-radius:12px;padding:12px;font-weight:700">+ Новая подборка (ролик)</button>
+  <input type="search" id="sq" placeholder="Или найдите событие или место"></div><div class="lst" id="sl"></div><button class="cl" type="button">Закрыть</button></div>`;
+ document.body.appendChild(bg);
+ const R=rekState().items;
+ const draw=async()=>{const el=bg.querySelector("#sl");if(q.length<2){el.innerHTML=`<div class="it" style="color:var(--ink2);font-size:13px">Начните вводить название…</div>`;return}
+  const {data}=await sb.rpc("showcase_search",{p_q:q,p_kind:null});const L=(data||[]).slice(0,30);
+  el.innerHTML=L.length?L.map((x,i)=>{const inn=R.some(r=>r.key===x.kind+x.ref);return `<div class="it">${x.img?`<img class="th" src="${esc(x.img)}" alt="" loading="lazy">`:`<div class="th"></div>`}<div class="tx"><b>${esc(x.title)}</b><small>${x.kind==="event"?"Событие":"Место"} · ${esc(x.sub||"")}</small></div><button class="pl ${inn?"on":""}" type="button" data-i="${i}">${inn?"✓":"+"}</button></div>`}).join(""):`<div class="msg">Ничего не нашлось.</div>`;
+  el.querySelectorAll("[data-i]").forEach(b=>b.onclick=()=>{const x=L[Number(b.dataset.i)];if(R.some(r=>r.key===x.kind+x.ref))return;R.push({key:x.kind+x.ref,kind:x.kind,manual:true,title:x.title,poster:x.img,img:x.img,kicker:x.kind==="event"?"Событие":"Место",href:x.kind==="event"?APP+"/events/"+x.slug+"/":null,date:x.date?fmtD(x.date):""});toast("Добавлено в конец полки");draw();render()});
+ };
+ bg.querySelector("#sq").oninput=e=>{q=e.target.value.trim();clearTimeout(bg._t);bg._t=setTimeout(draw,300)};
+ bg.querySelector("#nr").onclick=()=>toast("Макет: выбираете видео, пишете название и ссылку — подборка встаёт первой");
+ bg.querySelector(".cl").onclick=()=>bg.remove();bg.onclick=e=>{if(e.target===bg)bg.remove()};
+ draw();
+}
+const fmtD=d=>{const l=loc(d);return `${l.getUTCDate()} ${MS[l.getUTCMonth()]}`};
+
+/* ── Куда сходить?: места по 14 категориям справочника, внутри — типы мест ── */
+function kudaState(){if(!KUDA)KUDA={order:LC.filter(c=>c.places>0).map(c=>c.id),hidden:new Set(),pins:{},out:{},move:{}};return KUDA}
+function kuda(){
+ const K=kudaState();
+ return `<section class="shelf ${openKuda?"open":""}"><div class="sh" id="kudah"><b>Куда сходить?</b><span class="n">${K.order.length-K.hidden.size} плиток</span><span class="ch">›</span></div>
+ ${openKuda?`<div class="body"><div class="meta"><span>Куда пойти: места по категориям справочника. Внутри — по типу места.</span></div>
+ <div class="cg">${K.order.map(id=>{const c=lcById(id);return `<button type="button" class="ct ${K.hidden.has(id)?"off":""}" data-kd="${id}">${(K.pins[id]||[]).length?`<span class="pin">📌 ${(K.pins[id]||[]).length}</span>`:""}<span class="emo">${EMO[c.slug]||"✨"}</span><b>${esc(c.name)}</b><small>${K.hidden.has(id)?"скрыта":nPl(c.places)}</small></button>`}).join("")}</div>
+ <div class="note">Категорий без мест здесь нет: ${LC.filter(c=>!c.places).map(c=>esc(c.name)).join(", ")||"—"}.</div></div>`:""}</section>`;
+}
+function bindKuda(){
+ const h=document.getElementById("kudah");if(!h)return;h.onclick=()=>{openKuda=!openKuda;render()};
+ app.querySelectorAll("[data-kd]").forEach(b=>b.onclick=()=>openPlaceSheet(b.dataset.kd));
+}
+function openPlaceSheet(id){
+ const K=kudaState();const c=lcById(id);let type=null,q="";
+ const bg=document.createElement("div");bg.className="sheet-bg";document.body.appendChild(bg);
+ bg.innerHTML=`<div class="sheet"><div class="msg">Загружаю места…</div></div>`;
+ const opts=LC.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("");
+ const draw=async()=>{
+  const all=(await placesOf(id)).filter(p=>!(K.out[id]||new Set()).has(p.slug)&&!K.move[p.slug]);
+  const pins=K.pins[id]||[];const i=K.order.indexOf(id);
+  const types={};all.forEach(p=>{const t=p.type||"Без типа";types[t]=(types[t]||0)+1});
+  let L=type?all.filter(p=>(p.type||"Без типа")===type):all;
+  if(q)L=L.filter(p=>p.title.toLowerCase().includes(q));
+  L=[...pins.map(s=>L.find(p=>p.slug===s)).filter(Boolean),...L.filter(p=>!pins.includes(p.slug))];
+  const shown=L.slice(0,80);
+  bg.innerHTML=`<div class="sheet"><div class="top"><h3>${EMO[c.slug]||""} ${esc(c.name)} · ${all.length}</h3><p>Так выглядит внутри приложения: сначала закреплённые, дальше — с фото и рейтингом.</p><input type="search" id="kq" placeholder="Найти место в этой категории" value="${esc(q)}">
+   ${Object.keys(types).length>1?`<div class="seg" style="flex-wrap:wrap"><button type="button" data-ty="" class="${!type?"on":""}">Все ${all.length}</button>${Object.entries(types).sort((a,b)=>b[1]-a[1]).map(([t,n])=>`<button type="button" data-ty="${esc(t)}" class="${type===t?"on":""}">${esc(t)} ${n}</button>`).join("")}</div>`:""}</div>
+   <div class="tbar"><button type="button" class="p" data-t="add">+ Добавить место</button><button type="button" data-t="up" ${i<=0?"disabled":""}>← Раньше</button><button type="button" data-t="down" ${i>=K.order.length-1?"disabled":""}>Позже →</button><button type="button" data-t="hide">${K.hidden.has(id)?"Показать плитку":"Скрыть плитку"}</button></div>
+   <div class="lst">${shown.map(p=>{const pn=pins.includes(p.slug);return `<div class="row2">${p.img?`<img class="th" src="${esc(p.img)}" alt="" loading="lazy">`:`<div class="th"></div>`}<div class="tx"><b>${esc(p.title)}</b><small>${pn?`<span class="pn">📌 Закреплено · </span>`:""}${esc([p.type,p.district].filter(Boolean).join(" · "))}${p.rating?" · ★ "+p.rating:""}</small></div><div class="ctr"><button class="mini ${pn?"on":""}" type="button" data-pp="${esc(p.slug)}">📌</button><select class="mv" data-pm="${esc(p.slug)}"><option value="">Перенести в…</option>${opts}</select><button class="mini" type="button" data-px="${esc(p.slug)}">×</button></div></div>`}).join("")}
+   ${L.length>shown.length?`<div class="note" style="text-align:center;padding:10px">Показаны первые ${shown.length} из ${L.length} — уточните поиском или типом</div>`:""}</div>
+   <button class="cl" type="button">Закрыть</button></div>`;
+  const kq=bg.querySelector("#kq");kq.oninput=()=>{q=kq.value.trim().toLowerCase();clearTimeout(bg._t);bg._t=setTimeout(async()=>{await draw();const n=bg.querySelector("#kq");n.focus();n.setSelectionRange(n.value.length,n.value.length)},250)};
+  bg.querySelector(".cl").onclick=()=>{bg.remove();render()};
+  bg.querySelectorAll("[data-ty]").forEach(b=>b.onclick=()=>{type=b.dataset.ty||null;draw()});
+  bg.querySelectorAll("[data-pp]").forEach(b=>b.onclick=()=>{const p=K.pins[id]||(K.pins[id]=[]);const sl=b.dataset.pp;const j=p.indexOf(sl);j>=0?p.splice(j,1):p.unshift(sl);toast(j>=0?"Откреплено":"Закреплено наверху");draw()});
+  bg.querySelectorAll("[data-px]").forEach(b=>b.onclick=()=>{(K.out[id]||(K.out[id]=new Set())).add(b.dataset.px);toast("Убрано из «"+c.name+"»");draw()});
+  bg.querySelectorAll("[data-pm]").forEach(sel=>sel.onchange=()=>{if(!sel.value)return;K.move[sel.dataset.pm]=sel.value;toast("Перенесено в «"+lcById(sel.value).name+"»");draw()});
+  bg.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{const t=b.dataset.t;
+   if(t==="up"||t==="down"){const d=t==="up"?-1:1;[K.order[i],K.order[i+d]]=[K.order[i+d],K.order[i]];toast("Порядок изменён");draw();return}
+   if(t==="hide"){K.hidden.has(id)?K.hidden.delete(id):K.hidden.add(id);toast(K.hidden.has(id)?"Плитка скрыта":"Плитка снова на главной");draw();return}
+   if(t==="add")pickPlace(id,draw);
+  });
+ };
+ bg.onclick=e=>{if(e.target===bg){bg.remove();render()}};
+ draw();
+}
+function pickPlace(id,after){
+ const c=lcById(id);let q="";
+ const bg=document.createElement("div");bg.className="sheet-bg";bg.style.zIndex=35;
+ bg.innerHTML=`<div class="sheet"><div class="top"><h3>Добавить в «${esc(c.name)}»</h3><p>Любое место из базы — встанет сюда закреплённым.</p><input type="search" id="aq" placeholder="Название места"></div><div class="lst" id="al"></div><button class="bylink" type="button">Нет в базе — добавить по ссылке 2ГИС или Instagram</button><button class="cl" type="button">Закрыть</button></div>`;
+ document.body.appendChild(bg);
+ const draw=async()=>{const el=bg.querySelector("#al");if(q.length<2){el.innerHTML=`<div class="it" style="color:var(--ink2);font-size:13px">Начните вводить название…</div>`;return}
+  const {data}=await sb.rpc("showcase_search",{p_q:q,p_kind:"place"});const L=(data||[]).slice(0,30);
+  el.innerHTML=L.length?L.map((x,i)=>`<div class="it">${x.img?`<img class="th" src="${esc(x.img)}" alt="" loading="lazy">`:`<div class="th"></div>`}<div class="tx"><b>${esc(x.title)}</b><small>${esc(x.sub||"")}</small></div><button class="pl" type="button" data-i="${i}">+</button></div>`).join(""):`<div class="msg">Ничего не нашлось.</div>`;
+  el.querySelectorAll("[data-i]").forEach(b=>b.onclick=()=>{const x=L[Number(b.dataset.i)];const K=kudaState();const p=K.pins[id]||(K.pins[id]=[]);if(!p.includes(x.slug))p.unshift(x.slug);
+   const list=PL[id]||(PL[id]=[]);if(!list.some(z=>z.slug===x.slug))list.unshift({ref:x.ref,slug:x.slug,title:x.title,img:x.img,type:(x.sub||"").split(" · ")[0]});
+   toast("Добавлено в «"+c.name+"» и закреплено");b.classList.add("on");b.textContent="✓";after&&after()});
+ };
+ bg.querySelector("#aq").oninput=e=>{q=e.target.value.trim();clearTimeout(bg._t);bg._t=setTimeout(draw,300)};
  bg.querySelector(".bylink").onclick=()=>byLink(c.name);
  bg.querySelector(".cl").onclick=()=>bg.remove();
  draw();
