@@ -27,8 +27,8 @@ header h1{font-size:20px;margin:0;flex:1}
 .soon{font-size:11px;color:var(--ink2);border:1px solid var(--line);border-radius:10px;padding:2px 8px}
 .body{padding:0 0 14px}
 /* вкладки дней */
-.days{display:flex;gap:8px;padding:0 14px 12px;overflow-x:auto}
-.days button{flex-shrink:0;border:1px solid var(--line);background:none;border-radius:22px;padding:8px 14px;cursor:pointer;font-weight:600}
+.days{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:0 14px 12px}
+.days button{border:1px solid var(--line);background:none;border-radius:22px;padding:8px 4px;white-space:nowrap;cursor:pointer;font-weight:600}
 .days button span{display:inline-block;margin-left:6px;background:var(--card2);border-radius:10px;padding:0 7px;font-size:12px;color:var(--ink2);font-weight:700}
 .days button.on{background:var(--accent);border-color:var(--accent);color:#fff}
 .days button.on span{background:rgba(255,255,255,.25);color:#fff}
@@ -147,7 +147,7 @@ function autoShelf(t){
 }
 function evCard(e){
  const l=loc(e.date);
- return {key:"e"+e.slug,kind:"event",slug:e.slug,title:e.title,video:e.video,poster:e.poster||e.img,img:e.img,kicker:(SUBL[e.sub]||"Событие")+(e.venue?" · "+e.venue:""),date:`${WD[l.getUTCDay()]}, ${l.getUTCDate()} ${MS[l.getUTCMonth()]} · ${hm(e.date)}`,href:APP+"/events/"+e.slug+"/",src:e.video?"Робот: есть Reels":"Без Reels",price:e.price};
+ return {key:"e"+e.slug,kind:"event",slug:e.slug,title:e.title,video:e.video,poster:e.poster||e.img,img:e.img,kicker:(SUBL[e.sub]||"Событие")+(e.venue?" · "+e.venue:""),date:(new Date(e.date)<Date.now()-6*3600e3&&e.end)?(()=>{const z=loc(e.end);return `Идёт до ${z.getUTCDate()} ${MS[z.getUTCMonth()]}`})():`${WD[l.getUTCDay()]}, ${l.getUTCDate()} ${MS[l.getUTCMonth()]} · ${hm(e.date)}`,href:APP+"/events/"+e.slug+"/",src:e.video?"Робот: есть Reels":"Без Reels",price:e.price};
 }
 function shelfOf(i){
  const s=STATE[i]||(STATE[i]={items:autoShelf(TABS[i])});
