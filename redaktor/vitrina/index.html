@@ -132,7 +132,7 @@ select.mv{background:var(--card2);color:var(--ink);border:1px solid var(--line);
 </head>
 <body>
 <div class="wrap">
-  <div class="mk">«Чем заняться?» работает по-настоящему: правки видны в приложении через 5 минут. Полки с пометкой «макет» пока только для просмотра.</div>
+  <div class="mk">«Чем заняться?» и «Категории» работают по-настоящему: правки видны в приложении через 5 минут. Полки с пометкой «макет» пока только для просмотра.</div>
   <header><a href="../../">← База</a><h1>Витрина</h1><a href="../">Редактор</a></header>
   <p class="lead">Полки в том же порядке, что на главной приложения. Нажмите на полку — откроется, что сейчас видят люди.</p>
   <div id="app"><div class="msg">Загружаю…</div></div>
@@ -145,7 +145,8 @@ const sb=supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{persistSession:true,auto
 const APP="https://afisha-kz-gpt.vercel.app";
 const BASEURL="../../";
 const CHEM="chem-zanyatsya";let LIVE={picks:[],hides:[]};
-async function loadLive(){const {data,error}=await sb.rpc("showcase_live");if(error)throw error;LIVE=data||{picks:[],hides:[]};STATE={}}
+let TILES=[];
+async function loadLive(){const [{data,error},t]=await Promise.all([sb.rpc("showcase_live"),sb.rpc("showcase_tiles_get")]);if(error)throw error;LIVE=data||{picks:[],hides:[]};TILES=t.data||[];STATE={};CATSTATE=null;if(typeof KUDA!=="undefined")KUDA=null}
 const manKey=f=>"reel-"+String(f).split("/").pop().replace(".mp4","");
 const fixUrl=(k,pid)=>pid?BASEURL+"?open="+k+":"+encodeURIComponent(pid):null;
 const MANIFEST=[{"key": "m0", "title": "Euro Circus — цирковое шоу из Европы", "video": "https://afisha-kz-gpt.vercel.app/reels/euro-circus.mp4", "poster": "https://afisha-kz-gpt.vercel.app/reels/posters/euro-circus.webp", "kicker": "Цирк · Алматинский цирк", "date": "Сб и вс, 16:00 · до 29 нояб", "eventSlug": null, "href": "/events/euro-circus/"}, {"key": "m1", "title": "KALEO. Way Down We Go Tour", "video": "https://afisha-kz-gpt.vercel.app/reels/kaleo.mp4", "poster": "https://afisha-kz-gpt.vercel.app/reels/posters/kaleo.webp", "kicker": "Концерт · Halyk Arena", "date": "29 нояб, 19:00", "eventSlug": null, "href": "/events/kaleo-almaty/"}, {"key": "m2", "title": "Рафтинг на реке Чилик", "video": "https://afisha-kz-gpt.vercel.app/reels/rafting.mp4", "poster": "https://afisha-kz-gpt.vercel.app/reels/posters/rafting.webp", "kicker": "Активный отдых · 150 км от Алматы", "date": "Летом, по выходным", "eventSlug": null, "href": "/events/rafting-chilik/"}, {"key": "m3", "title": "Спектакль «Чарли Гордон»", "video": "https://afisha-kz-gpt.vercel.app/reels/today-theatre.mp4", "poster": "https://afisha-kz-gpt.vercel.app/reels/posters/today-theatre.webp", "kicker": null, "date": null, "eventSlug": "chyarli-gordan-ev-0359", "href": null}, {"key": "m4", "title": "Şeksiz Äuen — концерт современной музыки", "video": "https://afisha-kz-gpt.vercel.app/reels/today-contemporary-music.mp4", "poster": "https://afisha-kz-gpt.vercel.app/reels/posters/today-contemporary-music.webp", "kicker": "Концерт · British Council", "date": null, "eventSlug": null, "href": null}, {"key": "m5", "title": "Вечеринка «Сумерки»", "video": "https://afisha-kz-gpt.vercel.app/reels/today-sumerki.mp4", "poster": "https://afisha-kz-gpt.vercel.app/reels/posters/today-sumerki.webp", "kicker": null, "date": null, "eventSlug": "sumerki-novolunie-kino-ev-0554", "href": null}, {"key": "m6", "title": "Фестиваль тыквы", "video": "https://afisha-kz-gpt.vercel.app/reels/today-pumpkin.mp4", "poster": "https://afisha-kz-gpt.vercel.app/reels/posters/today-pumpkin.webp", "kicker": "Фестиваль · С семьёй", "date": null, "eventSlug": null, "href": null}, {"key": "m7", "title": "Андрей Съедин: куда сходить поесть", "video": "https://afisha-kz-gpt.vercel.app/reels/andrey-syedin-gourmet.mp4", "poster": "https://afisha-kz-gpt.vercel.app/reels/posters/andrey-syedin-gourmet.webp", "kicker": "Рекомендации Афиши · ГурмЭ", "date": null, "eventSlug": null, "href": null}, {"key": "m8", "title": "Кинофестиваль Spot", "video": "https://afisha-kz-gpt.vercel.app/reels/today-spot-film.mp4", "poster": "https://afisha-kz-gpt.vercel.app/reels/posters/today-spot-film.webp", "kicker": "Кино", "date": null, "eventSlug": null, "href": null}];
@@ -317,11 +318,23 @@ const EMO={"culture-entertainment":"🎭","entertainment":"🎤","sport":"⚽","
 let LC=[];const PL={};
 const plural=(n,a,b,c)=>{const m=n%10,h=n%100;return m===1&&h!==11?a:m>=2&&m<=4&&(h<10||h>=20)?b:c};
 const nEv=n=>n+" "+plural(n,"событие","события","событий"), nPl=n=>n+" "+plural(n,"место","места","мест");
+/* состояние полки «Категории» — из базы: порядок/скрытие плиток, закреплённые и убранные */
+const slugOf=id=>(LC.find(c=>c.id===id)||{}).slug, idOf=sl=>(LC.find(c=>c.slug===sl)||{}).id;
+function tileState(shelf){
+ const T=TILES.filter(t=>t.shelf===shelf);const pos=sl=>{const t=T.find(x=>x.key===sl);return t?t.position:1000+(LC.find(c=>c.slug===sl)||{}).sort};
+ const base=shelf==="kuda"?LC.filter(c=>c.places>0):LC;
+ return {order:[...base].sort((a,b)=>pos(a.slug)-pos(b.slug)).map(c=>c.id),hidden:new Set(T.filter(t=>t.hidden).map(t=>idOf(t.key)))};
+}
+async function saveTiles(shelf,S){const {error}=await sb.rpc("showcase_tiles_set",{p_shelf:shelf,p_order:S.order.map(slugOf),p_hidden:[...S.hidden].map(slugOf)});if(error){toast("Не сохранилось: "+error.message);return false}await loadLive();return true}
 function catState(){
  if(CATSTATE)return CATSTATE;
- CATSTATE={order:LC.map(c=>c.id),hidden:new Set(),move:{},pins:{},out:{}};
+ const T=tileState("kategorii");const pins={},out={},pickId={};
+ for(const p of LIVE.picks.filter(p=>p.shelf==="kategorii")){const id=idOf(p.scope);(pins[id]||(pins[id]=[])).push(p.key);pickId[p.scope+"|"+p.key]=p.id}
+ for(const h of LIVE.hides.filter(h=>h.shelf==="kategorii")){const id=idOf(h.scope);(out[id]||(out[id]=new Set())).add(h.key)}
+ CATSTATE={...T,move:{},pins,out,pickId};
  return CATSTATE;
 }
+async function setCat(e,catId){const {error}=await sb.rpc("showcase_set_category",{p_kind:"event",p_ref:e.ref,p_cat:catId});if(error){toast("Не сохранилось: "+error.message);return false}e.cat=catId;CATSTATE=null;return true}
 const catOf=e=>{const S=catState();return S.move[e.slug]||e.cat||null};
 const lcById=id=>LC.find(c=>c.id===id);
 function catList(id){
@@ -331,7 +344,7 @@ function catList(id){
 }
 function cats(){
  const S=catState();const lost=ALL.filter(e=>!catOf(e));
- return `<section class="shelf ${openCat?"open":""}"><div class="sh" id="cath"><b>Категории</b><span class="soon">макет</span><span class="n">${S.order.length-S.hidden.size} из ${LC.length}</span><span class="ch">›</span></div>
+ return `<section class="shelf ${openCat?"open":""}"><div class="sh" id="cath"><b>Категории</b><span class="n">${S.order.length-S.hidden.size} из ${LC.length}</span><span class="ch">›</span></div>
  ${openCat?`<div class="body"><div class="meta"><span>Что происходит: события по 14 категориям справочника. Лента листается вправо, как в приложении.</span></div>
  <div class="cg">${S.order.map((id,k)=>{const c=lcById(id);const n=catList(id).length;return `<button type="button" class="ct ${S.hidden.has(id)?"off":""}" data-cat="${id}">${(S.pins[id]||[]).length?`<span class="pin">📌 ${(S.pins[id]||[]).length}</span>`:""}<span class="emo">${EMO[c.slug]||"✨"}</span><b>${esc(c.name)}</b><small>${S.hidden.has(id)?"скрыта":nEv(n)}</small></button>`}).join("")}
   ${lost.length?`<button type="button" class="ct lost" data-cat="__lost"><span class="emo">❓</span><b>Без категории</b><small>${nEv(lost.length)} не видно</small></button>`:""}
@@ -343,7 +356,7 @@ function bindCats(){
 }
 async function placesOf(id){if(!PL[id]){const {data}=await sb.rpc("showcase_places_by_cat",{p_cat:id});PL[id]=data||[]}return PL[id]}
 function openCatSheet(id){
- const S=catState();const lostMode=id==="__lost";const c=lostMode?null:lcById(id);
+ let S=catState();const lostMode=id==="__lost";const c=lostMode?null:lcById(id);
  let view="ev",dir=null;
  const bg=document.createElement("div");bg.className="sheet-bg";document.body.appendChild(bg);
  const opts=()=>LC.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("");
@@ -371,13 +384,15 @@ function openCatSheet(id){
   bg.querySelectorAll("[data-view]").forEach(b=>b.onclick=()=>{view=b.dataset.view;dir=null;draw()});
   bg.querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>{dir=b.dataset.d||null;draw()});
   bg.querySelectorAll("[data-v]").forEach(el=>el.onclick=()=>{const e=ALL.find(z=>z.slug===el.dataset.v);openCard(evCard(e),{onShelf:false,view:true})});
-  bg.querySelectorAll("[data-pin]").forEach(b=>b.onclick=()=>{const p=S.pins[id]||(S.pins[id]=[]);const sl=b.dataset.pin;const j=p.indexOf(sl);j>=0?p.splice(j,1):p.unshift(sl);toast(j>=0?"Откреплено":"Закреплено наверху");draw()});
-  bg.querySelectorAll("[data-out]").forEach(b=>b.onclick=()=>{(S.out[id]||(S.out[id]=new Set())).add(b.dataset.out);toast("Убрано из «"+c.name+"»");draw()});
-  bg.querySelectorAll("[data-mv]").forEach(sel=>sel.onchange=()=>{if(!sel.value)return;S.move[sel.dataset.mv]=sel.value;toast("Перенесено в «"+lcById(sel.value).name+"»");draw()});
+  bg.querySelectorAll("[data-pin]").forEach(b=>b.onclick=async()=>{const sl=b.dataset.pin;const cs=slugOf(id);const pid=S.pickId[cs+"|"+sl];b.disabled=true;
+   const r=pid?await sb.rpc("showcase_remove",{p_id:pid}):await sb.rpc("showcase_add2",{p_shelf:"kategorii",p_scope:cs,p_kind:"event",p_ref:(ALL.find(e=>e.slug===sl)||{}).ref,p_key:null,p_until:null});
+   if(r.error){toast("Не сохранилось: "+r.error.message);b.disabled=false;return}await loadLive();S=catState();toast(pid?"Откреплено":"Закреплено наверху");draw()});
+  bg.querySelectorAll("[data-out]").forEach(b=>b.onclick=async()=>{const e=ALL.find(z=>z.slug===b.dataset.out);b.disabled=true;const {error}=await sb.rpc("showcase_hide",{p_shelf:"kategorii",p_scope:slugOf(id),p_key:b.dataset.out,p_title:e?e.title:null});if(error){toast("Не сохранилось: "+error.message);b.disabled=false;return}await loadLive();S=catState();toast("Убрано из «"+c.name+"»");draw()});
+  bg.querySelectorAll("[data-mv]").forEach(sel=>sel.onchange=async()=>{if(!sel.value)return;const e=ALL.find(z=>z.slug===sel.dataset.mv);if(!e)return;if(await setCat(e,sel.value)){S=catState();toast("Перенесено в «"+lcById(sel.value).name+"» — карточка исправлена")}draw()});
   bg.querySelectorAll("[data-ppin],[data-pout],[data-pmv]").forEach(b=>{const f=()=>toast("Макет: для мест работает так же, как для событий");b.tagName==="SELECT"?b.onchange=f:b.onclick=f});
   bg.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{const t=b.dataset.t;
-   if(t==="up"||t==="down"){const d=t==="up"?-1:1;[S.order[i],S.order[i+d]]=[S.order[i+d],S.order[i]];toast("Порядок в ленте изменён");draw();return}
-   if(t==="hide"){S.hidden.has(id)?S.hidden.delete(id):S.hidden.add(id);toast(S.hidden.has(id)?"Плитка скрыта с главной":"Плитка снова на главной");draw();return}
+   if(t==="up"||t==="down"){const d=t==="up"?-1:1;[S.order[i],S.order[i+d]]=[S.order[i+d],S.order[i]];saveTiles("kategorii",S).then(ok=>{if(ok){S=catState();toast("Порядок в ленте изменён")}draw()});return}
+   if(t==="hide"){S.hidden.has(id)?S.hidden.delete(id):S.hidden.add(id);const hid=S.hidden.has(id);saveTiles("kategorii",S).then(ok=>{if(ok){S=catState();toast(hid?"Плитка скрыта с главной":"Плитка снова на главной")}draw()});return}
    if(t==="add")pickAny(id,draw);
   });
  };
@@ -391,7 +406,10 @@ function pickAny(id,after){
  document.body.appendChild(bg);
  const draw=()=>{const L=q.length<2?[]:ALL.filter(e=>(e.title+" "+(e.venue||"")).toLowerCase().includes(q)).slice(0,40);
   bg.querySelector("#pl").innerHTML=q.length<2?`<div class="it" style="color:var(--ink2);font-size:13px">Начните вводить название…</div>`:L.length?L.map(e=>{const inn=catOf(e)===id;const cc=lcById(catOf(e));const l=loc(e.date);return `<div class="it">${e.img?`<img class="th" src="${esc(e.img)}" alt="" loading="lazy">`:`<div class="th"></div>`}<div class="tx"><b>${esc(e.title)}</b><small>${l.getUTCDate()} ${MS[l.getUTCMonth()]} · ${esc(e.venue||"")}</small><small>${inn?"Уже здесь":"Сейчас: "+(cc?esc(cc.name):"без категории")}</small></div><button class="pl ${inn?"on":""}" type="button" data-a="${esc(e.slug)}">${inn?"✓":"+"}</button></div>`}).join(""):`<div class="msg">Ничего не нашлось.</div>`;
-  bg.querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>{const sl=b.dataset.a;const S=catState();S.move[sl]=id;const p=S.pins[id]||(S.pins[id]=[]);if(!p.includes(sl))p.unshift(sl);toast("Добавлено в «"+c.name+"» и закреплено");draw();after&&after()});
+  bg.querySelectorAll("[data-a]").forEach(b=>b.onclick=async()=>{const sl=b.dataset.a;const e=ALL.find(z=>z.slug===sl);if(!e)return;b.disabled=true;
+   if(e.cat!==id&&!(await setCat(e,id))){b.disabled=false;return}
+   const {error}=await sb.rpc("showcase_add2",{p_shelf:"kategorii",p_scope:slugOf(id),p_kind:"event",p_ref:e.ref,p_key:null,p_until:null});
+   if(error){toast("Не сохранилось: "+error.message);b.disabled=false;return}await loadLive();toast("Добавлено в «"+c.name+"» и закреплено");draw();after&&after()});
  };
  bg.querySelector("#pq").oninput=e=>{q=e.target.value.trim().toLowerCase();draw()};
  bg.querySelector(".bylink").onclick=()=>byLink(c.name);
