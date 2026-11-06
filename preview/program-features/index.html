@@ -431,6 +431,7 @@ document.getElementById("auth-retry").onclick=async()=>startSession((await sb.au
 document.getElementById("auth-form").onsubmit=async e=>{e.preventDefault();const b=e.target.querySelector("button");const email=document.getElementById("auth-email").value.trim();b.disabled=true;authStatus("Отправляю письмо…");try{try{localStorage.setItem("afdb:email",email)}catch{};const {error}=await sb.auth.signInWithOtp({email,options:{shouldCreateUser:false,emailRedirectTo:location.origin+location.pathname}});if(error)throw new Error(/not allowed|signups|not found/i.test(error.message)?"Этой почте вход в базу не разрешён.":"Не удалось отправить письмо: "+error.message);authStatus("Письмо отправлено на "+email+". Откройте его на этом устройстве и нажмите «Войти» — база откроется сама. Нет письма — проверьте «Спам».")}catch(e){authStatus(e.message)}finally{b.disabled=false}};
 try{const em=localStorage.getItem("afdb:email");if(em)document.getElementById("auth-email").value=em}catch{}
 /* куда вернуть после входа: ?next=redaktor/ */
+try{const o=new URLSearchParams(location.search).get("open");if(o&&/^(place|event):[A-Za-z0-9-]{1,24}$/.test(o))localStorage.setItem("afdb:open",o)}catch{}
 try{const n=new URLSearchParams(location.search).get("next");if(n&&/^[a-z-]+(\/[a-z-]+)*\/$/.test(n))localStorage.setItem("afdb:next",n)}catch{}
 /* Сброс пароля: письмо со ссылкой ведёт обратно сюда, Supabase присылает событие PASSWORD_RECOVERY */
 let RECOVERY=/type=recovery/.test(location.hash);
@@ -2104,6 +2105,8 @@ window.addEventListener("beforeunload",ev=>{if((S.view==="evcard"&&(ECsave||evDi
 APP_CAN_LEAVE=()=>{if(ECsave||PCsave)return false;return !(evDirty()||(PD&&PC&&JSON.stringify(PD)!==JSON.stringify(pdraftOf(PC))))||window.confirm("Есть несохранённые правки. Уйти без сохранения?")};
 render();loadStats();homeStart();
 apiCall("legacy_data",{}).then(r=>{EV=r.events||[];PL=r.places||[];render()}).catch(()=>toast("Не удалось загрузить сводные счётчики. Рабочие реестры доступны отдельно."));
+/* ссылка из «Редактора витрины»: ?open=place:PL-0122 — сразу открыть карточку на правку */
+try{const o=localStorage.getItem("afdb:open");if(o){localStorage.removeItem("afdb:open");const [k,id]=o.split(":");setTimeout(()=>go(k,id),50)}}catch{}
 
 }
 </script>

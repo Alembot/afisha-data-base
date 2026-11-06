@@ -143,6 +143,8 @@ const SUPA_URL="https://quzgkhzkrhdlyztzbgcc.supabase.co";
 const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1emdraHprcmhkbHl6dHpiZ2NjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2OTk1NzIsImV4cCI6MjEwNTI3NTU3Mn0.zA6OVgFkgUgXGwLTzgL9IdB7yMcRNJEIWWq-ZZGYACQ";
 const sb=supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
 const APP="https://afisha-kz-gpt.vercel.app";
+const BASEURL="../../";
+const fixUrl=(k,pid)=>pid?BASEURL+"?open="+k+":"+encodeURIComponent(pid):null;
 const MANIFEST=[{"key": "m0", "title": "Euro Circus — цирковое шоу из Европы", "video": "https://afisha-kz-gpt.vercel.app/reels/euro-circus.mp4", "poster": "https://afisha-kz-gpt.vercel.app/reels/posters/euro-circus.webp", "kicker": "Цирк · Алматинский цирк", "date": "Сб и вс, 16:00 · до 29 нояб", "eventSlug": null, "href": "/events/euro-circus/"}, {"key": "m1", "title": "KALEO. Way Down We Go Tour", "video": "https://afisha-kz-gpt.vercel.app/reels/kaleo.mp4", "poster": "https://afisha-kz-gpt.vercel.app/reels/posters/kaleo.webp", "kicker": "Концерт · Halyk Arena", "date": "29 нояб, 19:00", "eventSlug": null, "href": "/events/kaleo-almaty/"}, {"key": "m2", "title": "Рафтинг на реке Чилик", "video": "https://afisha-kz-gpt.vercel.app/reels/rafting.mp4", "poster": "https://afisha-kz-gpt.vercel.app/reels/posters/rafting.webp", "kicker": "Активный отдых · 150 км от Алматы", "date": "Летом, по выходным", "eventSlug": null, "href": "/events/rafting-chilik/"}, {"key": "m3", "title": "Спектакль «Чарли Гордон»", "video": "https://afisha-kz-gpt.vercel.app/reels/today-theatre.mp4", "poster": "https://afisha-kz-gpt.vercel.app/reels/posters/today-theatre.webp", "kicker": null, "date": null, "eventSlug": "chyarli-gordan-ev-0359", "href": null}, {"key": "m4", "title": "Şeksiz Äuen — концерт современной музыки", "video": "https://afisha-kz-gpt.vercel.app/reels/today-contemporary-music.mp4", "poster": "https://afisha-kz-gpt.vercel.app/reels/posters/today-contemporary-music.webp", "kicker": "Концерт · British Council", "date": null, "eventSlug": null, "href": null}, {"key": "m5", "title": "Вечеринка «Сумерки»", "video": "https://afisha-kz-gpt.vercel.app/reels/today-sumerki.mp4", "poster": "https://afisha-kz-gpt.vercel.app/reels/posters/today-sumerki.webp", "kicker": null, "date": null, "eventSlug": "sumerki-novolunie-kino-ev-0554", "href": null}, {"key": "m6", "title": "Фестиваль тыквы", "video": "https://afisha-kz-gpt.vercel.app/reels/today-pumpkin.mp4", "poster": "https://afisha-kz-gpt.vercel.app/reels/posters/today-pumpkin.webp", "kicker": "Фестиваль · С семьёй", "date": null, "eventSlug": null, "href": null}, {"key": "m7", "title": "Андрей Съедин: куда сходить поесть", "video": "https://afisha-kz-gpt.vercel.app/reels/andrey-syedin-gourmet.mp4", "poster": "https://afisha-kz-gpt.vercel.app/reels/posters/andrey-syedin-gourmet.webp", "kicker": "Рекомендации Афиши · ГурмЭ", "date": null, "eventSlug": null, "href": null}, {"key": "m8", "title": "Кинофестиваль Spot", "video": "https://afisha-kz-gpt.vercel.app/reels/today-spot-film.mp4", "poster": "https://afisha-kz-gpt.vercel.app/reels/posters/today-spot-film.webp", "kicker": "Кино", "date": null, "eventSlug": null, "href": null}];
 const LIMIT=10, DAY=864e5, OFF=5*3600e3;
 const SHELVES=["Чем заняться?","Категории","Афиша рекомендует","Куда сходить?","Событие за Х тенге","Новые места в городе","Календарь событий","Журнал","Спецпроекты","Afisha Club","Настроение","Сложно выбрать?"];
@@ -176,7 +178,7 @@ function autoShelf(t){
 }
 function evCard(e){
  const l=loc(e.date);
- return {key:"e"+e.slug,kind:"event",slug:e.slug,title:e.title,video:e.video,poster:e.poster||e.img,img:e.img,kicker:(SUBL[e.sub]||"Событие")+(e.venue?" · "+e.venue:""),date:(new Date(e.date)<Date.now()-6*3600e3&&e.end)?(()=>{const z=loc(e.end);return `Идёт до ${z.getUTCDate()} ${MS[z.getUTCMonth()]}`})():`${WD[l.getUTCDay()]}, ${l.getUTCDate()} ${MS[l.getUTCMonth()]} · ${hm(e.date)}`,href:APP+"/events/"+e.slug+"/",src:e.video?"Робот: есть Reels":"Без Reels",price:e.price};
+ return {key:"e"+e.slug,kind:"event",pid:e.pid,slug:e.slug,title:e.title,video:e.video,poster:e.poster||e.img,img:e.img,kicker:(SUBL[e.sub]||"Событие")+(e.venue?" · "+e.venue:""),date:(new Date(e.date)<Date.now()-6*3600e3&&e.end)?(()=>{const z=loc(e.end);return `Идёт до ${z.getUTCDate()} ${MS[z.getUTCMonth()]}`})():`${WD[l.getUTCDay()]}, ${l.getUTCDate()} ${MS[l.getUTCMonth()]} · ${hm(e.date)}`,href:APP+"/events/"+e.slug+"/",src:e.video?"Робот: есть Reels":"Без Reels",price:e.price};
 }
 function shelfOf(i){
  const s=STATE[i]||(STATE[i]={items:autoShelf(TABS[i])});
@@ -234,7 +236,7 @@ function openCard(x,opt){
   </div>
   <div class="info"><div class="k">${esc(x.kicker||"")}</div><h3>${esc(x.title)}</h3><p>${esc(x.date||"")}${x.price?" · от "+Number(x.price).toLocaleString("ru-RU")+" ₸":""}</p>
    <div class="acts">${opt.view?"":opt.onShelf?`<button class="b2" type="button" data-a="first">Поставить первым</button><button class="b3" type="button" data-a="rm">Убрать с полки</button>`:`<button class="b1" type="button" data-a="add" ${noReel?"disabled style='opacity:.4'":""}>+ На полку</button><button class="b3" type="button" data-a="close">Назад</button>`}
-   ${x.href?`<a class="b3" href="${esc(x.href)}" target="_blank" rel="noopener" style="grid-column:1/-1">Открыть в приложении</a>`:""}</div>
+   ${x.pid?`<a class="b2" href="${fixUrl(x.kind==="place"?"place":"event",x.pid)}" target="_blank" rel="noopener">✎ Исправить карточку</a>`:""}${x.href?`<a class="b3" href="${esc(x.href)}" target="_blank" rel="noopener" ${x.pid?"":`style="grid-column:1/-1"`}>Открыть в приложении</a>`:""}</div>
   </div></div>`;
  document.body.appendChild(ov);
  const close=()=>ov.remove();
@@ -463,12 +465,13 @@ function openPlaceSheet(id){
   bg.innerHTML=`<div class="sheet"><div class="top"><h3>${EMO[c.slug]||""} ${esc(c.name)} · ${all.length}</h3><p>Так выглядит внутри приложения: сначала закреплённые, дальше — с фото и рейтингом.</p><input type="search" id="kq" placeholder="Найти место в этой категории" value="${esc(q)}">
    ${Object.keys(types).length>1?`<div class="seg" style="flex-wrap:wrap"><button type="button" data-ty="" class="${!type?"on":""}">Все ${all.length}</button>${Object.entries(types).sort((a,b)=>b[1]-a[1]).map(([t,n])=>`<button type="button" data-ty="${esc(t)}" class="${type===t?"on":""}">${esc(t)} ${n}</button>`).join("")}</div>`:""}</div>
    <div class="tbar"><button type="button" class="p" data-t="add">+ Добавить место</button><button type="button" data-t="up" ${i<=0?"disabled":""}>← Раньше</button><button type="button" data-t="down" ${i>=K.order.length-1?"disabled":""}>Позже →</button><button type="button" data-t="hide">${K.hidden.has(id)?"Показать плитку":"Скрыть плитку"}</button></div>
-   <div class="lst">${shown.map(p=>{const pn=pins.includes(p.slug);return `<div class="row2">${p.img?`<img class="th" src="${esc(p.img)}" alt="" loading="lazy">`:`<div class="th"></div>`}<div class="tx"><b>${esc(p.title)}</b><small>${pn?`<span class="pn">📌 Закреплено · </span>`:""}${esc([p.type,p.district].filter(Boolean).join(" · "))}${p.rating?" · ★ "+p.rating:""}</small></div><div class="ctr"><button class="mini ${pn?"on":""}" type="button" data-pp="${esc(p.slug)}">📌</button><select class="mv" data-pm="${esc(p.slug)}"><option value="">Перенести в…</option>${opts}</select><button class="mini" type="button" data-px="${esc(p.slug)}">×</button></div></div>`}).join("")}
+   <div class="lst">${shown.map(p=>{const pn=pins.includes(p.slug);return `<div class="row2">${p.img?`<img class="th" src="${esc(p.img)}" alt="" loading="lazy" data-po="${esc(p.slug)}">`:`<div class="th" data-po="${esc(p.slug)}"></div>`}<div class="tx" data-po="${esc(p.slug)}" style="cursor:pointer"><b>${esc(p.title)}</b><small>${pn?`<span class="pn">📌 Закреплено · </span>`:""}${esc([p.type,p.district].filter(Boolean).join(" · "))}${p.rating?" · ★ "+p.rating:""}</small></div><div class="ctr"><button class="mini ${pn?"on":""}" type="button" data-pp="${esc(p.slug)}">📌</button><select class="mv" data-pm="${esc(p.slug)}"><option value="">Перенести в…</option>${opts}</select><button class="mini" type="button" data-px="${esc(p.slug)}">×</button></div></div>`}).join("")}
    ${L.length>shown.length?`<div class="note" style="text-align:center;padding:10px">Показаны первые ${shown.length} из ${L.length} — уточните поиском или типом</div>`:""}</div>
    <button class="cl" type="button">Закрыть</button></div>`;
   const kq=bg.querySelector("#kq");kq.oninput=()=>{q=kq.value.trim().toLowerCase();clearTimeout(bg._t);bg._t=setTimeout(async()=>{await draw();const n=bg.querySelector("#kq");n.focus();n.setSelectionRange(n.value.length,n.value.length)},250)};
   bg.querySelector(".cl").onclick=()=>{bg.remove();render()};
   bg.querySelectorAll("[data-ty]").forEach(b=>b.onclick=()=>{type=b.dataset.ty||null;draw()});
+  bg.querySelectorAll("[data-po]").forEach(el=>el.onclick=()=>{const p=all.find(z=>z.slug===el.dataset.po);if(p)openPlaceCard(p)});
   bg.querySelectorAll("[data-pp]").forEach(b=>b.onclick=()=>{const p=K.pins[id]||(K.pins[id]=[]);const sl=b.dataset.pp;const j=p.indexOf(sl);j>=0?p.splice(j,1):p.unshift(sl);toast(j>=0?"Откреплено":"Закреплено наверху");draw()});
   bg.querySelectorAll("[data-px]").forEach(b=>b.onclick=()=>{(K.out[id]||(K.out[id]=new Set())).add(b.dataset.px);toast("Убрано из «"+c.name+"»");draw()});
   bg.querySelectorAll("[data-pm]").forEach(sel=>sel.onchange=()=>{if(!sel.value)return;K.move[sel.dataset.pm]=sel.value;toast("Перенесено в «"+lcById(sel.value).name+"»");draw()});
@@ -497,6 +500,17 @@ function pickPlace(id,after){
  bg.querySelector(".bylink").onclick=()=>byLink(c.name);
  bg.querySelector(".cl").onclick=()=>bg.remove();
  draw();
+}
+
+function openPlaceCard(p){
+ const ov=document.createElement("div");ov.className="ov";ov.style.zIndex=45;
+ const href=APP+"/search/?q="+encodeURIComponent(p.title);
+ ov.innerHTML=`<div class="card"><div class="media">${p.img?`<img src="${esc(p.img)}" alt="">`:`<div style="display:grid;place-items:center;height:100%;color:var(--ink2)">Нет фото</div>`}<button class="close" type="button" aria-label="Закрыть">×</button></div>
+  <div class="info"><div class="k">${esc(p.type||"Место")}${p.district?" · "+esc(p.district):""}</div><h3>${esc(p.title)}</h3><p>${esc(p.address||"")}${p.rating?" · ★ "+p.rating:""}${p.ig?" · @"+esc(String(p.ig).replace(/^.*instagram\.com\//,"").replace(/\/$/,"")):""}</p>
+  <div class="acts">${p.pid?`<a class="b1" href="${fixUrl("place",p.pid)}" target="_blank" rel="noopener" style="grid-column:1/-1">✎ Исправить карточку</a>`:""}<a class="b3" href="${href}" target="_blank" rel="noopener" style="grid-column:1/-1">Открыть в приложении</a></div>
+  <p style="margin-top:10px;font-size:12px">«Исправить» открывает карточку в базе: название, тип, адрес, фото, Instagram, описание. Сохранили — в приложении обновится в течение часа.</p></div></div>`;
+ document.body.appendChild(ov);
+ ov.querySelector(".close").onclick=()=>ov.remove();ov.onclick=e=>{if(e.target===ov)ov.remove()};
 }
 
 async function start(){
