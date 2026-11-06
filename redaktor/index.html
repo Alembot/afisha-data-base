@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Редактор витрины — Афиша</title>
+<style>
+:root{--bg:#f6f4f5;--card:#fff;--ink:#1c1b1d;--ink2:#6b6870;--line:#e6e1e4;--accent:#c0127f;--accent2:#8f07a6;--soft:#fce4f3;--bad:#b00020;--ok:#1e7a48}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-text-size-adjust:100%}
+button,input,select{font:inherit;color:inherit}
+.wrap{max-width:1100px;margin:0 auto;padding:12px 16px calc(84px + env(safe-area-inset-bottom,0))}
+header{display:flex;align-items:center;gap:10px;padding:calc(6px + env(safe-area-inset-top,0)) 0 8px}
+header a{color:var(--accent);text-decoration:none;font-size:14px;white-space:nowrap}
+header h1{font-size:20px;margin:0;flex:1}
+.who{font-size:12px;color:var(--ink2);text-align:right}
+/* вкладки: снизу на телефоне, сверху на компьютере */
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;display:grid;grid-template-columns:repeat(4,1fr);background:var(--card);border-top:1px solid var(--line);padding:4px 4px env(safe-area-inset-bottom,0)}
+nav.tabs button{border:0;background:none;padding:8px 2px 6px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--ink2);cursor:pointer;position:relative}
+nav.tabs button svg{width:24px;height:24px}
+nav.tabs button.on{color:var(--accent)}
+nav.tabs .cnt{position:absolute;top:2px;left:calc(50% + 6px);background:var(--accent);color:#fff;border-radius:9px;font-size:10px;padding:0 5px;line-height:16px}
+@media (min-width:900px){
+ .wrap{padding-bottom:40px}
+ nav.tabs{position:sticky;top:0;bottom:auto;border:1px solid var(--line);border-radius:14px;margin:0 0 16px;grid-template-columns:repeat(4,auto);justify-content:start;gap:6px;padding:4px}
+ nav.tabs button{flex-direction:row;font-size:14px;padding:8px 14px;border-radius:10px;gap:8px}
+ nav.tabs button svg{width:18px;height:18px}
+ nav.tabs button.on{background:var(--soft)}
+ nav.tabs .cnt{position:static}
+}
+.msg{background:var(--card);border-radius:16px;padding:18px}
+.msg a{color:var(--accent)}
+h2{font-size:17px;margin:18px 0 8px}
+.hint{color:var(--ink2);font-size:13px;margin:0 0 10px}
+/* согласовать */
+.hub{display:grid;gap:10px}
+@media (min-width:700px){.hub{grid-template-columns:repeat(3,1fr)}}
+.hubc{display:block;background:var(--card);border-radius:16px;padding:16px;text-decoration:none;color:var(--ink);border:1px solid var(--line)}
+.hubc b{display:flex;justify-content:space-between;font-size:16px}
+.hubc b span{color:var(--accent)}
+.hubc small{display:block;color:var(--ink2);margin-top:4px;font-size:13px}
+/* полки */
+.shelves{display:grid;gap:12px}
+@media (min-width:900px){.shelves{grid-template-columns:1fr 1fr}}
+.shelf{background:var(--card);border-radius:16px;border:1px solid var(--line);overflow:hidden}
+.shead{display:flex;align-items:center;gap:8px;padding:12px 14px 6px}
+.shead b{flex:1;font-size:16px}
+.shead .add{border:0;background:var(--soft);color:var(--accent);border-radius:20px;padding:6px 12px;font-weight:700;cursor:pointer}
+.snote{padding:0 14px 8px;color:var(--ink2);font-size:12px}
+.empty{padding:6px 14px 14px;color:var(--ink2);font-size:13px}
+.auto{padding:8px 14px 12px;color:var(--ink2);font-size:12px;border-top:1px solid var(--line)}
+/* карточка-строка */
+.row{display:flex;align-items:center;gap:10px;padding:8px 14px;border-top:1px solid var(--line)}
+.row img,.row .ph{width:52px;height:52px;border-radius:10px;object-fit:cover;flex-shrink:0;background:var(--soft)}
+.row .tx{flex:1;min-width:0}
+.row .tx b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px}
+.row .tx small{display:block;color:var(--ink2);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .warn{color:var(--bad)}
+.ib{border:1px solid var(--line);background:var(--card);border-radius:10px;width:36px;height:36px;display:grid;place-items:center;cursor:pointer;flex-shrink:0;padding:0}
+.ib svg{width:18px;height:18px}
+.ib.plus{background:var(--accent);border-color:var(--accent);color:#fff}
+.ib.done{background:var(--ok);border-color:var(--ok);color:#fff}
+.ib:disabled{opacity:.35}
+/* поиск */
+.sbar{display:flex;gap:8px;position:sticky;top:0;background:var(--bg);padding:6px 0 8px;z-index:5}
+@media (min-width:900px){.sbar{top:58px}}
+.sbar input{flex:1;border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:var(--card);min-width:0}
+.seg{display:flex;gap:6px;margin:0 0 8px}
+.seg button{border:1px solid var(--line);background:var(--card);border-radius:20px;padding:6px 12px;font-size:13px;cursor:pointer}
+.seg button.on{background:var(--soft);border-color:var(--accent);color:var(--accent2)}
+.list{background:var(--card);border-radius:16px;border:1px solid var(--line);overflow:hidden}
+.list .row:first-child{border-top:0}
+@media (min-width:900px){.list.grid{display:grid;grid-template-columns:1fr 1fr}.list.grid .row:nth-child(2){border-top:0}}
+/* ассистент */
+.chat{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.bub{max-width:85%;padding:10px 12px;border-radius:16px;font-size:14px}
+.bub.me{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:4px}
+.bub.bot{align-self:flex-start;background:var(--card);border:1px solid var(--line);border-bottom-left-radius:4px}
+.bub .list{margin-top:8px}
+.ex{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 12px}
+.ex button{border:1px dashed var(--line);background:none;border-radius:16px;padding:6px 10px;font-size:13px;color:var(--ink2);cursor:pointer}
+.log{font-size:13px}
+.log div{padding:8px 14px;border-top:1px solid var(--line)}
+.log div:first-child{border-top:0}
+.log span{color:var(--ink2)}
+/* лист выбора полки */
+.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:40;display:flex;align-items:flex-end;justify-content:center}
+@media (min-width:700px){.sheet-bg{align-items:center}}
+.sheet{background:var(--card);width:100%;max-width:440px;border-radius:20px 20px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0));max-height:85vh;overflow:auto}
+@media (min-width:700px){.sheet{border-radius:20px}}
+.sheet h3{margin:0 0 4px;font-size:17px}
+.sheet p{margin:0 0 12px;color:var(--ink2);font-size:13px}
+.sheet .opt{display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:12px;margin-top:8px;cursor:pointer}
+.sheet .opt small{display:block;color:var(--ink2);font-size:12px;margin-top:2px}
+.sheet .opt:disabled{opacity:.4}
+.sheet .opt.in{border-color:var(--ok)}
+.sheet label{display:block;font-size:13px;color:var(--ink2);margin-top:12px}
+.sheet input[type=date]{width:100%;margin-top:6px;border:1px solid var(--line);border-radius:12px;padding:10px;background:var(--card)}
+.sheet .cancel{display:block;width:100%;margin-top:12px;border:0;background:none;color:var(--ink2);padding:10px;cursor:pointer}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(80px + env(safe-area-inset-bottom,0));background:#1c1b1d;color:#fff;padding:10px 16px;border-radius:20px;font-size:14px;z-index:50;max-width:90vw}
+@media (min-width:900px){.toast{bottom:24px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><a href="../">← База</a><h1>Редактор витрины</h1><div class="who" id="who"></div></header>
+  <nav class="tabs" id="tabs" aria-label="Разделы редактора"></nav>
+  <main id="app"><div class="msg">Загружаю…</div></main>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+const SUPA_URL="https://quzgkhzkrhdlyztzbgcc.supabase.co";
+const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1emdraHprcmhkbHl6dHpiZ2NjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2OTk1NzIsImV4cCI6MjEwNTI3NTU3Mn0.zA6OVgFkgUgXGwLTzgL9IdB7yMcRNJEIWWq-ZZGYACQ";
+const sb=supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
+const APP="https://afisha-kz-gpt.vercel.app";
+const I={
+ check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+ shelf:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
+ search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>',
+ chat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+ plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+ x:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+ up:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>',
+ down:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>'
+};
+const TABS=[["agree","Согласовать",I.check],["shelves","Витрина",I.shelf],["search","Поиск",I.search],["bot","Ассистент",I.chat]];
+const app=document.getElementById("app");
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt=d=>d?new Date(d).toLocaleString("ru-RU",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit",timeZone:"Asia/Almaty"}):"";
+const fmtD=d=>d?new Date(d).toLocaleDateString("ru-RU",{day:"numeric",month:"short",timeZone:"Asia/Almaty"}):"";
+let tab=(()=>{try{return localStorage.getItem("afdb:redaktor:tab")||"shelves"}catch{return "shelves"}})();
+let SHELVES=[],COUNTS={reels:null},Q="",KIND=null,RESULTS=[],CHAT=[];
+function toast(t){const d=document.createElement("div");d.className="toast";d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.remove(),2600)}
+const inShelves=ref=>SHELVES.filter(s=>s.picks.some(p=>p.ref===ref)).map(s=>s.title);
+const link=x=>x.slug?APP+(x.kind==="event"?"/events/":"/search/?q=")+(x.kind==="event"?esc(x.slug)+"/":encodeURIComponent(x.title)):"";
+
+function renderTabs(){
+ document.getElementById("tabs").innerHTML=TABS.map(([k,l,ic])=>`<button type="button" data-t="${k}" class="${tab===k?"on":""}">${ic}<span>${l}</span>${k==="agree"&&COUNTS.reels?`<span class="cnt">${COUNTS.reels}</span>`:""}</button>`).join("");
+ document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>{tab=b.dataset.t;try{localStorage.setItem("afdb:redaktor:tab",tab)}catch{};render();window.scrollTo(0,0)});
+}
+function render(){renderTabs();({agree:rAgree,shelves:rShelves,search:rSearch,bot:rBot})[tab]()}
+
+function itemRow(x,actions){
+ const sub=[x.kind==="event"?fmt(x.date):"",x.sub].filter(Boolean).join(" · ");
+ const warn=x.kind==="event"&&x.reel===false&&x._shelf==="chem-zanyatsya"?`<small class="warn">Нет Reels — на этой полке не появится</small>`:x.live===false?`<small class="warn">Прошло или снято — в приложении не видно</small>`:"";
+ const img=x.img?`<img src="${esc(x.img)}" alt="" loading="lazy">`:`<div class="ph"></div>`;
+ const href=link(x);
+ return `<div class="row">${href?`<a href="${href}" target="_blank" rel="noopener">${img}</a>`:img}<div class="tx"><b>${esc(x.title)}</b><small>${esc(x.kind==="event"?"Событие":"Место")}${sub?" · "+esc(sub):""}</small>${warn}${x._extra||""}</div>${actions}</div>`;
+}
+
+/* 1. Согласовать */
+function rAgree(){
+ app.innerHTML=`<p class="hint">Всё, что ждёт вашего решения. Робот кладёт сюда новое каждое утро.</p>
+ <div class="hub">
+  <a class="hubc" href="../soglasovanie-reels/"><b>Reels <span>${COUNTS.reels??"…"}</span></b><small>Ролики для «Чем заняться». Каждый показывается только после «Да».</small></a>
+  <a class="hubc" href="../estetika/"><b>Эстетика Афиши</b><small>Пары картинок: какая подходит, какая нет. Робот учится на ваших ответах.</small></a>
+  <div class="hubc"><b>Новые события и места <span style="color:var(--ink2)">скоро</span></b><small>Что робот нашёл за ночь — «на витрину» или «нет».</small></div>
+ </div>
+ <h2>Журнал витрины</h2><div class="list log" id="log"><div><span>Загружаю…</span></div></div>`;
+ sb.rpc("showcase_log").then(({data,error})=>{
+  const el=document.getElementById("log");if(!el)return;
+  if(error){el.innerHTML=`<div><span>Не загрузилось: ${esc(error.message)}</span></div>`;return}
+  el.innerHTML=(data||[]).length?(data||[]).map(l=>`<div>${l.act==="add"?"➕":"➖"} <b>${esc(l.title)}</b> — ${l.act==="add"?"добавил(а) в":"убрал(а) из"} «${esc(l.shelf)}»<br><span>${esc(l.who)} · ${fmt(l.ts)}</span></div>`).join(""):`<div><span>Пока пусто. Здесь будет видно, кто что добавил и убрал.</span></div>`;
+ });
+}
+
+/* 2. Витрина */
+function rShelves(){
+ app.innerHTML=`<p class="hint">Что сейчас видят люди на главной. Робот наполняет полки сам; то, что вы добавили руками, стоит первым.</p><div class="shelves">${SHELVES.map(s=>`
+  <section class="shelf"><div class="shead"><b>${esc(s.title)}</b><button class="add" type="button" data-addto="${s.slug}">+ Добавить</button></div>
+  <div class="snote">${esc(s.note||"")}</div>
+  ${s.picks.length?s.picks.map((p,k)=>itemRow({...p,_shelf:s.slug,_extra:`<small>Добавил(а) ${esc(p.by.split("@")[0])}${p.until?" · до "+fmtD(p.until):""}</small>`},
+    `<button class="ib" type="button" data-mv="${p.id}" data-d="-1" ${k===0?"disabled":""} aria-label="Выше">${I.up}</button><button class="ib" type="button" data-mv="${p.id}" data-d="1" ${k===s.picks.length-1?"disabled":""} aria-label="Ниже">${I.down}</button><button class="ib" type="button" data-rm="${p.id}" aria-label="Убрать">${I.x}</button>`)).join(""):`<div class="empty">Ручных добавлений нет.</div>`}
+  ${s.auto!=null?`<div class="auto">Робот поставил сам: ${s.auto} событий с одобренными Reels</div>`:""}
+  </section>`).join("")}</div>`;
+ app.querySelectorAll("[data-addto]").forEach(b=>b.onclick=()=>{tab="search";KIND=null;render();setTimeout(()=>document.getElementById("q")?.focus(),50);toast("Найдите событие или место и нажмите «+»")});
+ app.querySelectorAll("[data-rm]").forEach(b=>b.onclick=async()=>{b.disabled=true;const {error}=await sb.rpc("showcase_remove",{p_id:b.dataset.rm});if(error){toast("Не убралось: "+error.message);b.disabled=false;return}toast("Убрано с витрины");await loadState();render()});
+ app.querySelectorAll("[data-mv]").forEach(b=>b.onclick=async()=>{b.disabled=true;const {error}=await sb.rpc("showcase_move",{p_id:b.dataset.mv,p_dir:Number(b.dataset.d)});if(error)toast("Не сохранилось: "+error.message);await loadState();render()});
+}
+
+/* 3. Поиск */
+let searchTimer=null;
+function rSearch(){
+ app.innerHTML=`<div class="sbar"><input id="q" type="search" placeholder="Событие, место или площадка" value="${esc(Q)}" autocomplete="off" enterkeyhint="search"></div>
+ <div class="seg">${[[null,"Всё"],["event","События"],["place","Места"]].map(([k,l])=>`<button type="button" data-k="${k??""}" class="${KIND===k?"on":""}">${l}</button>`).join("")}</div>
+ <div id="res"></div>`;
+ const q=document.getElementById("q");
+ q.oninput=()=>{Q=q.value;clearTimeout(searchTimer);searchTimer=setTimeout(doSearch,300)};
+ app.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{KIND=b.dataset.k||null;app.querySelectorAll(".seg button").forEach(x=>x.classList.toggle("on",x===b));doSearch()});
+ drawResults();
+}
+async function doSearch(){
+ const res=document.getElementById("res");if(!res)return;
+ if(Q.trim().length<2){RESULTS=[];drawResults();return}
+ res.innerHTML=`<div class="msg">Ищу…</div>`;
+ const {data,error}=await sb.rpc("showcase_search",{p_q:Q,p_kind:KIND});
+ if(error){res.innerHTML=`<div class="msg">Не нашлось: ${esc(error.message)}</div>`;return}
+ RESULTS=data||[];drawResults();
+}
+function drawResults(){
+ const res=document.getElementById("res");if(!res)return;
+ if(Q.trim().length<2){res.innerHTML=`<div class="msg">Начните вводить название — покажу будущие события и места из базы. У каждого есть «+», чтобы поставить на витрину.</div>`;return}
+ if(!RESULTS.length){res.innerHTML=`<div class="msg">Ничего не нашлось. Попробуйте короче или другим словом.</div>`;return}
+ res.innerHTML=`<div class="list grid">${RESULTS.map((x,i)=>{const on=inShelves(x.ref);return itemRow({...x,_extra:on.length?`<small style="color:var(--ok)">Уже на витрине: ${esc(on.join(", "))}</small>`:""},`<button class="ib ${on.length?"done":"plus"}" type="button" data-pick="${i}" aria-label="На витрину">${on.length?I.check:I.plus}</button>`)}).join("")}</div>`;
+ res.querySelectorAll("[data-pick]").forEach(b=>b.onclick=()=>openSheet(RESULTS[Number(b.dataset.pick)],drawResults));
+}
+
+/* лист «На какую полку» */
+function openSheet(x,after){
+ const bg=document.createElement("div");bg.className="sheet-bg";
+ const def=x.kind==="event"&&x.date?new Date(new Date(x.date).getTime()+864e5).toISOString().slice(0,10):"";
+ bg.innerHTML=`<div class="sheet" role="dialog" aria-label="На витрину"><h3>${esc(x.title)}</h3><p>Выберите полку. ${x.kind==="event"?"Событие уйдёт с витрины само, когда пройдёт.":"Место будет стоять, пока не уберёте."}</p>
+ ${SHELVES.map(s=>{const ok=s.kinds.includes(x.kind);const inn=s.picks.find(p=>p.ref===x.ref);const noReel=s.slug==="chem-zanyatsya"&&x.kind==="event"&&x.reel===false;
+   return `<button class="opt${inn?" in":""}" type="button" data-s="${s.slug}" ${!ok||inn?"disabled":""}><b>${inn?"✓ ":""}${esc(s.title)}</b><small>${!ok?(x.kind==="event"?"Сюда только места":"Сюда только события"):inn?"Уже стоит здесь":noReel?"У события нет Reels — здесь не появится, пока ролик не одобрят":esc(s.note||"")}</small></button>`}).join("")}
+ <label>Держать до (необязательно)<input type="date" id="until" value=""></label>
+ <button class="cancel" type="button">Закрыть</button></div>`;
+ document.body.appendChild(bg);
+ const close=()=>bg.remove();
+ bg.onclick=e=>{if(e.target===bg)close()};
+ bg.querySelector(".cancel").onclick=close;
+ bg.querySelectorAll(".opt[data-s]").forEach(b=>b.onclick=async()=>{
+  b.disabled=true;const u=bg.querySelector("#until").value;
+  const {error}=await sb.rpc("showcase_add",{p_shelf:b.dataset.s,p_kind:x.kind,p_ref:x.ref,p_until:u?new Date(u+"T23:59:00+05:00").toISOString():null});
+  if(error){toast("Не добавилось: "+error.message);b.disabled=false;return}
+  close();toast("Добавлено в «"+(SHELVES.find(s=>s.slug===b.dataset.s)?.title||"")+"»");await loadState();after&&after();
+ });
+}
+
+/* 4. Ассистент */
+function rBot(){
+ app.innerHTML=`<p class="hint">Напишите, что сделать с витриной, — ассистент найдёт в базе и предложит. Ставит на витрину только после вашего «+».</p>
+ <div class="ex">${["Добавь «Щелкунчик» в «Афиша рекомендует»","Поставь «1984» в календарь до 15 ноября","Найди кофейни для «Новые места»"].map(t=>`<button type="button">${esc(t)}</button>`).join("")}</div>
+ <div class="chat" id="chat"></div>
+ <div class="sbar" style="bottom:calc(64px + env(safe-area-inset-bottom,0));top:auto"><input id="say" type="text" placeholder="Например: добавь Щелкунчик в Афиша рекомендует" enterkeyhint="send"><button class="ib plus" id="send" type="button" aria-label="Отправить">${I.chat}</button></div>`;
+ drawChat();
+ const inp=document.getElementById("say");
+ const send=()=>{const t=inp.value.trim();if(!t)return;inp.value="";ask(t)};
+ document.getElementById("send").onclick=send;
+ inp.onkeydown=e=>{if(e.key==="Enter")send()};
+ app.querySelectorAll(".ex button").forEach(b=>b.onclick=()=>ask(b.textContent));
+}
+function drawChat(){
+ const el=document.getElementById("chat");if(!el)return;
+ el.innerHTML=CHAT.map((m,mi)=>m.me?`<div class="bub me">${esc(m.text)}</div>`:`<div class="bub bot">${esc(m.text)}${m.items&&m.items.length?`<div class="list">${m.items.map((x,i)=>{const on=inShelves(x.ref);return itemRow(x,`<button class="ib ${on.length?"done":"plus"}" type="button" data-c="${mi}:${i}">${on.length?I.check:I.plus}</button>`)}).join("")}</div>`:""}</div>`).join("");
+ el.querySelectorAll("[data-c]").forEach(b=>b.onclick=async()=>{
+  const [mi,i]=b.dataset.c.split(":").map(Number);const m=CHAT[mi];const x=m.items[i];
+  if(m.shelf&&!inShelves(x.ref).length){
+   const s=SHELVES.find(z=>z.slug===m.shelf);
+   if(s&&s.kinds.includes(x.kind)){b.disabled=true;const {error}=await sb.rpc("showcase_add",{p_shelf:m.shelf,p_kind:x.kind,p_ref:x.ref,p_until:m.until?new Date(m.until+"T23:59:00+05:00").toISOString():null});
+    if(error){toast("Не добавилось: "+error.message);b.disabled=false;return}
+    toast("Добавлено в «"+s.title+"»");await loadState();drawChat();return}
+  }
+  openSheet(x,drawChat);
+ });
+ el.lastElementChild?.scrollIntoView({block:"end",behavior:"smooth"});
+}
+async function ask(text){
+ CHAT.push({me:true,text});CHAT.push({text:"Думаю…"});drawChat();
+ const pending=CHAT[CHAT.length-1];
+ try{
+  const {data,error}=await sb.functions.invoke("showcase-assistant",{body:{text,shelves:SHELVES.map(s=>({slug:s.slug,title:s.title}))}});
+  if(error||data?.error)throw new Error(data?.error||"ассистент недоступен");
+  const shelf=SHELVES.find(s=>s.slug===data.shelf);
+  if(data.action==="remove"&&shelf){
+   const hit=shelf.picks.filter(p=>p.title.toLowerCase().includes(String(data.query||"").toLowerCase()));
+   if(hit.length===1){await sb.rpc("showcase_remove",{p_id:hit[0].id});await loadState();pending.text=`Убрал «${hit[0].title}» из «${shelf.title}».`}
+   else pending.text=hit.length?`На полке «${shelf.title}» несколько похожих — уберите нужное во вкладке «Витрина».`:`На полке «${shelf.title}» такого нет.`;
+  }else if(data.query){
+   const {data:found}=await sb.rpc("showcase_search",{p_q:data.query,p_kind:data.kind||null});
+   const items=(found||[]).slice(0,8);
+   pending.items=items;pending.shelf=shelf?.slug||null;pending.until=data.until||null;
+   pending.text=items.length?`${data.say||"Нашёл"}${shelf?` Нажмите «+» — поставлю в «${shelf.title}»${data.until?" до "+fmtD(data.until):""}.`:" Нажмите «+» и выберите полку."}`:`По запросу «${data.query}» в базе ничего не нашлось.`;
+  }else pending.text=data.say||"Не понял. Напишите, что добавить и на какую полку.";
+ }catch(e){pending.text="Не получилось: "+e.message}
+ drawChat();
+}
+
+async function loadState(){
+ const {data,error}=await sb.rpc("showcase_state");
+ if(error)throw error;
+ SHELVES=data||[];
+}
+async function start(){
+ const {data:{session}}=await sb.auth.getSession();
+ if(!session){app.innerHTML=`<div class="msg">Нужно войти в базу Афиши.<br><br><a href="../">Открыть базу и войти</a>, затем вернитесь сюда.</div>`;return}
+ const email=(session.user.email||"").toLowerCase();
+ const {data:role}=await sb.from("aesthetic_editors").select("role").eq("email",email).maybeSingle();
+ if(!role){app.innerHTML=`<div class="msg">У аккаунта ${esc(email)} нет роли «Редактор витрины». Её выдаёт руководитель.</div>`;return}
+ document.getElementById("who").textContent=email.split("@")[0];
+ await loadState();
+ render();
+ const {count}=await sb.from("reels_queue").select("id",{count:"exact",head:true}).eq("status","review").not("matched_at","is",null).not("event_id","is",null);
+ COUNTS.reels=count??0;renderTabs();if(tab==="agree")rAgree();
+}
+start().catch(e=>{app.innerHTML=`<div class="msg">Сервер не ответил. <a href="" onclick="location.reload();return false">Обновить</a><br><small>${esc(e.message||e)}</small></div>`});
+</script>
+</body>
+</html>
