@@ -34,6 +34,7 @@ header h1{font-size:20px;margin:0;flex:1}
 .days button.on span{background:rgba(255,255,255,.25);color:#fff}
 .meta{display:flex;justify-content:space-between;align-items:center;padding:0 14px 8px;font-size:12px;color:var(--ink2)}
 .meta b{color:var(--ink)}
+.addtop{border:0;background:var(--accent);color:#fff;border-radius:16px;padding:7px 14px;font-weight:700;font-size:13px;cursor:pointer}
 /* лента карточек как в приложении */
 .strip{display:flex;gap:10px;overflow-x:auto;padding:0 14px 6px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
 .strip::-webkit-scrollbar{display:none}
@@ -163,7 +164,7 @@ function chem(){
  return `<section class="shelf ${open?"open":""}" id="chem"><div class="sh" id="chemh"><b>Чем заняться?</b><span class="n">${TABS.map((x,i)=>shelfOf(i).length).join(" · ")}</span><span class="ch">›</span></div>
  ${open?`<div class="body">
   <div class="days">${TABS.map((x,i)=>`<button type="button" data-tab="${i}" class="${i===tab?"on":""}">${x.label}<span>${shelfOf(i).length}</span></button>`).join("")}</div>
-  <div class="meta"><span>На полке <b>${items.length}</b> из ${LIMIT} · в базе на этот день ${t.list.length} событий</span></div>
+  <div class="meta"><span>На полке <b>${items.length}</b> из ${LIMIT} · в базе ${t.list.length}</span><button type="button" class="addtop" id="addb2">+ Добавить</button></div>
   <div class="strip">${items.map((x,k)=>`
    <div class="rc" role="button" tabindex="0" data-open="${k}">
     ${x.poster?`<img src="${esc(x.poster)}" alt="" loading="lazy">`:""}
@@ -184,7 +185,7 @@ function bind(){
  app.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{tab=Number(b.dataset.tab);UNDO=null;render()});
  app.querySelectorAll("[data-rm]").forEach(b=>b.onclick=e=>{e.stopPropagation();remove(Number(b.dataset.rm))});
  app.querySelectorAll("[data-open]").forEach(c=>c.onclick=()=>openCard(shelfOf(tab)[Number(c.dataset.open)],{onShelf:true,idx:Number(c.dataset.open)}));
- const a=document.getElementById("addb");if(a)a.onclick=openAdd;
+ const a=document.getElementById("addb");if(a)a.onclick=openAdd;const a2=document.getElementById("addb2");if(a2)a2.onclick=openAdd;
  const u=document.getElementById("undo");if(u)u.onclick=()=>{shelfOf(tab).splice(UNDO.idx,0,UNDO.item);UNDO=null;render()};
 }
 function remove(k){
