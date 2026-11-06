@@ -66,8 +66,10 @@ header h1{font-size:20px;margin:0;flex:1}
 .ct .pin{position:absolute;top:6px;left:8px;font-size:11px;color:var(--accent);font-weight:700}
 .ct.lost{background:none;border:1px dashed var(--warn)}
 .ct.lost b{color:var(--warn)}
-.row2{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:12px}
-.row2 .th{width:42px;height:56px;border-radius:8px;object-fit:cover;background:var(--card2);flex-shrink:0}
+.row2{display:grid;grid-template-columns:42px 1fr;column-gap:10px;row-gap:6px;padding:8px;border-bottom:1px solid var(--line)}
+.row2 .ctr{grid-column:2;display:flex;gap:6px}
+.row2 .ctr select{flex:1;max-width:none}
+.row2 .th{grid-row:span 2;width:42px;height:56px;border-radius:8px;object-fit:cover;background:var(--card2);flex-shrink:0}
 .row2 .tx{flex:1;min-width:0}
 .row2 .tx b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .row2 .tx small{display:block;color:var(--ink2);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -326,10 +328,10 @@ function openCatSheet(key){
   const opts=k=>CATS.map(x=>`<option value="${x[0]}" ${x[0]===k?"selected":""}>${x[1]}</option>`).join("");
   bg.innerHTML=`<div class="sheet"><div class="top"><h3>${lostMode?"Без плитки":esc(c[1])} · ${L.length}</h3><p>${lostMode?"Эти события есть в базе, но не попали ни в одну категорию. Выберите, куда их поставить.":"Так плитка выглядит внутри приложения. 📌 — закрепить наверху, «Перенести» — если робот ошибся с категорией."}</p></div>
   ${lostMode?"":`<div class="tbar"><button type="button" class="p" data-t="add">+ Добавить событие</button><button type="button" data-t="up" ${i<=0?"disabled":""}>↑ Плитку выше</button><button type="button" data-t="down" ${i>=S.order.length-1?"disabled":""}>↓ Ниже</button><button type="button" data-t="hide">${S.hidden.has(key)?"Показать плитку":"Скрыть плитку"}</button></div>`}
-  <div class="lst">${L.length?L.map(e=>{const pn=pins.includes(e.slug);const l=loc(e.date);return `<div class="row2">${e.poster||e.img?`<img class="th" src="${esc(e.poster||e.img)}" alt="" loading="lazy" data-v="${esc(e.slug)}">`:`<div class="th" data-v="${esc(e.slug)}"></div>`}<div class="tx" data-v="${esc(e.slug)}"><b>${esc(e.title)}</b><small>${pn?`<span class="pn">📌 Закреплено · </span>`:""}${l.getUTCDate()} ${MS[l.getUTCMonth()]} · ${esc(e.venue||"")}</small></div>
+  <div class="lst">${L.length?L.map(e=>{const pn=pins.includes(e.slug);const l=loc(e.date);return `<div class="row2">${e.poster||e.img?`<img class="th" src="${esc(e.poster||e.img)}" alt="" loading="lazy" data-v="${esc(e.slug)}">`:`<div class="th" data-v="${esc(e.slug)}"></div>`}<div class="tx" data-v="${esc(e.slug)}"><b>${esc(e.title)}</b><small>${pn?`<span class="pn">📌 Закреплено · </span>`:""}${l.getUTCDate()} ${MS[l.getUTCMonth()]} · ${esc(e.venue||"")}</small></div><div class="ctr">
    ${lostMode?"":`<button class="mini ${pn?"on":""}" type="button" data-pin="${esc(e.slug)}" aria-label="Закрепить">📌</button>`}
    <select class="mv" data-mv="${esc(e.slug)}"><option value="">${lostMode?"Куда?":"Перенести"}</option>${opts(lostMode?null:"")}</select>
-   ${lostMode?"":`<button class="mini" type="button" data-out="${esc(e.slug)}" aria-label="Убрать">×</button>`}</div>`}).join(""):`<div class="msg">Пусто.</div>`}</div>
+   ${lostMode?"":`<button class="mini" type="button" data-out="${esc(e.slug)}" aria-label="Убрать">×</button>`}</div></div>`}).join(""):`<div class="msg">Пусто.</div>`}</div>
   <button class="cl" type="button">Закрыть</button></div>`;
   bg.querySelector(".cl").onclick=()=>{bg.remove();render()};
   bg.querySelectorAll("[data-v]").forEach(el=>el.onclick=()=>{const e=ALL.find(z=>z.slug===el.dataset.v);openCard(evCard(e),{onShelf:false,view:true})});
