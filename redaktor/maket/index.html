@@ -54,6 +54,30 @@ header h1{font-size:20px;margin:0;flex:1}
 .note{padding:8px 14px 0;font-size:12px;color:var(--ink2)}
 .undo{margin:8px 14px 0;background:var(--card2);border-radius:12px;padding:8px 12px;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:8px}
 .undo button{border:0;background:none;color:var(--accent);font-weight:700;cursor:pointer}
+
+/* категории */
+.cg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 14px}
+@media (min-width:700px){.cg{grid-template-columns:repeat(5,1fr)}}
+.ct{position:relative;background:var(--card2);border:0;border-radius:14px;padding:10px 8px 8px;text-align:left;cursor:pointer;min-height:96px;display:flex;flex-direction:column;justify-content:flex-end}
+.ct img{position:absolute;top:6px;right:6px;width:40px;height:40px;object-fit:contain;opacity:.9}
+.ct b{font-size:14px}
+.ct small{color:var(--ink2);font-size:12px}
+.ct.off{opacity:.35}
+.ct .pin{position:absolute;top:6px;left:8px;font-size:11px;color:var(--accent);font-weight:700}
+.ct.lost{background:none;border:1px dashed var(--warn)}
+.ct.lost b{color:var(--warn)}
+.row2{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:12px}
+.row2 .th{width:42px;height:56px;border-radius:8px;object-fit:cover;background:var(--card2);flex-shrink:0}
+.row2 .tx{flex:1;min-width:0}
+.row2 .tx b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row2 .tx small{display:block;color:var(--ink2);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row2 .tx .pn{color:var(--accent);font-weight:700}
+.mini{border:1px solid var(--line);background:none;border-radius:10px;height:34px;min-width:34px;padding:0 8px;cursor:pointer;font-size:13px;flex-shrink:0}
+.mini.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.tbar{display:flex;gap:6px;flex-wrap:wrap;padding:8px 16px 4px}
+.tbar button{border:1px solid var(--line);background:none;border-radius:16px;padding:6px 12px;font-size:13px;cursor:pointer}
+.tbar .p{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+select.mv{background:var(--card2);color:var(--ink);border:1px solid var(--line);border-radius:10px;height:34px;padding:0 6px;font:inherit;font-size:12px;max-width:112px}
 /* полноэкранная карточка */
 .ov{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center}
 .card{width:100%;max-width:420px;height:100%;max-height:100dvh;display:flex;flex-direction:column;background:#000;position:relative}
@@ -96,6 +120,7 @@ header h1{font-size:20px;margin:0;flex:1}
 .it .tx .nr{color:var(--warn)}
 .pl{width:38px;height:38px;border-radius:19px;border:0;background:var(--accent);color:#fff;font-size:22px;cursor:pointer;flex-shrink:0}
 .pl.on{background:var(--ok)}
+.bylink{border:1px dashed var(--accent);background:none;color:var(--accent);margin:0 16px 8px;border-radius:12px;padding:11px;font-weight:700;cursor:pointer}
 .sheet .cl{border:0;background:none;color:var(--ink2);padding:12px;cursor:pointer;border-top:1px solid var(--line)}
 .msg{background:var(--card);border-radius:16px;padding:18px}
 .msg a{color:var(--accent)}
@@ -124,7 +149,7 @@ const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&g
 const loc=d=>new Date(new Date(d).getTime()+OFF);
 const WD=["Вс","Пн","Вт","Ср","Чт","Пт","Сб"],MS=["янв","фев","мар","апр","мая","июн","июл","авг","сент","окт","нояб","дек"];
 const hm=d=>{const l=loc(d);return String(l.getUTCHours()).padStart(2,"0")+":"+String(l.getUTCMinutes()).padStart(2,"0")};
-let EV=[],TABS=[],tab=0,open=true,STATE={},UNDO=null;
+let ALL=[],EV=[],TABS=[],tab=0,open=true,STATE={},UNDO=null,openCat=false,CATSTATE=null;
 function toast(t){const d=document.createElement("div");d.className="toast";d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.remove(),2400)}
 
 /* те же окна, что в приложении: Сегодня / Завтра / Выходные (в субботу — «На неделе») */
@@ -156,7 +181,7 @@ function shelfOf(i){
 }
 
 function render(){
- app.innerHTML=SHELVES.map((name,si)=>si===0?chem():`<section class="shelf dim"><div class="sh"><b>${esc(name)}</b><span class="soon">следующим шагом</span></div></section>`).join("");
+ app.innerHTML=SHELVES.map((name,si)=>si===0?chem():si===1?cats():`<section class="shelf dim"><div class="sh"><b>${esc(name)}</b><span class="soon">следующим шагом</span></div></section>`).join("");
  bind();
 }
 function chem(){
@@ -182,6 +207,7 @@ function chem(){
 }
 function bind(){
  document.getElementById("chemh").onclick=()=>{open=!open;render()};
+ bindCats();
  app.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{tab=Number(b.dataset.tab);UNDO=null;render()});
  app.querySelectorAll("[data-rm]").forEach(b=>b.onclick=e=>{e.stopPropagation();remove(Number(b.dataset.rm))});
  app.querySelectorAll("[data-open]").forEach(c=>c.onclick=()=>openCard(shelfOf(tab)[Number(c.dataset.open)],{onShelf:true,idx:Number(c.dataset.open)}));
@@ -200,10 +226,10 @@ function openCard(x,opt){
  ov.innerHTML=`<div class="card">
   <div class="media">${x.video?`<video src="${esc(x.video)}" ${x.poster?`poster="${esc(x.poster)}"`:""} autoplay muted loop playsinline></video><button class="snd" type="button">Звук</button>`:(x.img||x.poster?`<img src="${esc(x.img||x.poster)}" alt="">`:"")}
    <button class="close" type="button" aria-label="Закрыть">×</button>
-   ${noReel?`<div class="noreel">Нет Reels. На «Чем заняться» показываем только ролики — без него карточка не встанет. Ролик найдёт робот при следующем сборе, или пришлите ссылку.</div>`:""}
+   ${noReel&&!opt.view?`<div class="noreel">Нет Reels. На «Чем заняться» показываем только ролики — без него карточка не встанет. Ролик найдёт робот при следующем сборе, или пришлите ссылку.</div>`:""}
   </div>
   <div class="info"><div class="k">${esc(x.kicker||"")}</div><h3>${esc(x.title)}</h3><p>${esc(x.date||"")}${x.price?" · от "+Number(x.price).toLocaleString("ru-RU")+" ₸":""}</p>
-   <div class="acts">${opt.onShelf?`<button class="b2" type="button" data-a="first">Поставить первым</button><button class="b3" type="button" data-a="rm">Убрать с полки</button>`:`<button class="b1" type="button" data-a="add" ${noReel?"disabled style='opacity:.4'":""}>+ На полку</button><button class="b3" type="button" data-a="close">Назад</button>`}
+   <div class="acts">${opt.view?"":opt.onShelf?`<button class="b2" type="button" data-a="first">Поставить первым</button><button class="b3" type="button" data-a="rm">Убрать с полки</button>`:`<button class="b1" type="button" data-a="add" ${noReel?"disabled style='opacity:.4'":""}>+ На полку</button><button class="b3" type="button" data-a="close">Назад</button>`}
    ${x.href?`<a class="b3" href="${esc(x.href)}" target="_blank" rel="noopener" style="grid-column:1/-1">Открыть в приложении</a>`:""}</div>
   </div></div>`;
  document.body.appendChild(ov);
@@ -234,7 +260,7 @@ function openAdd(){
  bg.innerHTML=`<div class="sheet"><div class="top"><h3>Добавить в «${esc(t.label)}»</h3><p>События этого дня из базы. Зелёные — с Reels, их можно ставить сразу.</p>
   <input type="search" placeholder="Название или площадка" id="aq">
   <div class="seg"><button type="button" data-f="all" class="on">Все ${t.list.length}</button><button type="button" data-f="reel">С Reels ${t.list.filter(e=>e.video).length}</button><button type="button" data-f="img">С фото ${t.list.filter(e=>e.img).length}</button></div></div>
-  <div class="lst" id="al"></div><button class="cl" type="button">Закрыть</button></div>`;
+  <div class="lst" id="al"></div><button class="bylink" type="button">Нет в списке — добавить по ссылке</button><button class="cl" type="button">Закрыть</button></div>`;
  document.body.appendChild(bg);
  const draw=()=>{
   const on=new Set(shelfOf(tab).map(i=>i.key));
@@ -249,16 +275,98 @@ function openAdd(){
  bg.querySelector("#aq").oninput=e=>{q=e.target.value.trim().toLowerCase();draw()};
  bg.querySelectorAll("[data-f]").forEach(b=>b.onclick=()=>{only=b.dataset.f;bg.querySelectorAll("[data-f]").forEach(x=>x.classList.toggle("on",x===b));draw()});
  bg.querySelector(".cl").onclick=()=>bg.remove();
+ bg.querySelector(".bylink").onclick=()=>byLink(t.label);
  bg.onclick=e=>{if(e.target===bg)bg.remove()};
+ draw();
+}
+function byLink(where){
+ const bg=document.createElement("div");bg.className="sheet-bg";bg.style.zIndex=35;
+ bg.innerHTML=`<div class="sheet"><div class="top"><h3>Добавить по ссылке</h3><p>Вставьте ссылку на Ticketon, Instagram или сайт события. Робот сам соберёт карточку: название, дату, площадку, цену, фото и Reels — и поставит в «${esc(where)}».</p><input type="url" id="lk" placeholder="https://…"></div><div class="lst"><div class="it" style="color:var(--ink2);font-size:13px">В рабочей версии: через 1–2 минуты карточка появится на полке с меткой «вы». Если Reels не найдётся — попадёт в «Согласовать» без ролика.</div></div><button class="b1" type="button" id="lkgo" style="margin:0 16px 8px;border:0;border-radius:12px;padding:12px;font-weight:700">Создать карточку</button><button class="cl" type="button">Отмена</button></div>`;
+ document.body.appendChild(bg);
+ bg.querySelector(".cl").onclick=()=>bg.remove();
+ bg.querySelector("#lkgo").onclick=()=>{const v=bg.querySelector("#lk").value.trim();if(!/^https?:\/\//.test(v)){toast("Вставьте ссылку");return}bg.remove();toast("Макет: робот получил ссылку и соберёт карточку")};
+}
+
+
+/* ── Категории (как на главной: 13 плиток «N событий») ── */
+const CATS=[["concerts","Концерты",["concerts"],"concerts"],["teatr","Театр",["teatr","theater"],"theater"],["standup","Стендап",["standup"],"standup"],["show","Шоу",["show"],"standup"],["parties","Вечеринки",["parties"],"standup"],["festivals","Фестивали",["festivals"],"concerts"],["exhibitions","Выставки",["exhibitions"],"theater"],["cinema","Кино",["cinema"],"theater"],["excursions","Экскурсии",["excursions"],"theater"],["master-class","Мастер-классы",["master-class","workshop"],"standup"],["lectures","Лекции",["lectures"],"theater"],["sport","Матчи",["sport"],"standup"],["kids","Детям",["kids"],"theater"]];
+const plural=(n,a,b,c)=>{const m=n%10,h=n%100;return m===1&&h!==11?a:m>=2&&m<=4&&(h<10||h>=20)?b:c};
+function catState(){
+ if(CATSTATE)return CATSTATE;
+ CATSTATE={order:CATS.map(c=>c[0]),hidden:new Set(),move:{},pins:{},out:{}};
+ return CATSTATE;
+}
+const catOf=e=>{const S=catState();if(S.move[e.slug])return S.move[e.slug];const c=CATS.find(c=>c[2].includes(e.sub));return c?c[0]:null};
+function catList(key){
+ const S=catState();const pins=S.pins[key]||[];
+ const L=ALL.filter(e=>catOf(e)===key&&!(S.out[key]||new Set()).has(e.slug)).sort((a,b)=>new Date(a.date)-new Date(b.date));
+ return [...pins.map(s=>L.find(e=>e.slug===s)).filter(Boolean),...L.filter(e=>!pins.includes(e.slug))];
+}
+function cats(){
+ const S=catState();
+ const lost=ALL.filter(e=>!catOf(e));
+ return `<section class="shelf ${openCat?"open":""}"><div class="sh" id="cath"><b>Категории</b><span class="n">${S.order.length-S.hidden.size} плиток</span><span class="ch">›</span></div>
+ ${openCat?`<div class="body"><div class="meta"><span>Как на главной. Нажмите на плитку — список событий внутри.</span></div><div class="cg">
+  ${S.order.map(k=>{const c=CATS.find(x=>x[0]===k);const n=catList(k).length;return `<button type="button" class="ct ${S.hidden.has(k)?"off":""}" data-cat="${k}">${(S.pins[k]||[]).length?`<span class="pin">📌 ${(S.pins[k]||[]).length}</span>`:""}<img src="${APP}/categories/${c[3]}.png" alt="" loading="lazy"><b>${c[1]}</b><small>${S.hidden.has(k)?"скрыта":n+" "+plural(n,"событие","события","событий")}</small></button>`}).join("")}
+  ${lost.length?`<button type="button" class="ct lost" data-cat="__lost"><b>Без плитки</b><small>${lost.length} ${plural(lost.length,"событие","события","событий")} не видно в категориях</small></button>`:""}
+ </div><div class="note">Плитки, где мало событий, на главной выглядят пусто — их можно скрыть или поднять полные выше.</div></div>`:""}</section>`;
+}
+function bindCats(){
+ const h=document.getElementById("cath");if(h)h.onclick=()=>{openCat=!openCat;render()};
+ app.querySelectorAll("[data-cat]").forEach(b=>b.onclick=()=>openCatSheet(b.dataset.cat));
+}
+function openCatSheet(key){
+ const S=catState();const lostMode=key==="__lost";
+ const c=CATS.find(x=>x[0]===key);
+ const bg=document.createElement("div");bg.className="sheet-bg";
+ document.body.appendChild(bg);
+ const draw=()=>{
+  const L=lostMode?ALL.filter(e=>!catOf(e)):catList(key);
+  const pins=S.pins[key]||[];const i=S.order.indexOf(key);
+  const opts=k=>CATS.map(x=>`<option value="${x[0]}" ${x[0]===k?"selected":""}>${x[1]}</option>`).join("");
+  bg.innerHTML=`<div class="sheet"><div class="top"><h3>${lostMode?"Без плитки":esc(c[1])} · ${L.length}</h3><p>${lostMode?"Эти события есть в базе, но не попали ни в одну категорию. Выберите, куда их поставить.":"Так плитка выглядит внутри приложения. 📌 — закрепить наверху, «Перенести» — если робот ошибся с категорией."}</p></div>
+  ${lostMode?"":`<div class="tbar"><button type="button" class="p" data-t="add">+ Добавить событие</button><button type="button" data-t="up" ${i<=0?"disabled":""}>↑ Плитку выше</button><button type="button" data-t="down" ${i>=S.order.length-1?"disabled":""}>↓ Ниже</button><button type="button" data-t="hide">${S.hidden.has(key)?"Показать плитку":"Скрыть плитку"}</button></div>`}
+  <div class="lst">${L.length?L.map(e=>{const pn=pins.includes(e.slug);const l=loc(e.date);return `<div class="row2">${e.poster||e.img?`<img class="th" src="${esc(e.poster||e.img)}" alt="" loading="lazy" data-v="${esc(e.slug)}">`:`<div class="th" data-v="${esc(e.slug)}"></div>`}<div class="tx" data-v="${esc(e.slug)}"><b>${esc(e.title)}</b><small>${pn?`<span class="pn">📌 Закреплено · </span>`:""}${l.getUTCDate()} ${MS[l.getUTCMonth()]} · ${esc(e.venue||"")}</small></div>
+   ${lostMode?"":`<button class="mini ${pn?"on":""}" type="button" data-pin="${esc(e.slug)}" aria-label="Закрепить">📌</button>`}
+   <select class="mv" data-mv="${esc(e.slug)}"><option value="">${lostMode?"Куда?":"Перенести"}</option>${opts(lostMode?null:"")}</select>
+   ${lostMode?"":`<button class="mini" type="button" data-out="${esc(e.slug)}" aria-label="Убрать">×</button>`}</div>`}).join(""):`<div class="msg">Пусто.</div>`}</div>
+  <button class="cl" type="button">Закрыть</button></div>`;
+  bg.querySelector(".cl").onclick=()=>{bg.remove();render()};
+  bg.querySelectorAll("[data-v]").forEach(el=>el.onclick=()=>{const e=ALL.find(z=>z.slug===el.dataset.v);openCard(evCard(e),{onShelf:false,view:true})});
+  bg.querySelectorAll("[data-pin]").forEach(b=>b.onclick=()=>{const p=S.pins[key]||(S.pins[key]=[]);const s=b.dataset.pin;const j=p.indexOf(s);j>=0?p.splice(j,1):p.unshift(s);toast(j>=0?"Откреплено":"Закреплено наверху");draw()});
+  bg.querySelectorAll("[data-out]").forEach(b=>b.onclick=()=>{(S.out[key]||(S.out[key]=new Set())).add(b.dataset.out);toast("Убрано из «"+c[1]+"»");draw()});
+  bg.querySelectorAll("[data-mv]").forEach(sel=>sel.onchange=()=>{if(!sel.value)return;S.move[sel.dataset.mv]=sel.value;toast("Перенесено в «"+CATS.find(x=>x[0]===sel.value)[1]+"»");draw()});
+  bg.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{const t=b.dataset.t;
+   if(t==="up"||t==="down"){const d=t==="up"?-1:1;[S.order[i],S.order[i+d]]=[S.order[i+d],S.order[i]];toast("Порядок плиток изменён");draw();return}
+   if(t==="hide"){S.hidden.has(key)?S.hidden.delete(key):S.hidden.add(key);toast(S.hidden.has(key)?"Плитка скрыта с главной":"Плитка снова на главной");draw();return}
+   if(t==="add")pickAny(key,draw);
+  });
+ };
+ bg.onclick=e=>{if(e.target===bg){bg.remove();render()}};
+ draw();
+}
+/* добавить в категорию любое событие базы */
+function pickAny(key,after){
+ const c=CATS.find(x=>x[0]===key);let q="";
+ const bg=document.createElement("div");bg.className="sheet-bg";bg.style.zIndex=35;
+ bg.innerHTML=`<div class="sheet"><div class="top"><h3>Добавить в «${esc(c[1])}»</h3><p>Любое будущее событие из базы. Оно встанет в эту плитку закреплённым.</p><input type="search" id="pq" placeholder="Название или площадка"></div><div class="lst" id="pl"></div><button class="bylink" type="button">Нет в базе — добавить по ссылке</button><button class="cl" type="button">Закрыть</button></div>`;
+ document.body.appendChild(bg);
+ const draw=()=>{const L=q.length<2?[]:ALL.filter(e=>(e.title+" "+(e.venue||"")).toLowerCase().includes(q)).slice(0,40);
+  bg.querySelector("#pl").innerHTML=q.length<2?`<div class="it" style="color:var(--ink2);font-size:13px">Начните вводить название…</div>`:L.length?L.map(e=>{const inn=catOf(e)===key;const cc=CATS.find(x=>x[0]===catOf(e));const l=loc(e.date);return `<div class="it">${e.img?`<img class="th" src="${esc(e.img)}" alt="" loading="lazy">`:`<div class="th"></div>`}<div class="tx"><b>${esc(e.title)}</b><small>${l.getUTCDate()} ${MS[l.getUTCMonth()]} · ${esc(e.venue||"")}</small><small>${inn?"Уже здесь":"Сейчас: "+(cc?cc[1]:"без плитки")}</small></div><button class="pl ${inn?"on":""}" type="button" data-a="${esc(e.slug)}">${inn?"✓":"+"}</button></div>`}).join(""):`<div class="msg">Ничего не нашлось.</div>`;
+  bg.querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>{const s=b.dataset.a;const S=catState();S.move[s]=key;const p=S.pins[key]||(S.pins[key]=[]);if(!p.includes(s))p.unshift(s);toast("Добавлено в «"+c[1]+"» и закреплено");draw();after&&after()});
+ };
+ bg.querySelector("#pq").oninput=e=>{q=e.target.value.trim().toLowerCase();draw()};
+ bg.querySelector(".bylink").onclick=()=>byLink(c[1]);
+ bg.querySelector(".cl").onclick=()=>bg.remove();
  draw();
 }
 
 async function start(){
  const {data:{session}}=await sb.auth.getSession();
  if(!session){app.innerHTML=`<div class="msg">Нужно войти — без пароля, по ссылке из письма.<br><br><a href="../../?next=redaktor/maket/">Войти</a> — после входа вернётесь сюда.</div>`;return}
- const {data,error}=await sb.rpc("showcase_events_window",{p_days:9});
+ const {data,error}=await sb.rpc("showcase_events_window",{p_days:400});
  if(error){app.innerHTML=`<div class="msg">Не загрузилось: ${esc(error.message)}</div>`;return}
- EV=data||[];TABS=buildTabs();render();
+ ALL=data||[];const lim=Date.now()+9*DAY;EV=ALL.filter(e=>new Date(e.date)<lim);TABS=buildTabs();render();
 }
 start().catch(e=>{app.innerHTML=`<div class="msg">Сервер не ответил. <a href="" onclick="location.reload();return false">Обновить</a></div>`});
 </script>
