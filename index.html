@@ -1658,7 +1658,7 @@ const PBAND_L={lt3:"до 3 000 ₸",mid:"3 000–7 000 ₸",hi:"7 000–15 000 �
 const PBAND_C={lt3:"var(--c-p1)",mid:"var(--c-p2)",hi:"var(--c-p3)",top:"var(--c-p4)",none:"var(--c-na)"};
 const PEV_ORDER=["yes","no"],PEV_L={yes:"есть события впереди",no:"событий нет"},PEV_C={yes:"var(--c-s1)",no:"var(--c-na)"};
 const PMISS_L={addr:"адрес",coords:"точка на карте",phone:"телефон",ig:"Instagram",site:"сайт",hours:"часы работы",district:"район",check:"средний чек"};
-const PFIELD_L={mark:"Отметка",afisha_page:"Страница афиши",ig_mode:"Чтение Instagram",name:"Название",cat:"Категория досуга",place_type:"Тип места",district:"Район",address:"Адрес",phone:"Телефон",website_url:"Сайт",social_url:"Instagram / соцсеть",specialization:"Чем занимается",average_check:"Средний чек",fw:"Для кого",showcase:"Витрина",status:"Статус"};
+const PFIELD_L={mark:"Отметка",afisha_page:"Страница афиши",ig_mode:"Чтение Instagram",name:"Название",cat:"Категория досуга",place_type:"Тип места",district:"Район",address:"Адрес",phone:"Телефон",website_url:"Сайт",social_url:"Instagram / соцсеть",specialization:"Специализация",average_check:"Средний чек",fw:"Для кого",showcase:"Витрина",status:"Статус"};
 const PST_V={active:"проверенное",candidate:"на проверке",archived:"архив"};
 const plKey=()=>JSON.stringify(S.plL||{});
 function plBars(title,items,key,opt){
@@ -1771,7 +1771,7 @@ document.addEventListener("click",async ev=>{if(S.view!=="plcard"||!ev.target.cl
 /* ассистент базы */
 const AI={open:false,draft:"",turns:[],busy:false,status:"",ctl:null,avail:null,err:""};
 const AI_CHIPS=[["🔎 Найти",""],["✎ Исправить карточку","Исправить карточку: "],["＋ Добавить место","Добавить место по ссылке: "],["＋ Событие по ссылке","Добавить событие по ссылке: "],["✓ Подтвердить / в архив","Подтвердить место: "],["◉ Instagram вкл/выкл","Instagram: "],["⇄ Сменить категорию","Сменить категорию: "],["? Что не так с карточкой","Что не так с карточкой: "],["# Сколько…","Сколько "]];
-const PSET_KEYS={mark:"Отметка (landmark — знаковое, gem — находка, пусто — без)",name:"Название",address:"Адрес",phone:"Телефон",website_url:"Сайт",social_url:"Instagram / соцсеть",place_type:"Тип места",specialization:"Чем занимается",district:"Район",check:"Средний чек",cat:"Категория досуга",fw:"Для кого",showcase:"Витрина",ig_mode:"Чтение Instagram"};
+const PSET_KEYS={mark:"Отметка (landmark — знаковое, gem — находка, пусто — без)",name:"Название",address:"Адрес",phone:"Телефон",website_url:"Сайт",social_url:"Instagram / соцсеть",place_type:"Тип места",specialization:"Специализация",district:"Район",check:"Средний чек",cat:"Категория досуга",fw:"Для кого",showcase:"Витрина",ig_mode:"Чтение Instagram"};
 const ESET_KEYS={title:"Название",descr:"Описание",type:"Тип события",genre:"Жанр",performance_type:"Вид",language:"Язык",direction:"Направление",age:"Возраст",price_from:"Цена от",price_to:"Цена до",luxe:"Люкс",showcase:"Витрина",moods:"Настроения"};
 const PACT_L={confirm:"подтвердить место",archive:"в архив",restore:"вернуть из архива"};
 const rpcJ=(op,p)=>apiCall(op,{p});
@@ -2062,7 +2062,7 @@ function plCardLive(id){
     ${inF("name","Название","text","",true)}
     ${selF("cat","Категория досуга",R.cats)}
     ${fld("Тип места",typeSel)}
-    ${inF("specialization","Чем занимается","text","например: джаз-клуб, банный комплекс",true)}
+    ${inF("specialization","Специализация","text","например: джаз-клуб, банный комплекс",true)}
     ${selF("district","Район",R.districts,"не указан")}
     ${inF("check","Средний чек, ₸","number","")}
     ${inF("address","Адрес","text","",true)}
