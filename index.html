@@ -517,7 +517,7 @@ function go(view,arg,patch){
  svVisibleNavigate(S.view,view);
  S.view=view;S.arg=arg??null;if(patch)Object.assign(S,patch);$("#nav").classList.remove("open");render();window.scrollTo(0,0);return true}
 function navHtml(){const on=v=>S.view===v||(v==="docs"&&S.view==="doc")?" on":"";
-return `<button class="brand" data-go="home" aria-label="На главную">афиша<i>.</i>data</button><span class="tlinks"><button class="tl${["showcase","showcasePlaces","showcaseEvents","showcaseList","showcaseDetail"].includes(S.view)?" on":""}" data-svopen="1">Витрина</button><a class="tl tlink" href="redaktor/" title="Наполнение витрины: согласование, полки, поиск, ассистент">Редактор витрины</a><a class="tl tlink" href="soglasovanie/" title="Reels и имиджи на согласование">Согласование<span class="tlc" id="reels-count"></span></a><button class="tl${on("pick")}" data-go="pick">Отбор</button><button class="tl${on("sources")}" data-go="sources">Источники</button><button class="tl${on("robot")}" data-go="robot">Робот</button><button class="tl${on("dirs")}" data-go="dirs">Справочники и правила</button><button class="tl${on("docs")}" data-go="docs">Инструкции</button></span>`}
+return `<button class="brand" data-go="home" aria-label="На главную">афиша<i>.</i>data</button><span class="tlinks"><button class="tl${["showcase","showcasePlaces","showcaseEvents","showcaseList","showcaseDetail"].includes(S.view)?" on":""}" data-svopen="1">Витрина</button><a class="tl tlink" href="redaktor/" title="Наполнение витрины: согласование, полки, поиск, ассистент">Редактор витрины</a><a class="tl tlink" href="soglasovanie/" title="Reels и имиджи на согласование">Согласование<span class="tlc" id="reels-count"></span></a><button class="tl${on("pick")}" data-go="pick">Отбор</button><button class="tl${on("sources")}" data-go="sources">Источники</button><button class="tl${on("robot")}" data-go="robot">Робот</button><button class="tl${on("dirs")}" data-go="dirs" data-dir="show">Справочники</button><button class="tl${on("rules")}" data-go="rules" data-dir="rules">Правила</button><button class="tl${on("docs")}" data-go="docs">Инструкции</button></span>`}
 
 // Сколько Reels ждут согласования — число на пункте меню (05.11.2026)
 let REELS_N=null,REELS_AT=0;
@@ -532,8 +532,8 @@ function render(force=false){
   $("#nav").innerHTML=navHtml();
   reelsCount();
   const m=$("#main");
-  if(S.view!=="showcase"&&S.view!=="showcasePlaces"&&S.view!=="showcaseEvents"&&S.view!=="showcaseList"&&S.view!=="showcaseDetail"&&S.view!=="homeList"&&S.view!=="homeDetail"&&S.view!=="home"&&S.view!=="dirs"&&S.view!=="events"&&S.view!=="evcard"&&S.view!=="places"&&S.view!=="plcard"&&S.view!=="sources"&&S.view!=="robot"&&S.view!=="pick"&&!loaded.e){m.innerHTML=db===false?`<div class="empty">Раздел требует загрузки данных рабочей базы.</div>`:`<div class="empty">Загружаю базу…</div>`;return}
-  const V={home,homeList,homeDetail,showcase,showcasePlaces:()=>showcaseSub('places'),showcaseEvents:()=>showcaseSub('events'),showcaseList,showcaseDetail,events:eventsLive,evcard:evCardLive,eventsOld:events,places:placesLive,plcard:plCardLive,robot:robotView,pick:pickView,placesOld:places,category,event:eventCard,place:placeCard,queue,dirs,docs,sources,doc:docView}[S.view]||home;
+  if(S.view!=="showcase"&&S.view!=="showcasePlaces"&&S.view!=="showcaseEvents"&&S.view!=="showcaseList"&&S.view!=="showcaseDetail"&&S.view!=="homeList"&&S.view!=="homeDetail"&&S.view!=="home"&&S.view!=="dirs"&&S.view!=="rules"&&S.view!=="events"&&S.view!=="evcard"&&S.view!=="places"&&S.view!=="plcard"&&S.view!=="sources"&&S.view!=="robot"&&S.view!=="pick"&&!loaded.e){m.innerHTML=db===false?`<div class="empty">Раздел требует загрузки данных рабочей базы.</div>`:`<div class="empty">Загружаю базу…</div>`;return}
+  const V={home,homeList,homeDetail,showcase,showcasePlaces:()=>showcaseSub('places'),showcaseEvents:()=>showcaseSub('events'),showcaseList,showcaseDetail,events:eventsLive,evcard:evCardLive,eventsOld:events,places:placesLive,plcard:plCardLive,robot:robotView,rules:rulesView,pick:pickView,placesOld:places,category,event:eventCard,place:placeCard,queue,dirs,docs,sources,doc:docView}[S.view]||home;
   m.innerHTML=((S.view==="evcard"||S.view==="plcard")&&S.homeReturn?`<button class="back" data-go="${S.homeReturn}">← ${S.homeReturn==="homeList"?"К выбранному списку":"К поиску на главной"}</button>${homeSelectionPanel()}`:"")+V(S.arg);
 }
 
@@ -1033,7 +1033,7 @@ function queue(){
 let BK=null, BKerr=null, BKbusy=false, BKedit=null, BKmsg="", BKsaving=false;
 async function loadBook(){
  if(BKbusy||BK)return;BKbusy=true;
- try{BK=await apiCall("reference_book_json");BKerr=null}catch(e){BKerr=e}finally{BKbusy=false;if(S.view==="dirs")render()}
+ try{BK=await apiCall("reference_book_json");BKerr=null}catch(e){BKerr=e}finally{BKbusy=false;if(S.view==="dirs"||S.view==="rules")render()}
 }
 function bookBody(kind){
   if(!BK){if(BKerr){const keep=STerr;STerr=BKerr;const h=statsError();STerr=keep;return h+`<div><button class="btn" data-bookretry="1">Обновить</button></div>`}loadBook();return `<div class="empty">Запрашиваю ${kind==="terms"?"понятия":"правила"} из рабочей базы…</div>`}
@@ -1058,10 +1058,16 @@ function bookBody(kind){
   const adding=BKedit&&BKedit.id===null&&BKedit.kind===kind;
   return `<div class="note">${intro}</div><div>${adding?"":`<button class="btn pri" data-bkadd="1">${kind==="terms"?"Добавить понятие":"Добавить правило"}</button>`}</div>${adding?`<div class="bks">${form({})}</div>`:""}`+groups.map(([g,rs])=>`<div class="lbl">${esc(g)} · ${rs.length}</div><div class="bks">${rs.map(card).join("")}</div>`).join("");
 }
+function rulesView(){
+  const nT=BK?BK.terms.length:"…",nR=BK?BK.rules.length:"…";const c=S.dir==="terms"?"terms":"rules";
+  const tab=([k,t,n])=>`<button class="${c===k?"on":""}" data-dir="${k}">${t} · ${n}</button>`;
+  return `<div class="head"><div><div class="lbl">Знания</div><h1>Правила</h1><div class="sub">Правила — как поступаем в спорных случаях: по ним работают робот и редактор. Термины — что мы называем каждым словом. Пошаговые «как сделать» — в «Инструкциях».</div></div></div>
+  <div class="layers"><div class="layer"><div class="seg">${tab(["rules","Правила",nR])}${tab(["terms","Термины",nT])}</div></div></div>${bookBody(c)}`;
+}
 function dirs(){
   const lists=[["show","Витрина",SHOW_PL.length+SHOW_EV.length],["cats","Категории досуга",CATS.length],["dirs","Направления",Object.values(DIRS).flat().length],["types","Типы событий",RT?RT.length:TYPES.length],["genres","Жанры",RT?RT.reduce((s,t)=>s+t.genres.length,0):Object.values(GENRES).flat().length],["moods","Настроения",MOODS.length],["fw","Для кого",FW.length],["aud","Аудитории",SEGMENTS.length],["ptypes","Типы мест",PTYPE_LIST.length],["shelves","Подборки",Object.values(SHELVES).flat().length],["feeds","Ленты",FEEDS.length],["filters","Фильтры",COMMON_F.length+BTN_F.length],["cuis","Кухни",CUISINE_ROW.length+CUISINE_MORE.length],["pattrs","Признаки мест",PATTRS.length],["stages","Стадии конвейера",4]];
   const secs=lists;const nT=BK?BK.terms.length:"…",nR=BK?BK.rules.length:"…";
-  const a=EV;const c=S.dir;let body="";
+  const a=EV;const c=(S.dir==="terms"||S.dir==="rules")?"show":S.dir;let body="";
   const tbl=(h,rows)=>`<div class="tablewrap"><table style="min-width:600px"><thead><tr>${h.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>`;
   if(c==="terms"||c==="rules")body=bookBody(c);
   if(c==="show"){const act=active();const usedP=new Set(SHOW_PL.flatMap(x=>x[1]));const usedT=new Set(SHOW_EV.flatMap(x=>x[1]||[]));
@@ -1092,9 +1098,12 @@ function dirs(){
   if(c==="ptypes_old"){const m={};PL.forEach(p=>m[p.type]=(m[p.type]||0)+1);body=tbl(["Тип места","Мест"],Object.entries(m).sort((x,y)=>y[1]-x[1]).map(([k,n])=>`<tr><td class="tt">${esc(k)}</td><td>${n}</td></tr>`).join(""))}
   if(c==="stages")body=tbl(["Стадия","Что значит","Событий"],[1,2,3,4].map(k=>`<tr class="click" data-go="queue" data-patch='${JSON.stringify({qtab:k})}'><td>${stPill(k)}</td><td>${STAGE_TXT[k]}</td><td>${a.filter(e=>e.stage===k).length}</td></tr>`).join(""));
   const tab=([k,t,n])=>`<button class="${c===k?"on":""}" data-dir="${k}">${t} · ${n}</button>`;
-  return `<div class="head"><div><div class="lbl">Знания</div><h1>Справочники и правила</h1><div class="sub">Единый язык для робота, AI и человека. Сначала понятия, затем правила, затем списки значений.</div></div></div>
-  <div class="layers"><div class="layer"><div class="lbl">Понятия и правила</div><div class="seg">${tab(["terms","Понятия",nT])}${tab(["rules","Правила",nR])}</div></div>
-  <div class="layer"><div class="lbl">Списки значений</div><div class="seg">${lists.map(tab).join("")}</div></div></div>${body}`;
+  const L=k=>lists.find(x=>x[0]===k);const plan=(k,t)=>[k,t,"скоро"];
+  const GROUPS=[["Общие",[L("cats"),L("dirs"),L("moods"),L("fw"),L("aud"),plan("p_city","Города"),plan("p_geo","Ориентиры Алматы")]],["События",[L("types"),L("genres")]],["Места",[L("ptypes"),plan("p_spec","Специализации"),L("pattrs"),L("cuis")]],["Организаторы",[plan("p_org","Типы организаторов")]],["Перформеры",[plan("p_perf","Типы и роли")]],["Журнал",[plan("p_jr","Рубрики и теги")]],["Витрина",[L("show"),L("shelves"),L("feeds"),L("filters")]],["Источники",[L("stages")]],["Спецпроекты",[plan("p_sp","Типы проектов")]],["Afisha Club",[plan("p_club","Уровни и предложения")]]];
+  const PLAN={p_city:"Города, где работает Афиша. Сейчас — Алматы; справочник нужен, чтобы подключать новые города без переделки базы.",p_geo:"Как алматинцы объясняют, где место: «выше/ниже» (в сторону гор или степи), улицы-линии (Аль-Фараби, Тимирязева, Сатпаева, Абая, Толе би, Райымбека; вдоль — Саина, Розыбакиева, Байзакова, Назарбаева, Достык), «квадраты» и известные точки (Арбат, Зелёный базар, Медеу, Кок-Тобе). Робот сам считает ориентир по координатам места.",p_spec:"Специализации по типам мест — 5–15 вариантов на тип, в карточке выпадающим списком; «Другое» — на согласование Редактору витрины. Черновик готовится по 404 нынешним значениям.",p_org:"Не дублируем: типы организаторов ведёт Eventer (общая база: ядро субъекта + профили Афиши, Eventer и Атласа, решение 21.10.2026; категории — по eventcatalog.ru). Афиша берёт справочник оттуда.",p_perf:"Не дублируем: профили и типы артистов ведёт Eventer. Роли перформера в событии (68) остаются у Афиши.",p_jr:"Рубрики и теги статей Журнала.",p_sp:"Типы спецпроектов Афиши («Культурная зима», «Настоящий алматинец»…).",p_club:"Уровни участников Afisha Club и виды предложений партнёров."};
+  if(PLAN[c])body=`<div class="blk"><h3>${esc((GROUPS.flatMap(g=>g[1]).find(x=>x&&x[0]===c)||[])[1]||"")}</h3><p style="max-width:720px">${esc(PLAN[c])}</p><div class="note2">Справочник появится следующим шагом.</div></div>`;
+  return `<div class="head"><div><div class="lbl">Знания</div><h1>Справочники</h1><div class="sub">Списки вариантов, из которых выбирают в карточках. Правила и термины — в разделе «Правила».</div></div></div>
+  <div class="layers">${GROUPS.map(([g,items])=>`<div class="layer"><div class="lbl">${esc(g)}</div><div class="seg">${items.filter(Boolean).map(tab).join("")}</div></div>`).join("")}</div>${body}`;
 }
 function mdToHtml(md){const lines=String(md||"").split(/\n/);let h="",list=null,tbl=null;const inl=t=>esc(t).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/\*(.+?)\*/g,"<i>$1</i>").replace(/(https?:\/\/[^\s)]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>');
  const close=()=>{if(list){h+=`</${list}>`;list=null}if(tbl){h+="</tbody></table></div>";tbl=null}};
