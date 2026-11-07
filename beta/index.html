@@ -26,7 +26,7 @@ header h1{font-size:20px;margin:0;flex:1}
 .dot{width:54px;height:54px;border-radius:27px;flex-shrink:0;box-shadow:0 0 24px currentColor;background:currentColor}
 .light b{font-size:19px;display:block}
 .light p{margin:3px 0 0;color:var(--ink2);font-size:13px}
-.g{color:var(--ok)}.y{color:var(--warn)}.r{color:var(--bad)}
+.g{color:var(--ok)}.y{color:var(--warn)}.r{color:var(--bad)}.n{color:var(--ink2)}
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
 .kpi{background:var(--card2);border-radius:12px;padding:10px}
 .kpi span{font-size:11px;color:var(--ink2);display:block}
@@ -48,7 +48,7 @@ td small{display:block;color:var(--ink2);font-size:11.5px}
 .funnel .bar i{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:8px}
 .funnel .bar span{position:absolute;left:10px;top:4px;font-weight:700;font-size:13px}
 .funnel .pc{width:58px;text-align:right;color:var(--ink2);flex-shrink:0}
-@media(max-width:640px){.funnel .lbl{width:96px;font-size:11.5px}.cmp th{white-space:normal;font-size:10px}.cmp td{padding:9px 4px}}
+@media(max-width:640px){td{padding:9px 3px}th{padding:6px 3px}.dev{padding:2px 5px;font-size:12.5px}.funnel .lbl{width:96px;font-size:11.5px}.cmp th{white-space:normal;font-size:10px}.cmp td{padding:9px 4px}}
 .days{display:flex;align-items:flex-end;gap:4px;height:120px;margin-top:6px}
 .days .d{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;justify-content:flex-end}
 .days .d i{width:100%;max-width:26px;border-radius:5px 5px 2px 2px;background:var(--accent2)}
@@ -62,7 +62,7 @@ td small{display:block;color:var(--ink2);font-size:11.5px}
 </head>
 <body>
 <div class="wrap">
-  <div class="mk">Макет · цифры примерные · бета стартует 10 ноября</div>
+  <div class="mk" id="mk" style="display:none"></div>
   <header><a href="../">← База</a><h1>Бета Афиши</h1></header>
   <p class="lead" id="lead"></p>
 
@@ -76,7 +76,7 @@ td small{display:block;color:var(--ink2);font-size:11.5px}
 
   <div class="card">
     <h2>Метрики · план и факт</h2>
-    <table id="tbl"></table>
+    <div style="overflow-x:auto"><table id="tbl"></table></div>
     <div class="note">Отклонение — разница факта с планом. Зелёный — план выполнен, жёлтый — не дотягиваем меньше 5 пунктов, красный — больше.</div>
   </div>
 
@@ -91,50 +91,63 @@ td small{display:block;color:var(--ink2);font-size:11.5px}
     <div class="legend"><span><i style="background:var(--accent2)"></i>Новые регистрации</span><span><i style="background:var(--ok)"></i>Вернулись</span></div>
   </div>
 
+  <div class="card" id="links">
+    <h2>Ссылки-приглашения</h2>
+    <div id="linkList"></div>
+    <div class="note">Каждой группе — своя ссылка. Кто перешёл по ней, попадает в счётчики своей группы.</div>
+  </div>
+
   <div class="card">
     <h2>Сравнение групп</h2>
     <div style="overflow-x:auto;margin:0 -6px"><table class="cmp" id="cmp"></table></div>
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
-// Примерные цифры для макета: потом — из базы Афиши
-const GROUPS = {
-  turan:   { name:'Колледж «Туран»', click:520, reg:182, useful:70,  ret:38, codeSent:205, codeOk:196, bugs:3, found:58, nps:7.6, answered:64 },
-  atu:     { name:'АТУ',             click:640, reg:205, useful:92,  ret:57, codeSent:228, codeOk:219, bugs:4, found:61, nps:7.9, answered:71 },
-  tke:     { name:'Теплокоммунэнерго',click:410, reg:98,  useful:31,  ret:19, codeSent:120, codeOk:109, bugs:2, found:44, nps:6.8, answered:40 },
-  friends: { name:'Знакомые',        click:150, reg:72,  useful:41,  ret:29, codeSent:76,  codeOk:75,  bugs:1, found:66, nps:8.4, answered:35 },
+const SUPA_URL="https://quzgkhzkrhdlyztzbgcc.supabase.co";
+const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1emdraHprcmhkbHl6dHpiZ2NjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2OTk1NzIsImV4cCI6MjEwNTI3NTU3Mn0.zA6OVgFkgUgXGwLTzgL9IdB7yMcRNJEIWWq-ZZGYACQ";
+const sb=supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
+const APP="https://afisha-kz-gpt.vercel.app";
+// Данные из базы (beta_dashboard); макет с примерными цифрами — ?demo=1
+let GROUPS = {}, DAYS = [], DAY_REG = [], DAY_RET = [], TARGETS = {}, START = null, TODAY = {};
+const DEMO = {
+  turan:   { name:'Колледж «Туран»', click:520, reg:182, useful:70,  ret:38, code_sent:205, code_ok:196, bugs:3, found:58, nps:7.6, answered:64 },
+  atu:     { name:'АТУ',             click:640, reg:205, useful:92,  ret:57, code_sent:228, code_ok:219, bugs:4, found:61, nps:7.9, answered:71 },
+  tke:     { name:'Теплокоммунэнерго',click:410, reg:98,  useful:31,  ret:19, code_sent:120, code_ok:109, bugs:2, found:44, nps:6.8, answered:40 },
+  friends: { name:'Знакомые',        click:150, reg:72,  useful:41,  ret:29, code_sent:76,  code_ok:75,  bugs:1, found:66, nps:8.4, answered:35 },
 };
-const DAYS = ['10.11','11.11','12.11','13.11','14.11','15.11','16.11','17.11','18.11','19.11','20.11','21.11','22.11','23.11'];
-const DAY_SHARE = [.22,.16,.11,.09,.07,.06,.06,.05,.04,.04,.03,.03,.02,.02];
-const RET_SHARE = [0,.04,.07,.08,.09,.1,.11,.09,.08,.08,.07,.07,.06,.06];
 let group = 'all', period = 'all';
 
 function sum(g){
   if(g!=='all') return GROUPS[g];
   const out = { name:'Все группы' }; const ks = Object.values(GROUPS);
-  ['click','reg','useful','ret','codeSent','codeOk','bugs','answered'].forEach(k=> out[k] = ks.reduce((s,x)=>s+x[k],0));
-  out.found = Math.round(ks.reduce((s,x)=>s+x.found*x.answered,0)/out.answered);
-  out.nps = Math.round(ks.reduce((s,x)=>s+x.nps*x.answered,0)/out.answered*10)/10;
+  ['click','reg','useful','ret','code_sent','code_ok','bugs','answered'].forEach(k=> out[k] = ks.reduce((s,x)=>s+(+x[k]||0),0));
+  const withS = ks.filter(x=> x.found!=null && x.answered);
+  out.found = withS.length ? Math.round(withS.reduce((s,x)=>s+x.found*x.answered,0)/withS.reduce((s,x)=>s+x.answered,0)) : null;
+  const withN = ks.filter(x=> x.nps!=null && x.answered);
+  out.nps = withN.length ? Math.round(withN.reduce((s,x)=>s+x.nps*x.answered,0)/withN.reduce((s,x)=>s+x.answered,0)*10)/10 : null;
   return out;
 }
-function today(g){ // «сегодня» в макете = последний день
-  const x = sum(g); const k = DAY_SHARE[DAY_SHARE.length-1];
-  return { ...x, click:Math.round(x.click*k*1.4), reg:Math.round(x.reg*k), useful:Math.round(x.useful*k*1.2), ret:Math.round(x.ret*RET_SHARE.at(-1)), codeSent:Math.round(x.codeSent*k), codeOk:Math.round(x.codeOk*k), bugs:0 };
+function today(g){
+  const src = TODAY; if(g!=='all') return src[g] || {name:GROUPS[g].name,click:0,reg:0,useful:0,ret:0,code_sent:0,code_ok:0,bugs:0,answered:0,found:null,nps:null};
+  const keep = GROUPS; GROUPS = src; const r = sum('all'); GROUPS = keep; return r;
 }
 const pct = (a,b)=> b ? Math.round(a/b*100) : 0;
 function metrics(x){
+  const T = k=> (TARGETS[k] && +TARGETS[k].plan) || ({reg:30,ret:25,useful:40,code:95,bugs:10,found:50,nps:7})[k];
   return [
-    { name:'Зарегистрировались', sub:'из перешедших по ссылке', plan:30, fact:pct(x.reg,x.click), unit:'%', abs:`${x.reg} из ${x.click}` },
-    { name:'Вернулись за неделю', sub:'из зарегистрированных', plan:25, fact:pct(x.ret,x.reg), unit:'%', abs:`${x.ret} из ${x.reg}`, main:true },
-    { name:'Полезное действие', sub:'избранное, билет, маршрут', plan:40, fact:pct(x.useful,x.reg), unit:'%', abs:`${x.useful} из ${x.reg}` },
-    { name:'Код входа сработал', sub:'из отправленных кодов', plan:95, fact:pct(x.codeOk,x.codeSent), unit:'%', abs:`${x.codeOk} из ${x.codeSent}` },
-    { name:'Жалобы на карточки', sub:'за первую неделю, меньше — лучше', plan:10, fact:x.bugs, unit:'', abs:'', lower:true },
-    { name:'«Нашли, куда сходить?» — да', sub:`опрос, ответили ${x.answered}`, plan:50, fact:x.found, unit:'%', abs:'' },
-    { name:'«Посоветуете другу?»', sub:'средний балл из 10', plan:7, fact:x.nps, unit:'', abs:'', score:true },
+    { name:'Зарегистрировались', sub:'из перешедших по ссылке', plan:T('reg'), fact:x.click?pct(x.reg,x.click):null, unit:'%', abs:`${x.reg} из ${x.click}` },
+    { name:'Вернулись за неделю', sub:'из зарегистрированных', plan:T('ret'), fact:x.reg?pct(x.ret,x.reg):null, unit:'%', abs:`${x.ret} из ${x.reg}`, main:true },
+    { name:'Полезное действие', sub:'избранное, билет, бронь', plan:T('useful'), fact:x.reg?pct(x.useful,x.reg):null, unit:'%', abs:`${x.useful} из ${x.reg}` },
+    { name:'Код входа сработал', sub:'из отправленных кодов', plan:T('code'), fact:x.code_sent?pct(x.code_ok,x.code_sent):null, unit:'%', abs:`${x.code_ok} из ${x.code_sent}` },
+    { name:'Жалобы на карточки', sub:'за первую неделю, меньше — лучше', plan:T('bugs'), fact:+x.bugs||0, unit:'', abs:'', lower:true },
+    { name:'«Нашли, куда сходить?» — да', sub:`опрос, ответили ${x.answered||0}`, plan:T('found'), fact:x.found, unit:'%', abs:'' },
+    { name:'«Посоветуете другу?»', sub:'средний балл из 10', plan:T('nps'), fact:x.nps, unit:'', abs:'', score:true },
   ];
 }
 function devOf(m){
+  if(m.fact==null) return { d:null, cls:'n' };
   const d = m.lower ? m.plan - m.fact : Math.round((m.fact - m.plan)*10)/10;
   const cls = d>=0 ? 'g' : (m.score ? (d>=-0.5?'y':'r') : (d>=-5?'y':'r'));
   return { d, cls };
@@ -142,9 +155,13 @@ function devOf(m){
 const fmtD = (d,m)=> (d>0?'+':d<0?'−':'') + Math.abs(d) + (m.unit==='%'?' п.п.':'');
 
 function light(x){
+  if(!x.click) return { c:'n', t:'Бета ещё не началась', p:'Данные появятся, когда люди начнут переходить по ссылкам-приглашениям ниже.' };
+  if(!x.reg) return { c:'y', t:'Ждём первых регистраций', p:`По ссылкам перешли ${x.click}, но зарегистрированных пока нет.` };
   const m = metrics(x); const by = n=> m.find(z=>z.name===n);
   const reg = by('Зарегистрировались'), code = by('Код входа сработал'), ret = by('Вернулись за неделю'), use = by('Полезное действие');
   if(reg.fact<reg.plan || code.fact<code.plan) return { c:'r', t:'Красный — чиним вход', p: reg.fact<reg.plan ? `Регистрируются ${reg.fact}% при плане ${reg.plan}%: люди теряются на входе.` : `Код срабатывает у ${code.fact}% при плане ${code.plan}%.` };
+  const firstWeek = START && START!=='demo' && (Date.now()-new Date(START).getTime()) < 7*86400000;
+  if(firstWeek && use.fact>=use.plan) return { c:'n', t:'Идёт первая неделя', p:'Регистрация и вход в норме. О возвратах судим после 7 дней с начала беты.' };
   if(ret.fact<ret.plan || use.fact<use.plan) return { c:'y', t:'Жёлтый — дорабатываем витрину', p:`Регистрируются хорошо, но возвращаются ${ret.fact}% при плане ${ret.plan}%.` };
   return { c:'g', t:'Зелёный — можно расширять', p:'Все главные цифры в плане: расширяем бету и готовим переезд на @afishakz.' };
 }
@@ -152,7 +169,7 @@ function light(x){
 function render(){
   const x = period==='today' ? today(group) : sum(group);
   const all = sum(group);
-  document.getElementById('lead').textContent = `День ${DAYS.length} из 14–21 · ${period==='today'?'сегодня, '+DAYS.at(-1):'с 10 ноября'} · ${x.name}`;
+  document.getElementById('lead').textContent = (START ? `День ${DAYS.length} · ` : '') + `${period==='today'?'сегодня':'с начала беты'} · ${x.name}`;
   document.getElementById('period').innerHTML = [['all','С начала беты'],['today','Сегодня']].map(([k,l])=>`<button data-p="${k}" class="${period===k?'on':''}">${l}</button>`).join('');
   document.getElementById('groups').innerHTML = [['all','Все',sum('all').reg], ...Object.entries(GROUPS).map(([k,v])=>[k,v.name,v.reg])]
     .map(([k,l,n])=>`<button data-g="${k}" class="${group===k?'on':''}">${l}<small>${n}</small></button>`).join('');
@@ -165,28 +182,58 @@ function render(){
     const skip = period==='today' && (m.name.startsWith('«') || m.name.startsWith('Жалобы') || m.name.startsWith('Вернулись'));
     const {d,cls} = devOf(m);
     return `<tr class="${m.main?'main-m':''}"><td>${m.name}<small>${m.sub}${m.abs?' · '+m.abs:''}</small></td>
-      <td>${m.lower?'≤ ':'≥ '}${m.plan}${m.unit}</td><td><b>${skip?'—':m.fact+m.unit}</b></td>
-      <td>${skip?'<span class="dev n">за весь период</span>':`<span class="dev ${cls} ${cls}">${fmtD(d,m)}</span>`}</td></tr>`;
+      <td>${m.lower?'≤ ':'≥ '}${m.plan}${m.unit}</td><td><b>${skip||m.fact==null?'—':m.fact+m.unit}</b></td>
+      <td>${skip?'<span class="dev n">за весь период</span>':m.fact==null?'<span class="dev n">нет данных</span>':`<span class="dev ${cls} ${cls}">${fmtD(d,m)}</span>`}</td></tr>`;
   }).join('');
   const steps = [['Перешли по ссылке',x.click],['Зарегистрировались',x.reg],['Полезное действие',x.useful],['Вернулись',x.ret]];
   document.getElementById('funnel').innerHTML = steps.map(([l,v],i)=>`<div class="row"><div class="lbl">${l}</div>
     <div class="bar"><i style="width:${Math.max(3,pct(v,steps[0][1]))}%"></i><span>${v}</span></div>
     <div class="pc">${i===1 ? pct(v,steps[0][1])+'%' : i>1 ? pct(v,steps[1][1])+'%' : ''}</div></div>`).join('') +
     `<div class="note">Проценты: регистрация — от перешедших, остальное — от зарегистрированных.</div>`;
-  const regs = DAY_SHARE.map(s=>Math.round(all.reg*s)), rets = RET_SHARE.map(s=>Math.round(all.ret*s));
+  const regs = DAY_REG, rets = DAY_RET;
   const mx = Math.max(...regs, ...rets, 1);
   document.getElementById('days').innerHTML = DAYS.map((d,i)=>`<div class="d" title="${d}: регистраций ${regs[i]}, вернулись ${rets[i]}">
     <div style="display:flex;gap:2px;align-items:flex-end;height:100%;width:100%;justify-content:center">
-      <i style="height:${regs[i]/mx*100}%"></i><i class="ret" style="height:${rets[i]/mx*100}%"></i></div><small>${d.slice(0,2)}</small></div>`).join('');
+      <i style="height:${regs[i]/mx*100}%"></i><i class="ret" style="height:${rets[i]/mx*100}%"></i></div><small>${d.slice(0,2)}</small></div>`).join('') || '<div class="note">Пока пусто.</div>';
   const rows = Object.entries(GROUPS).map(([k,v])=>{ const m = metrics(v); return [v.name, ...m.slice(0,3).map(z=>({z,...devOf(z)})), {z:m[6],...devOf(m[6])}]; });
   document.getElementById('cmp').innerHTML = `<tr><th>Группа</th><th>Регистрация</th><th>Вернулись</th><th>Полезное</th><th>Совет другу</th></tr>` +
-    rows.map(([n,...c])=>`<tr><td>${n}</td>${c.map(o=>`<td><span class="dev ${o.cls} ${o.cls}">${o.z.fact}${o.z.unit}</span></td>`).join('')}</tr>`).join('');
+    rows.map(([n,...c])=>`<tr><td>${n}</td>${c.map(o=>`<td><span class="dev ${o.cls} ${o.cls}">${o.z.fact==null?'—':o.z.fact+o.z.unit}</span></td>`).join('')}</tr>`).join('');
+  document.getElementById('linkList').innerHTML = Object.entries(GROUPS).map(([k,v])=>`<div style="display:flex;gap:8px;align-items:center;padding:7px 0;border-top:1px solid var(--line)">
+    <div style="flex:1;min-width:0"><b style="font-size:14px">${v.name}</b><div style="font-size:12px;color:var(--ink2);overflow-wrap:anywhere">${APP}/b/${k}</div></div>
+    <button data-copy="${APP}/b/${k}" style="border:0;background:var(--accent);color:#fff;border-radius:14px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer">Копировать</button></div>`).join('');
 }
 document.addEventListener('click', e=>{
   const g = e.target.closest('[data-g]'); if(g){ group = g.dataset.g; render(); }
   const p = e.target.closest('[data-p]'); if(p){ period = p.dataset.p; render(); }
 });
-render();
+document.addEventListener('click', e=>{
+  const c = e.target.closest('[data-copy]'); if(!c) return;
+  navigator.clipboard.writeText(c.dataset.copy).then(()=>{ c.textContent='Скопировано'; setTimeout(()=>c.textContent='Копировать',1500); });
+});
+function applyData(all, td){
+  GROUPS = {}; (all.groups||[]).forEach(g=> GROUPS[g.slug] = g);
+  TODAY = {}; (td.groups||[]).forEach(g=> TODAY[g.slug] = g);
+  TARGETS = {}; (all.targets||[]).forEach(t=> TARGETS[t.metric] = t);
+  START = all.start; DAYS = (all.days||[]).map(d=> d.d.slice(8,10)+'.'+d.d.slice(5,7));
+  DAY_REG = (all.days||[]).map(d=>d.reg); DAY_RET = (all.days||[]).map(d=>d.ret);
+}
+async function start(){
+  const mk = document.getElementById('mk');
+  if(/[?&]demo=1/.test(location.search)){
+    mk.style.display=''; mk.textContent='Макет · цифры примерные';
+    GROUPS = DEMO; TODAY = {}; DAYS = ['10.11','11.11','12.11','13.11','14.11','15.11','16.11','17.11','18.11','19.11','20.11','21.11','22.11','23.11'];
+    DAY_REG = [41,30,20,17,13,11,11,9,7,7,6,6,4,4]; DAY_RET = [0,6,10,11,13,14,16,13,11,11,10,10,9,9]; START='demo';
+    render(); return;
+  }
+  const {data:{session}} = await sb.auth.getSession();
+  if(!session){ document.querySelector('.wrap').insertAdjacentHTML('beforeend','<div class="card">Нужно войти — без пароля, по ссылке из письма. <a style="color:var(--accent)" href="../?next=beta/">Войти</a></div>'); return; }
+  const [a,t] = await Promise.all([sb.rpc('beta_dashboard',{p_period:'all'}), sb.rpc('beta_dashboard',{p_period:'today'})]);
+  if(a.error){ mk.style.display=''; mk.textContent='Не загрузилось: '+a.error.message; return; }
+  applyData(a.data||{}, (t.data)||{});
+  render();
+  setInterval(async ()=>{ const [a2,t2] = await Promise.all([sb.rpc('beta_dashboard',{p_period:'all'}), sb.rpc('beta_dashboard',{p_period:'today'})]); if(!a2.error){ applyData(a2.data||{}, t2.data||{}); render(); } }, 120000);
+}
+start().catch(()=>{ const mk=document.getElementById('mk'); mk.style.display=''; mk.textContent='Сервер не ответил — обновите страницу'; });
 </script>
 </body>
 </html>
