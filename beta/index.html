@@ -103,6 +103,12 @@ td small{display:block;color:var(--ink2);font-size:11.5px}
     <div class="legend"><span><i style="background:var(--accent2)"></i>Новые регистрации</span><span><i style="background:var(--ok)"></i>Вернулись</span></div>
   </div>
 
+  <div class="card">
+    <h2>Отзывы из Telegram · «Афиша · Бета»</h2>
+    <div id="fb"><div class="note">Загрузка…</div></div>
+    <div class="note"><a href="bot/" style="color:var(--accent)">Настройка бота</a> · бот записывает ошибки, идеи и впечатления; вопросы — отвечает сам.</div>
+  </div>
+
   <div class="card" id="links">
     <h2>Ссылки-приглашения</h2>
     <div id="linkList"></div>
@@ -253,6 +259,20 @@ async function openPeople(){
   draw();
 }
 document.addEventListener('click', e=>{ if(e.target.closest('[data-people]')) openPeople(); });
+const KIND = { bug:['Ошибка','r'], idea:['Идея','g'], opinion:['Мнение','y'], question:['Вопрос','n'], other:['Другое','n'] };
+const FST = { new:'новый', in_work:'в работе', done:'сделано', rejected:'не будем' };
+async function loadFeedback(){
+  const el = document.getElementById('fb'); if(!el || START==='demo'){ if(el) el.innerHTML='<div class="note">В макете отзывов нет.</div>'; return; }
+  const {data, error} = await sb.rpc('beta_feedback_list', {p_limit: 50});
+  if(error){ el.innerHTML = '<div class="note">Не загрузилось: '+error.message+'</div>'; return; }
+  if(!(data||[]).length){ el.innerHTML = '<div class="note">Пока отзывов нет.</div>'; return; }
+  const esc = t=> String(t||'').replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  el.innerHTML = data.map(f=>{ const k = KIND[f.kind]||KIND.other; return `<div class="person" style="align-items:flex-start">
+    <div class="who"><span class="dev ${k[1]} ${k[1]}">${k[0]}</span> <b>${esc(f.summary||f.text)}</b>
+      <small>${esc(f.author)} · ${new Date(f.ts).toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}${f.text && f.text!==f.summary ? ' · «'+esc(f.text.slice(0,140))+'»' : ''}</small></div>
+    <select data-fb="${f.id}" style="background:var(--card2);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:5px">${Object.entries(FST).map(([v,l])=>`<option value="${v}" ${f.status===v?'selected':''}>${l}</option>`).join('')}</select></div>`; }).join('');
+  el.querySelectorAll('[data-fb]').forEach(sel=> sel.onchange = ()=> sb.rpc('beta_feedback_status', {p_id:+sel.dataset.fb, p_status: sel.value}));
+}
 async function reload(){
   const [a2,t2] = await Promise.all([sb.rpc('beta_dashboard',{p_period:'all'}), sb.rpc('beta_dashboard',{p_period:'today'})]);
   if(!a2.error){ applyData(a2.data||{}, t2.data||{}); render(); }
@@ -277,7 +297,7 @@ async function start(){
   const [a,t] = await Promise.all([sb.rpc('beta_dashboard',{p_period:'all'}), sb.rpc('beta_dashboard',{p_period:'today'})]);
   if(a.error){ mk.style.display=''; mk.textContent='Не загрузилось: '+a.error.message; return; }
   applyData(a.data||{}, (t.data)||{});
-  render();
+  render(); loadFeedback();
   setInterval(async ()=>{ const [a2,t2] = await Promise.all([sb.rpc('beta_dashboard',{p_period:'all'}), sb.rpc('beta_dashboard',{p_period:'today'})]); if(!a2.error){ applyData(a2.data||{}, t2.data||{}); render(); } }, 120000);
 }
 start().catch(()=>{ const mk=document.getElementById('mk'); mk.style.display=''; mk.textContent='Сервер не ответил — обновите страницу'; });
