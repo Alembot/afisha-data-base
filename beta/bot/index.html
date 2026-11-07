@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Бот беты — подключение</title>
+<style>
+:root{--bg:#121212;--card:#1e1c20;--card2:#2a2730;--ink:#f4f1f3;--ink2:#a9a3ab;--line:#34303a;--accent:#e91e8c;--ok:#3ecf8e;--bad:#ff5a5f}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.wrap{max-width:560px;margin:0 auto;padding:calc(14px + env(safe-area-inset-top,0)) 16px 40px}
+header{display:flex;gap:10px;align-items:center}header a{color:var(--accent);text-decoration:none;font-size:14px}h1{font-size:20px;margin:0}
+.card{background:var(--card);border-radius:18px;padding:16px;margin-top:14px}
+ol{padding-left:20px;margin:6px 0}li{margin:6px 0}
+input{width:100%;background:var(--card2);border:1px solid var(--line);border-radius:12px;color:var(--ink);padding:12px;font:inherit;margin-top:8px}
+button{border:0;background:var(--accent);color:#fff;border-radius:14px;padding:12px 18px;font:inherit;font-weight:700;margin-top:10px;cursor:pointer;width:100%}
+.msg{margin-top:10px;font-size:14px}.ok{color:var(--ok)}.bad{color:var(--bad)}.muted{color:var(--ink2);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><a href="../">← Бета</a><h1>Бот беты в Telegram</h1></header>
+  <div class="card" id="status"><span class="muted">Проверяю…</span></div>
+  <div class="card">
+    <b>Подключить бота</b>
+    <ol class="muted">
+      <li>В Telegram откройте чат с <b>BotFather</b>.</li>
+      <li>Найдите сообщение «Done! Congratulations on your new bot» про <b>@afishakz_beta_bot</b>.</li>
+      <li>Скопируйте строку после «Use this token to access the HTTP API» — цифры, двоеточие и буквы.</li>
+      <li>Вставьте её ниже и нажмите «Подключить».</li>
+    </ol>
+    <input id="tok" type="password" autocomplete="off" placeholder="Токен из сообщения BotFather">
+    <button id="go">Подключить</button>
+    <div class="msg" id="msg"></div>
+    <p class="muted">Токен уходит сразу на сервер Афиши в закрытое хранилище и обратно не показывается.</p>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+const SUPA_URL="https://quzgkhzkrhdlyztzbgcc.supabase.co";
+const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1emdraHprcmhkbHl6dHpiZ2NjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2OTk1NzIsImV4cCI6MjEwNTI3NTU3Mn0.zA6OVgFkgUgXGwLTzgL9IdB7yMcRNJEIWWq-ZZGYACQ";
+const sb=supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
+const $=s=>document.querySelector(s);
+async function call(body){ const {data,error}=await sb.functions.invoke('beta-bot-setup',{body}); if(error){ let m=error.message; try{ const j=await error.context.json(); m=j.error||m }catch(e){} throw new Error(m) } return data }
+async function status(){
+  try{ const s=await call({action:'status'});
+    $('#status').innerHTML = s.connected
+      ? `<b class="ok">Бот @${s.bot} подключён</b><div class="muted">${s.chat?'Группа «Афиша · Бета» найдена — отзывы записываются.':'Ждём первое сообщение в группе — после него бот запомнит чат.'}${s.last_error?'<br>Последняя ошибка Telegram: '+s.last_error:''}</div>`
+      : `<b>Бот ещё не подключён</b><div class="muted">Вставьте токен ниже.</div>`;
+  }catch(e){ $('#status').innerHTML='<span class="bad">'+e.message+'</span>' }
+}
+async function start(){
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){ document.querySelector('.wrap').innerHTML='<div class="card">Нужно войти — без пароля, по ссылке из письма. <a style="color:var(--accent)" href="../../?next=beta/bot/">Войти</a></div>'; return }
+  status();
+  $('#go').onclick=async()=>{
+    const t=$('#tok').value.trim(); if(!t) return;
+    $('#go').disabled=true; $('#msg').textContent='Подключаю…'; $('#msg').className='msg';
+    try{ const r=await call({token:t}); $('#tok').value=''; $('#msg').textContent='Готово: бот @'+r.bot+' подключён. Напишите в группе «Афиша · Бета» любое сообщение — бот начнёт записывать отзывы.'; $('#msg').className='msg ok'; status() }
+    catch(e){ $('#msg').textContent=e.message; $('#msg').className='msg bad' }
+    $('#go').disabled=false;
+  };
+}
+start();
+</script>
+</body>
+</html>
