@@ -20,6 +20,11 @@ button{border:0;background:var(--accent);color:#fff;border-radius:14px;padding:1
 <div class="wrap">
   <header><a href="../">← Бета</a><h1>Бот беты в Telegram</h1></header>
   <div class="card" id="status"><span class="muted">Проверяю…</span></div>
+  <div class="card" id="dg">
+    <b>Сводка отзывов мне в Telegram</b>
+    <p class="muted">Каждый день в 21:00 бот присылает в личку, что написали в группе за день.</p>
+    <div id="dgBody"></div>
+  </div>
   <div class="card">
     <b>Подключить бота</b>
     <ol class="muted">
@@ -46,7 +51,16 @@ async function status(){
     $('#status').innerHTML = s.connected
       ? `<b class="ok">Бот @${s.bot} подключён</b><div class="muted">${s.chat?'Группа «Афиша · Бета» найдена — отзывы записываются.':'Ждём первое сообщение в группе — после него бот запомнит чат.'}${s.last_error?'<br>Последняя ошибка Telegram: '+s.last_error:''}</div>`
       : `<b>Бот ещё не подключён</b><div class="muted">Вставьте токен ниже.</div>`;
+    drawDigest(s);
   }catch(e){ $('#status').innerHTML='<span class="bad">'+e.message+'</span>' }
+}
+function drawDigest(s){
+  const el=$('#dgBody');
+  if(!s.connected){ el.innerHTML='<span class="muted">Сначала подключите бота ниже.</span>'; return }
+  el.innerHTML = (s.owner ? '<div class="ok">Ваш Telegram привязан — сводка приходит в 21:00.</div><button id="dgNow">Прислать сводку сейчас</button>' : '')
+    + `<button id="dgCode" style="${s.owner?'background:none;border:1px solid var(--line);color:var(--ink)':''}">${s.owner?'Привязать другой Telegram':'Получить код привязки'}</button><div class="msg" id="dgMsg"></div>`;
+  $('#dgCode').onclick=async()=>{ try{ const r=await call({action:'link'}); $('#dgMsg').innerHTML=`Ваш код: <b style="font-size:22px;letter-spacing:2px">${r.code}</b><br><span class="muted">Откройте в Telegram <b>@afishakz_beta_bot</b>, нажмите «Старт» и отправьте боту этот код одним сообщением. Потом обновите эту страницу.</span>`; }catch(e){ $('#dgMsg').textContent=e.message; $('#dgMsg').className='msg bad' } };
+  const now=$('#dgNow'); if(now) now.onclick=async()=>{ now.disabled=true; try{ const r=await call({action:'digest_now'}); $('#dgMsg').textContent = r.ok ? 'Отправил — проверьте личку с ботом.' : 'Не отправилось: '+r.result; }catch(e){ $('#dgMsg').textContent=e.message } now.disabled=false };
 }
 async function start(){
   const {data:{session}}=await sb.auth.getSession();
