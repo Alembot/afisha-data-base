@@ -57,6 +57,18 @@ td small{display:block;color:var(--ink2);font-size:11.5px}
 .legend{display:flex;gap:14px;font-size:12px;color:var(--ink2);margin-top:8px}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
 .cmp td{font-size:13px}
+.kpi{cursor:pointer;border:1px solid transparent}.kpi:hover{border-color:var(--line)}
+.kpi small{display:block;font-size:10.5px;color:var(--accent);margin-top:2px}
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;display:flex;align-items:flex-end;justify-content:center}
+.sheet .in{background:var(--card);width:100%;max-width:640px;max-height:82vh;overflow:auto;border-radius:20px 20px 0 0;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom,0))}
+@media(min-width:700px){.sheet{align-items:center}.sheet .in{border-radius:20px}}
+.sheet h3{margin:0 0 4px;font-size:18px}
+.person{display:flex;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.person .who{flex:1;min-width:0;font-size:13.5px}
+.person .who small{display:block;color:var(--ink2);font-size:12px}
+.tag{font-size:10.5px;border-radius:6px;padding:1px 6px;margin-left:6px;vertical-align:1px}
+.tag.t{background:var(--card2);color:var(--ink2)}.tag.s{background:rgba(62,207,142,.18);color:var(--ok)}
+.person button{border:1px solid var(--line);background:none;border-radius:12px;padding:5px 10px;font-size:12px;cursor:pointer;white-space:nowrap}
 .note{font-size:12px;color:var(--ink2);margin-top:8px}
 </style>
 </head>
@@ -169,14 +181,18 @@ function light(x){
 function render(){
   const x = period==='today' ? today(group) : sum(group);
   const all = sum(group);
-  document.getElementById('lead').textContent = (START ? `День ${DAYS.length} · ` : '') + `${period==='today'?'сегодня':'с начала беты'} · ${x.name}`;
+  const startD = START && START!=='demo' ? new Date(START) : null;
+  const before = startD && Date.now() < startD.getTime();
+  document.getElementById('lead').textContent = before
+    ? `Бета стартует ${startD.toLocaleDateString('ru-RU',{day:'numeric',month:'long'})}. Переходы до старта — тестовые и в счёт не идут · ${x.name}`
+    : (DAYS.length ? `День ${DAYS.length} · ` : '') + `${period==='today'?'сегодня':'с начала беты'} · ${x.name}`;
   document.getElementById('period').innerHTML = [['all','С начала беты'],['today','Сегодня']].map(([k,l])=>`<button data-p="${k}" class="${period===k?'on':''}">${l}</button>`).join('');
-  document.getElementById('groups').innerHTML = [['all','Все',sum('all').reg], ...Object.entries(GROUPS).map(([k,v])=>[k,v.name,v.reg])]
+  document.getElementById('groups').innerHTML = [['all','Все',sum('all').click], ...Object.entries(GROUPS).map(([k,v])=>[k,v.name,v.click])]
     .map(([k,l,n])=>`<button data-g="${k}" class="${group===k?'on':''}">${l}<small>${n}</small></button>`).join('');
   const L = light(all);
   document.getElementById('light').innerHTML = `<div class="dot ${L.c}"></div><div><b class="${L.c}">${L.t}</b><p>${L.p}</p></div>`;
   document.getElementById('kpis').innerHTML = [['Перешли по ссылке',x.click],['Зарегистрировались',x.reg],['Полезное действие',x.useful],['Вернулись',x.ret]]
-    .map(([l,v])=>`<div class="kpi"><span>${l}</span><b>${v}</b></div>`).join('');
+    .map(([l,v])=>`<div class="kpi" data-people="1"><span>${l}</span><b>${v}</b><small>Кто →</small></div>`).join('');
   const ms = metrics(x);
   document.getElementById('tbl').innerHTML = `<tr><th>Метрика</th><th>План</th><th>Факт</th><th>Откл.</th></tr>` + ms.map(m=>{
     const skip = period==='today' && (m.name.startsWith('«') || m.name.startsWith('Жалобы') || m.name.startsWith('Вернулись'));
@@ -210,6 +226,37 @@ document.addEventListener('click', e=>{
   const c = e.target.closest('[data-copy]'); if(!c) return;
   navigator.clipboard.writeText(c.dataset.copy).then(()=>{ c.textContent='Скопировано'; setTimeout(()=>c.textContent='Копировать',1500); });
 });
+// «Провалиться»: список людей группы — устройство, когда пришёл, что сделал; тест можно не считать
+async function openPeople(){
+  const ov = document.createElement('div'); ov.className='sheet';
+  ov.innerHTML = `<div class="in"><h3>Кто пришёл по ссылке</h3><div class="note" style="margin-top:0">${group==='all'?'Все группы':GROUPS[group]?.name||''}. Имён нет до регистрации — видно устройство и время.</div><div id="pl">Загрузка…</div><div style="text-align:center;margin-top:12px"><button class="cls" style="border:1px solid var(--line);background:none;border-radius:14px;padding:7px 16px;cursor:pointer">Закрыть</button></div></div>`;
+  document.body.appendChild(ov);
+  ov.addEventListener('click', e=>{ if(e.target===ov || e.target.closest('.cls')) ov.remove(); });
+  const draw = async ()=>{
+    if(START==='demo'){ ov.querySelector('#pl').innerHTML='<div class="note">В макете списка нет.</div>'; return; }
+    const {data, error} = await sb.rpc('beta_people', {p_cohort: group==='all'?null:group});
+    if(error){ ov.querySelector('#pl').textContent = 'Не загрузилось: '+error.message; return; }
+    const fmt = t=> new Date(t).toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+    const st = START && START!=='demo' ? new Date(START).getTime() : 0;
+    ov.querySelector('#pl').innerHTML = (data||[]).length ? data.map(p=>{ const pre = new Date(p.first).getTime() < st; return `<div class="person">
+      <div class="who">${p.device||'устройство неизвестно'}${pre?'<span class="tag t">до старта беты — тест</span>':p.test?'<span class="tag t">тест, не считается</span>':''}${p.signup?'<span class="tag s">зарегистрировался</span>':''}
+        <small>${GROUPS[p.cohort]?.name||p.cohort} · пришёл ${fmt(p.first)} · заходил дней: ${p.visits} · полезных действий: ${p.useful}</small></div>
+      ${pre?'':`<button data-ex="${p.anon}" data-on="${p.test?0:1}">${p.test?'Считать':'Это тест'}</button>`}</div>`}).join('')
+      : '<div class="note">Пока никого.</div>';
+    ov.querySelectorAll('[data-ex]').forEach(b=> b.onclick = async ()=>{
+      b.disabled = true;
+      const {error:e2} = await sb.rpc('beta_exclude', {p_anon:b.dataset.ex, p_on:b.dataset.on==='1'});
+      if(e2){ alert('Не получилось: '+e2.message); b.disabled=false; return; }
+      await draw(); await reload();
+    });
+  };
+  draw();
+}
+document.addEventListener('click', e=>{ if(e.target.closest('[data-people]')) openPeople(); });
+async function reload(){
+  const [a2,t2] = await Promise.all([sb.rpc('beta_dashboard',{p_period:'all'}), sb.rpc('beta_dashboard',{p_period:'today'})]);
+  if(!a2.error){ applyData(a2.data||{}, t2.data||{}); render(); }
+}
 function applyData(all, td){
   GROUPS = {}; (all.groups||[]).forEach(g=> GROUPS[g.slug] = g);
   TODAY = {}; (td.groups||[]).forEach(g=> TODAY[g.slug] = g);
