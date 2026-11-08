@@ -355,6 +355,23 @@ function bindCats(){
  app.querySelectorAll("[data-cat]").forEach(b=>b.onclick=()=>openCatSheet(b.dataset.cat));
 }
 async function placesOf(id){if(!PL[id]){const {data}=await sb.rpc("showcase_places_by_cat",{p_cat:id});PL[id]=data||[]}return PL[id]}
+/* Полки страницы категории — как в приложении (lib/showcase/category-shelves.ts). Минимум на полке — 6 */
+const SHELF_MIN=6;
+const SHELF_CFG={"culture-entertainment":[
+ ["Театр",["Театр"],["Театр","Драматический театр","Детский театр"]],
+ ["Классическая музыка",["Классическая музыка"],["Концертный зал","Филармония"]],
+ ["Народная музыка",["Этно и традиции"],[]],
+ ["Опера и балет",["Опера и балет"],["Театр оперы и балета"]],
+ ["Выставки и музеи",["Выставка искусства","Фотовыставка","Музей"],["Музей","Галерея","Выставочный центр","Арт-пространство"]],
+ ["Литература и чтения",["Литература и чтения"],["Библиотека"]],
+ ["Кино",["Кино (фестивальное, авторское)"],["Кинотеатр","Киностудийный комплекс"]]]};
+function shelfCounts(c,evs,ps,pins){
+ const dirSh=(SHELF_CFG[c.slug]||c.dirs.map(d=>[d.replace(/\s*\(.*\)\s*$/,""),[d],[d]]));
+ const kids=e=>["0+","3+","6+"].includes(String(e.age||"").trim());
+ return [["⭐ Афиша рекомендует",pins.length],["Премьеры",evs.filter(e=>/премьер/i.test(e.title)).length],
+  ...dirSh.map(([t,ds,ts])=>[t,evs.filter(e=>ds.includes(e.dir)).length+ps.filter(p=>ts.includes(p.type)).length]),
+  ["С детьми",evs.filter(kids).length+ps.filter(p=>/детск/i.test(p.type||"")).length],["Бесплатно",evs.filter(e=>e.free).length]];
+}
 function openCatSheet(id){
  let S=catState();const lostMode=id==="__lost";const c=lostMode?null:lcById(id);
  let view="ev",dir=null;
@@ -365,7 +382,10 @@ function openCatSheet(id){
   const pins=S.pins[id]||[];const i=S.order.indexOf(id);
   const dirs={};evs.forEach(e=>{const d=e.dir||"Без направления";dirs[d]=(dirs[d]||0)+1});
   const shown=dir?evs.filter(e=>(e.dir||"Без направления")===dir):evs;
-  let body=lostMode?"":`<div class="seg" style="padding:0 16px 8px"><button type="button" data-view="ev" class="${view==="ev"?"on":""}">События ${evs.length}</button><button type="button" data-view="pl" class="${view==="pl"?"on":""}">Места${PL[id]?" "+PL[id].length:""}</button></div>`;
+  let body="";
+  if(!lostMode){const ps=(await placesOf(id)).filter(p=>!(S.out[id]||new Set()).has(p.slug));
+   body+=`<div style="padding:0 16px 10px"><div style="font-size:12px;color:var(--ink2);margin-bottom:6px">Полки в приложении · минимум ${SHELF_MIN} карточек</div><div style="display:flex;flex-wrap:wrap;gap:6px">${shelfCounts(c,evs,ps,pins).map(([t,n])=>`<span style="font-size:12px;padding:4px 9px;border-radius:999px;${n>=SHELF_MIN?"background:rgba(60,180,100,.15);color:#5fd38a":"background:rgba(230,70,70,.15);color:#ff7b7b"}">${esc(t)} ${n}/${SHELF_MIN}</span>`).join("")}</div></div>`;}
+  body+=lostMode?"":`<div class="seg" style="padding:0 16px 8px"><button type="button" data-view="ev" class="${view==="ev"?"on":""}">События ${evs.length}</button><button type="button" data-view="pl" class="${view==="pl"?"on":""}">Места${PL[id]?" "+PL[id].length:""}</button></div>`;
   if(view==="ev"){
    body+=
    `${Object.keys(dirs).length>1?`<div class="seg" style="padding:0 16px;flex-wrap:wrap"><button type="button" data-d="" class="${!dir?"on":""}">Все ${evs.length}</button>${Object.entries(dirs).sort((a,b)=>b[1]-a[1]).map(([d,n])=>`<button type="button" data-d="${esc(d)}" class="${dir===d?"on":""}">${esc(d)} ${n}</button>`).join("")}</div>`:""}
