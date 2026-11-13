@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Новые источники — Афиша</title>
+<style>
+:root{--bg:#f6f4f5;--card:#fff;--ink:#1c1b1d;--ink2:#6b6870;--line:#e6e1e4;--accent:#c0127f;--soft:#fce4f3;--ok:#1e7a48}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button{font:inherit}
+.wrap{max-width:820px;margin:0 auto;padding:12px 16px 60px}
+header{display:flex;align-items:center;gap:10px;padding:6px 0 8px}
+header a{color:var(--accent);text-decoration:none;font-size:14px}
+header h1{font-size:20px;margin:0;flex:1}
+.hint{color:var(--ink2);font-size:13px;margin:0 0 12px}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}
+.filters button{border:1px solid var(--line);background:var(--card);border-radius:20px;padding:5px 12px;cursor:pointer;font-size:13px}
+.filters button.on{background:var(--soft);border-color:var(--accent);color:var(--accent)}
+.c{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin:0 0 10px}
+.c h3{margin:0;font-size:16px;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.c h3 a{color:var(--accent);text-decoration:none;font-weight:600}
+.c .k{color:var(--ink2);font-size:13px;margin:2px 0 6px}
+.c .why{margin:0 0 6px}
+.c .s{color:var(--ink2);font-size:12px;background:var(--bg);border-radius:10px;padding:8px;margin:6px 0;max-height:4.6em;overflow:hidden}
+.acts{display:flex;gap:8px;margin-top:8px}
+.acts button{flex:1;border:0;border-radius:10px;padding:10px;cursor:pointer;font-weight:600}
+.yes{background:var(--accent);color:#fff}.no{background:var(--bg);color:var(--ink)}
+.msg{background:var(--card);border-radius:16px;padding:18px}.msg a{color:var(--accent)}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#1c1b1d;color:#fff;padding:10px 16px;border-radius:12px;font-size:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header><a href="../">← Редактор</a><h1>Новые источники</h1></header>
+<p class="hint">Робот нашёл аккаунты, которые упоминают наши площадки и организаторы, но которых нет у нас в источниках. «Подключить» — робот начнёт читать их посты со следующего прогона. «Нет» — больше не предложит.</p>
+<div id="app"><div class="msg">Загружаю…</div></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+const SUPA_URL="https://quzgkhzkrhdlyztzbgcc.supabase.co";
+const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1emdraHprcmhkbHl6dHpiZ2NjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2OTk1NzIsImV4cCI6MjEwNTI3NTU3Mn0.zA6OVgFkgUgXGwLTzgL9IdB7yMcRNJEIWWq-ZZGYACQ";
+const sb=supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
+const app=document.getElementById("app");
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let L=[],F="Все";
+function toast(t){const d=document.createElement("div");d.className="toast";d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.remove(),2200)}
+function render(){
+ if(!L.length){app.innerHTML='<div class="msg">Пока всё разобрано. Робот ищет новые аккаунты раз в неделю.</div>';return}
+ const cats=["Все",...new Set(L.map(x=>x.category||"Другое"))];
+ const V=F==="Все"?L:L.filter(x=>(x.category||"Другое")===F);
+ app.innerHTML='<div class="filters">'+cats.map(c=>'<button data-f="'+esc(c)+'" class="'+(c===F?"on":"")+'">'+esc(c)+(c==="Все"?" "+L.length:"")+'</button>').join("")+'</div>'+
+ V.map(x=>'<div class="c" data-h="'+esc(x.handle)+'"><h3><a href="https://www.instagram.com/'+esc(x.handle)+'/" target="_blank" rel="noopener">@'+esc(x.handle)+'</a>'+(x.title?'<span>'+esc(x.title)+'</span>':'')+'</h3>'+
+  '<div class="k">'+esc(x.kind||"")+' · '+esc(x.category||"")+' · упомянули '+x.mentions+' раз(а): '+(x.mentioned_by||[]).slice(0,4).map(a=>"@"+esc(a)).join(", ")+'</div>'+
+  '<p class="why">'+esc(x.why||"")+'</p>'+(x.sample?'<div class="s">'+esc(x.sample)+'</div>':'')+
+  '<div class="acts"><button class="yes" data-a="1">Подключить</button><button class="no" data-a="0">Нет</button></div></div>').join("");
+ app.querySelectorAll("[data-f]").forEach(b=>b.onclick=()=>{F=b.dataset.f;render()});
+ app.querySelectorAll(".c").forEach(card=>card.querySelectorAll("[data-a]").forEach(b=>b.onclick=async()=>{
+  const h=card.dataset.h,yes=b.dataset.a==="1";card.querySelectorAll("button").forEach(z=>z.disabled=true);
+  const {error}=await sb.rpc("source_candidate_review",{p_handle:h,p_approve:yes});
+  if(error){toast("Не сохранилось: "+error.message);card.querySelectorAll("button").forEach(z=>z.disabled=false);return}
+  L=L.filter(x=>x.handle!==h);toast(yes?"@"+h+" подключён":"Убрали @"+h);render()}));
+}
+async function start(){
+ const {data:{session}}=await sb.auth.getSession();
+ if(!session){app.innerHTML='<div class="msg">Нужно войти — без пароля, по ссылке из письма.<br><br><a href="../../?next=redaktor/istochniki/">Войти</a></div>';return}
+ const {data,error}=await sb.rpc("source_candidates_list");
+ if(error){app.innerHTML='<div class="msg">Не загрузилось: '+esc(error.message)+'</div>';return}
+ L=data||[];render();
+}
+start();
+</script>
+</body>
+</html>
