@@ -1888,7 +1888,7 @@ function pickView(){
   if(!PK){if(!PKbusy&&!PKerr)setTimeout(()=>loadPick(),0);return head+(PKerr?statsError(PKerr):`<div class="empty">Загружаю события…</div>`)}
   const err=PKerr&&PKerr.code==="save"?`<div class="pk-err">${esc(PKerr.message)}</div>`:"";
   if(!PK.items.length)return head+err+(PKlast?`<div class="pk-toast"><div>Сохранено в «Не подошли».</div></div>`:"")+`<div class="empty">${PKbusy?"Загружаю…":PKtab==="new"?((c.wait||0)?"Робот ещё оценивает события, загляните через несколько минут.":"Все предложенные события разобраны."):"Здесь пока пусто."}</div>`;
-  const card=x=>{const img=x.thumb&&/^data:image\//.test(x.thumb)?`<img src="${esc(x.thumb)}" alt="" loading="lazy">`:`<div class="pk-noph">фото нет</div>`;
+  const card=x=>{const img=x.thumb&&/^(data:image\/|https:\/\/quzgkhzkrhdlyztzbgcc\.supabase\.co\/storage\/)/.test(x.thumb)?`<img src="${esc(x.thumb)}" alt="" loading="lazy">`:`<div class="pk-noph">фото нет</div>`;
     const busy=PKsaving[x.id];const price=x.is_free?"бесплатно":x.price_from?("от "+Number(x.price_from).toLocaleString("ru-RU")+" ₸"):"";
     const meta=[pkDate(x),x.venue].filter(Boolean).map(esc).join(" · ");
     let act;
