@@ -67,7 +67,7 @@ async function start(){
   const {data:role}=await sb.from("aesthetic_editors").select("role").eq("email",email).maybeSingle();
   if(!role){app.innerHTML=`<div class="msg">У аккаунта ${esc(email)} нет роли «Редактор витрины».</div>`;return}
   const [{data:q,error},{data:ev}]=await Promise.all([
-    sb.from("reels_queue").select("id,account,caption,post_url,taken_at,video_path,poster_path,event_id,match_reason").eq("status","review").not("matched_at","is",null).not("event_id","is",null).order("taken_at",{ascending:false}).limit(100),
+    sb.from("reels_queue").select("id,account,caption,post_url,taken_at,video_path,poster_path,event_id,match_reason").eq("status","review").not("screened_at","is",null).not("matched_at","is",null).not("event_id","is",null).order("taken_at",{ascending:false}).limit(100),
     sb.from("reels_queue_events").select("queue_id,event_id,title,date_start").order("date_start").limit(2000)
   ]);
   if(error){app.innerHTML=`<div class="msg">Не удалось загрузить очередь: ${esc(error.message)}</div>`;return}
@@ -76,7 +76,7 @@ async function start(){
   render();
 }
 function render(){
-  if(i>=items.length){app.innerHTML=`<div class="msg"><b>Очередь пуста.</b><br>Робот показывает только ролики, которые точно про конкретное будущее событие. Новые появляются каждое утро после сбора. <a href="" onclick="location.reload();return false">Обновить</a></div>`;return}
+  if(i>=items.length){app.innerHTML=`<div class="msg"><b>Очередь пуста.</b><br>Робот показывает только ролики про конкретное будущее событие, где понятно что, когда и где, и похожие на те, что вы раньше брали. Новые появляются каждое утро после сбора. <a href="" onclick="location.reload();return false">Обновить</a></div>`;return}
   const r=items[i];why=new Set();
   const opts=(events[r.id]||[]).filter((e,k,a)=>a.findIndex(x=>x.event_id===e.event_id)===k);
   app.innerHTML=`

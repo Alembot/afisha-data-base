@@ -290,7 +290,7 @@ async function start(){
  document.getElementById("who").textContent=email.split("@")[0];
  await loadState();
  render();
- const {count}=await sb.from("reels_queue").select("id",{count:"exact",head:true}).eq("status","review").not("matched_at","is",null).not("event_id","is",null);
+ const {count}=await sb.from("reels_queue").select("id",{count:"exact",head:true}).eq("status","review").not("screened_at","is",null).not("matched_at","is",null).not("event_id","is",null);
  COUNTS.reels=count??0;renderTabs();if(tab==="agree")rAgree();
 }
 start().catch(e=>{app.innerHTML=`<div class="msg">Сервер не ответил. <a href="" onclick="location.reload();return false">Обновить</a><br><small>${esc(e.message||e)}</small></div>`});
