@@ -430,7 +430,7 @@ const ROLE_PL={"площадка":"Площадки","артист":"Артис�
 const PROD={both:"Афиша + Eventer App",afisha:"Только Афиша",eventer:"Только Eventer App",none:"Пока ни в одном"};
 const STATUS_ORDER=["найдено","обогащается","проверено","опубликовано","скрыто"];
 const STATUS_TXT={"найдено":"робот нашёл, не проверено","обогащается":"робот дополняет","проверено":"проверено человеком","опубликовано":"видно в Афише","скрыто":"архив / не показываем"};
-const ADDED={afisha:"Афиша",eventer:"Eventer",atlas:"Atlas"};
+const ADDED={afisha:"Афиша",eventer:"Eventer",atlas:"Atlas",statgov:"Госстат"};
 const PROF_ROLE={venue:"Площадка",artist:"Артист",agency:"Агентство",contractor:"Подрядчик",specialist:"Специалист"};
 const go=(h)=>{location.hash=h};
 const parseHash=()=>{const h=decodeURIComponent(location.hash.slice(1));const [view,qs]=h.split("?");const p=Object.fromEntries(new URLSearchParams(qs||""));return {view:view||"home",p}};
@@ -529,6 +529,7 @@ async function vCard(m,id){
  ${c.photo?`<img src="${esc(c.photo)}" alt="" style="max-width:420px;width:100%;border-radius:14px">`:""}
  ${c.about?`<section class="panel"><p>${esc(c.about)}</p></section>`:""}
  <h2>Общее — видят все продукты</h2><div class="fields">${common}</div>
+ ${d.legal?`<h2>Юрданные <span class="muted">госстат</span></h2><div class="fields">${[fld("БИН",esc(d.legal.bin)),fld("Юридическое название",esc(d.legal.legal_name)),fld("Юридический адрес",esc(d.legal.legal_addr)),fld("ОКЭД",esc([d.legal.okved,d.legal.okved_name].filter(Boolean).join(" · "))),fld("Доп. ОКЭД",esc(d.legal.okved_extra)),fld("Руководитель",esc(d.legal.director)),fld("Размер",esc(d.legal.size)),fld("Дата регистрации",esc(df(d.legal.reg_date)))].join("")}</div>`:""}
  ${a?`<h2>Срез Афиши</h2><div class="fields">${afisha}</div>`:""}
  ${ev?`<h2>Срез Eventer App</h2><div class="fields">${prof}</div>`:""}
  <h2>Связи <span class="muted">${d.links.length||""}</span></h2>${d.links.length?`<div class="tablewrap"><table><thead><tr><th>Связь</th><th>С чем</th><th>Дата</th><th>Кто нашёл</th></tr></thead><tbody>${links}</tbody></table></div>`:'<div class="note2">Связей пока нет.</div>'}
