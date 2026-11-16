@@ -462,7 +462,8 @@ const prodTags=r=>`${r.in_afisha?'<span class="tg m">Афиша</span>':""}${r.i
 function vMembers(m){const b=BOOT,r=b.statgov_raw||{total:0,too:0,ip:0};
  const big=(v,t,h)=>`<button class="tile" data-h="${esc(h)}" style="padding:22px"><span class="v" style="font-size:40px">${nf(v)}</span><span class="t" style="font-size:17px">${esc(t)}</span></button>`;
  m.innerHTML=`<button class="btn" data-h="#home" style="align-self:flex-start">← Назад</button><div class="head"><div><h1>${nf(b.total)} карточек участников</h1></div><button class="btn" data-h="${esc(toHash("list",{}))}">Все карточки списком</button></div>
- <section class="panel"><h2>Сырые данные</h2><div class="tiles" style="margin-top:14px;grid-template-columns:repeat(3,minmax(0,1fr))">${big(r.total,"сырых карточек",toHash("list",{raw:"all"}))}${big(r.too,"юрлиц",toHash("list",{raw:"too"}))}${big(r.ip,"ИП",toHash("list",{raw:"ip"}))}</div></section>`}
+ <section class="panel"><h2>Сырые данные</h2><div class="tiles" style="margin-top:14px;grid-template-columns:repeat(3,minmax(0,1fr))">${big(r.total,"сырых карточек",toHash("list",{raw:"all"}))}${big(r.too,"юрлиц",toHash("list",{raw:"too"}))}${big(r.ip,"ИП",toHash("list",{raw:"ip"}))}</div></section>
+ <section class="panel"><h2>Физлица и организации</h2><div class="tiles" style="margin-top:14px;grid-template-columns:repeat(2,minmax(0,1fr))">${big(b.who["физлицо"]||0,"физлиц",toHash("list",{who:"физлицо",from:"members"}))}${big(b.who["организация"]||0,"организаций",toHash("list",{who:"организация",from:"members"}))}</div></section>`}
 
 /* ---------- Главная ---------- */
 function vHome(m){const b=BOOT,arch=b.statuses["скрыто"]||0;
@@ -504,7 +505,7 @@ function vProduct(m,k){const t=(PRODUCTS.find(x=>x[0]===k)||[,""])[1];
 const sel=(id,label,opts,val)=>`<label class="f" style="min-width:160px;background:none;padding:0">${label}<select id="${id}"><option value="">Все</option>${opts.map(([v,t])=>`<option value="${esc(v)}"${v===val?" selected":""}>${esc(t)}</option>`).join("")}</select></label>`;
 async function vList(m,p){
  const lim=50,off=+p.offset||0;
- const head=`<button class="btn" data-h="${p.raw?"#members":"#home"}" style="align-self:flex-start">← Назад</button><div class="head"><div><h1>${esc(p.raw?({all:"Сырые карточки",too:"Юрлица",ip:"ИП"})[p.raw]||"Сырые карточки":p.role?ROLE_PL[p.role]:"Все карточки")}</h1></div></div>
+ const head=`<button class="btn" data-h="${p.raw||p.from==="members"?"#members":"#home"}" style="align-self:flex-start">← Назад</button><div class="head"><div><h1>${esc(p.raw?({all:"Сырые карточки",too:"Юрлица",ip:"ИП"})[p.raw]||"Сырые карточки":p.who&&!p.role?({"физлицо":"Физлица","организация":"Организации"})[p.who]||"Все карточки":p.role?ROLE_PL[p.role]:"Все карточки")}</h1></div></div>
  <form id="lf" class="row" style="align-items:flex-end"><label class="f" style="flex:1;min-width:220px;background:none;padding:0">Поиск<input id="lq" value="${esc(p.q||"")}" placeholder="Название, Instagram, телефон, БИН"></label>
  ${sel("lrole","Кто",ROLE_ORDER.map(r=>[r,ROLE_PL[r]]),p.role)}${sel("lprod","Продукт",Object.entries(PROD),p.product)}${sel("lst","Стадия",STATUS_ORDER.map(s=>[s,s]),p.status)}${sel("lcity","Город",BOOT.cities.map(c=>[c.city,c.city]),p.city)}<button class="btn pri">Показать</button></form>`;
  m.innerHTML=head+`<div class="empty" role="status">Загружаю карточки…</div>`;
