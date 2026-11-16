@@ -459,11 +459,12 @@ const tile=(v,t,h,s="")=>`<button class="tile" data-h="${esc(h)}"><span class="v
 const prodTags=r=>`${r.in_afisha?'<span class="tg m">Афиша</span>':""}${r.in_eventer?'<span class="tg okk">Eventer App</span>':""}`;
 
 /* ---------- Карточки участников (после клика по «Всего в базе») ---------- */
-function vMembers(m){const b=BOOT,r=b.statgov_raw||{total:0,too:0,ip:0};
+function vMembers(m){const b=BOOT,r=b.statgov_raw||{total:0,too:0,ip:0},w=b.who_split||{};
+ const bigS=(v,t,h,parts)=>`<button class="tile" data-h="${esc(h)}" style="padding:22px"><span class="v" style="font-size:40px">${nf(v)}</span><span class="t" style="font-size:17px">${esc(t)}</span><span style="display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:8px;color:var(--ok);font-size:15px;font-weight:600">${parts.map(([n,l])=>`<span>${nf(n||0)} ${esc(l)}</span>`).join("")}</span></button>`;
  const big=(v,t,h)=>`<button class="tile" data-h="${esc(h)}" style="padding:22px"><span class="v" style="font-size:40px">${nf(v)}</span><span class="t" style="font-size:17px">${esc(t)}</span></button>`;
  m.innerHTML=`<button class="btn" data-h="#home" style="align-self:flex-start">← Назад</button><div class="head"><div><h1>${nf(b.total)} карточек участников</h1></div><button class="btn" data-h="${esc(toHash("list",{}))}">Все карточки списком</button></div>
  <section class="panel"><h2>Сырые данные</h2><div class="tiles" style="margin-top:14px;grid-template-columns:repeat(3,minmax(0,1fr))">${big(r.total,"сырых карточек",toHash("list",{raw:"all"}))}${big(r.too,"юрлиц",toHash("list",{raw:"too"}))}${big(r.ip,"ИП",toHash("list",{raw:"ip"}))}</div></section>
- <section class="panel"><h2>Физлица и организации</h2><div class="tiles" style="margin-top:14px;grid-template-columns:repeat(2,minmax(0,1fr))">${big(b.who["физлицо"]||0,"физлиц",toHash("list",{who:"физлицо",from:"members"}))}${big(b.who["организация"]||0,"организаций",toHash("list",{who:"организация",from:"members"}))}</div></section>`}
+ <section class="panel"><h2>Физлица и организации</h2><div class="tiles" style="margin-top:14px;grid-template-columns:repeat(2,minmax(0,1fr))">${bigS(b.who["физлицо"]||0,"физлиц",toHash("list",{who:"физлицо",from:"members"}),[[w.fiz_legal,"с ИП"],[w.fiz_none,"без ИП"]])}${bigS(b.who["организация"]||0,"организаций",toHash("list",{who:"организация",from:"members"}),[[w.org_too,"юрлица (ТОО и др.)"],[w.org_ip,"ИП"],[w.org_none,"без юрданных"]])}</div></section>`}
 
 /* ---------- Главная ---------- */
 function vHome(m){const b=BOOT,arch=b.statuses["скрыто"]||0;
