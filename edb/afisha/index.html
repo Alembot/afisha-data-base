@@ -390,14 +390,14 @@ a.topup:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
-<section id="auth-panel" style="max-width:400px;margin:12vh auto;padding:24px"><h1>Афиша · Eventer Data Base</h1><form id="auth-form"><label>Email<input id="auth-email" type="email" autocomplete="username" required style="width:100%;margin:8px 0 16px"></label><button class="btn pri" type="submit">Прислать ссылку для входа</button><button id="auth-forgot" type="button" hidden></button></form><form id="auth-newpass" hidden><label>Новый пароль<input id="auth-newpass-1" type="password" autocomplete="new-password" minlength="8" required style="width:100%;margin:8px 0 16px"></label><label>Повторите пароль<input id="auth-newpass-2" type="password" autocomplete="new-password" minlength="8" required style="width:100%;margin:8px 0 16px"></label><button class="btn pri" type="submit">Сохранить пароль</button></form><p id="auth-status" role="status"></p><button id="auth-retry" class="btn" hidden>Повторить загрузку</button><button id="auth-signout" class="btn" hidden>Сменить аккаунт</button></section><div id="app-shell" hidden><button id="app-signout" hidden></button><header class="top"><nav class="topin" id="nav" aria-label="Разделы"></nav><div style="background:#2a2533;color:#e9e4f0;font-size:13px;padding:6px clamp(16px,3.5vw,44px)">Только просмотр, данные копии общей базы на 12.11. Правки — в <a href="https://alembot.github.io/afisha-data-base/" style="color:#ff8cc8">админке Афиши</a>.</div></header>
+<section id="auth-panel" style="max-width:400px;margin:12vh auto;padding:24px"><h1>Афиша · Eventer Data Base</h1><form id="auth-form"><label>Email<input id="auth-email" type="email" autocomplete="username" required style="width:100%;margin:8px 0 16px"></label><button class="btn pri" type="submit">Прислать ссылку для входа</button><button id="auth-forgot" type="button" hidden></button></form><form id="auth-newpass" hidden><label>Новый пароль<input id="auth-newpass-1" type="password" autocomplete="new-password" minlength="8" required style="width:100%;margin:8px 0 16px"></label><label>Повторите пароль<input id="auth-newpass-2" type="password" autocomplete="new-password" minlength="8" required style="width:100%;margin:8px 0 16px"></label><button class="btn pri" type="submit">Сохранить пароль</button></form><p id="auth-status" role="status"></p><button id="auth-retry" class="btn" hidden>Повторить загрузку</button><button id="auth-signout" class="btn" hidden>Сменить аккаунт</button></section><div id="app-shell" hidden><button id="app-signout" hidden></button><header class="top"><nav class="topin" id="nav" aria-label="Разделы"></nav><div style="background:#2a2533;color:#e9e4f0;font-size:13px;padding:6px clamp(16px,3.5vw,44px)">Только просмотр. Данные — рабочая база Афиши (живые), до переключения на общую базу. Правки — в <a href="https://alembot.github.io/afisha-data-base/" style="color:#ff8cc8">админке Афиши</a>.</div></header>
 <main id="main"><div class="empty">Загружаю базу…</div></main>
 <div class="toast" id="toast" hidden></div>
 
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
-const SUPA_URL="https://drdbpnqagecenidbyidz.supabase.co", SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyZGJwbnFhZ2VjZW5pZGJ5aWR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ1NzgyNjEsImV4cCI6MjExMDE1NDI2MX0.Fb7f5fBm68jLRdauCjdzSA9LHkZ1IKcvWgTu9_0gEMQ";
+const SUPA_URL="https://quzgkhzkrhdlyztzbgcc.supabase.co", SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1emdraHprcmhkbHl6dHpiZ2NjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2OTk1NzIsImV4cCI6MjEwNTI3NTU3Mn0.zA6OVgFkgUgXGwLTzgL9IdB7yMcRNJEIWWq-ZZGYACQ";
 const sb=window.supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
 let AUTH_ID=null,AUTH_EPOCH=0,APP_READY=false,AUTH_LOCKED=false,APP_CAN_LEAVE=()=>true,STARTING=false;
 let APP_CLEAR_PRIVATE_CACHE=()=>{};
@@ -844,7 +844,7 @@ function home(){
  return head+(HSerr?'<div class="note">Обновление не удалось. Ниже сохранённые данные на указанное время.</div>':'')+
  `<div class="home-top"><section class="panel"><h2>Состояние базы</h2><div class="tiles home-overview-tiles">${hLink(HS.total,'Всего карточек','data-hall="1"')}${hLink(HS.quality_total,'На проверке','data-hquality="1"')}</div></section><section class="panel"><h2>Витрина</h2><div class="tiles home-overview-tiles">${hLink(sc.events,'Событий в приложении','data-svopen="1"')}${hLink(sc.places,'Мест в приложении','data-svopen="1"')}</div>${SC.err&&!SC.data?'<div class="note2">Не удалось получить числа. <button class="btn" data-home-refresh="1">Повторить</button></div>':''}</section></div>
  <section class="tiles">${types}</section>
- <section class="panel"><h2>Робот Афиша за сутки</h2><div class="tiles" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-top:14px">${hLink(f.raw,'Сырые','data-hbucket="raw"')}${hLink(f.base,'В базу','data-hbucket="base"')}${hLink(f.trash,'В корзине','data-hbucket="trash"')}</div>${f.processing||f.review?`<div class="row" style="margin-top:10px">${f.processing?`<button class="chip" data-hbucket="processing">В обработке: ${nf(f.processing)}</button>`:''}${f.review?`<button class="chip" data-hbucket="review">Ожидают решения: ${nf(f.review)}</button>`:''}</div>`:''}</section>
+ ${robotBlock()}
  <section><div class="row" style="justify-content:space-between;margin-bottom:10px"><h2>События по датам</h2><span class="note2">Фильмов в прокате: ${hCount(c.films)}</span></div><div class="tiles">${windows}</div></section>
  <section class="panel"><h2>Состояние робота</h2><div class="tiles" style="margin-top:14px">${health.map(r=>`<button class="tile" data-go="robot"><span class="pill ${r.state==='ok'?'':r.state==='failed'?'bad':'warn'}">${esc(HOME_HEALTH[r.state]||HOME_HEALTH.unknown)}</span><span class="t">${esc(r.label)}</span>${r.last_success?`<span class="s">Успех: ${dtf(r.last_success)}</span>`:''}</button>`).join('')||'<div class="note2">Состояние функций неизвестно.</div>'}</div></section>`;
 }
@@ -1903,7 +1903,22 @@ document.addEventListener("click",ev=>{const t=ev.target.closest&&ev.target.clos
 let RB=null,RBbusy=false,RBerr=null,RBrun=null,RBconfirm=null;
 async function loadRobot(){if(RBbusy)return;RBbusy=true;if(S.view==="robot")render();
   try{RB=await apiCall("robot_screen");RBerr=null}catch(e){RBerr={code:(e&&e.code)||"upstream_error",message:(e&&e.message)||""}}
-  finally{RBbusy=false;if(S.view==="robot")render()}}
+  finally{RBbusy=false;if(S.view==="robot"||S.view==="home")render()}}
+/* Блок «Состояние робота» на главной (Кайрат, 16.11.2026: «работа за сутки не нужна, состояние робота мне нужен блок») */
+function robotBlock(){
+  if(!RB){if(!RBbusy&&!RBerr)setTimeout(loadRobot,0);return `<section class="panel"><h2>Состояние робота</h2><div class="note2" style="margin-top:10px">${RBerr?"Не удалось получить состояние робота.":"Запрашиваю состояние робота…"}</div></section>`}
+  const R=RB.robots||[],cl=(RB.money||{}).claude||{},ap=(RB.money||{}).apify||null;
+  const noBal=R.some(r=>r.nobalance)||!!cl.last_error;
+  const failed=R.filter(r=>r.state==="failed"),stale=R.filter(r=>r.state==="stale"||r.state==="never"),off=R.filter(r=>!r.active),ok=R.filter(r=>r.state==="ok"||r.state==="running");
+  const apShare=ap&&ap.ok&&ap.limit_usd?ap.used_usd/ap.limit_usd:0;
+  const worst=noBal||failed.length||apShare>=0.95?"bad":stale.length||apShare>=0.8?"warn":"";
+  const usd=v=>"$"+new Intl.NumberFormat("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2}).format(v||0);
+  const probs=[...failed.map(r=>`<div class="srow"><span class="dot bad"></span><span class="nm">${esc(r.title)}</span><span class="wh">${r.nobalance?"нет денег на счёте Claude":esc(r.error||"ошибка")}</span></div>`),...stale.map(r=>`<div class="srow"><span class="dot warn"></span><span class="nm">${esc(r.title)}</span><span class="wh">${r.state==="never"?"ещё не запускался":"давно не запускался"}${r.last_ok?" · последний успешный "+dtf(r.last_ok):""}</span></div>`)].join("");
+  return `<section class="panel" style="display:flex;flex-direction:column;gap:12px"><div class="row" style="justify-content:space-between"><h2>Состояние робота</h2><span class="pill ${worst}">${worst==="bad"?"Нужно вмешательство":worst==="warn"?"Есть предупреждения":"Всё работает"}</span></div>
+   <div class="tiles" style="grid-template-columns:repeat(4,minmax(0,1fr))">${hLink(ok.length,"Работают",'data-go="robot"')}${hLink(failed.length,"С ошибкой",'data-go="robot"')}${hLink(stale.length,"Давно не запускались",'data-go="robot"')}${hLink(off.length,"Выключены",'data-go="robot"')}</div>
+   ${probs?`<div class="srows">${probs}</div>`:""}
+   <div class="note2">Claude за сутки ${usd(cl.usd_24h)}, за 30 дней ${usd(cl.usd_30d)}${ap&&ap.ok?` · Apify ${usd(ap.used_usd)} из ${usd(ap.limit_usd)} в месяц`:""}${RB.at?` · данные на ${dtf(RB.at)}`:""} · <button class="lnk" data-go="robot">Подробнее →</button></div></section>`;
+}
 function robotView(){
   const head=`<div class="head"><div><div class="lbl">Работа</div><h1>Робот</h1>${RB?`<div class="lbl" style="margin-top:8px">данные на ${dtf(RB.at)}</div>`:""}<div class="row" style="margin-top:10px"><button class="btn" data-rbrefresh="1"${RBbusy?" disabled":""}>${RBbusy?"Обновляю…":"Обновить"}</button></div></div></div>`;
   if(!RB){if(!RBbusy&&!RBerr)setTimeout(loadRobot,0);return head+(RBerr?statsError(RBerr):`<div class="empty">Запрашиваю состояние робота…</div>`)}
