@@ -1908,7 +1908,7 @@ async function loadRobot(){if(RBbusy)return;RBbusy=true;if(S.view==="robot")rend
 function robotBlock(){
   if(!RB){if(!RBbusy&&!RBerr)setTimeout(loadRobot,0);return `<section class="panel"><h2>Состояние робота</h2><div class="note2" style="margin-top:10px">${RBerr?"Не удалось получить состояние робота.":"Запрашиваю состояние робота…"}</div></section>`}
   const R=RB.robots||[],cl=(RB.money||{}).claude||{},ap=(RB.money||{}).apify||null;
-  const noBal=R.some(r=>r.nobalance)||!!cl.last_error;
+  const noBal=R.some(r=>r.nobalance)||/credit|balance|billing/i.test(String(cl.last_error?.text||""));
   const failed=R.filter(r=>r.state==="failed"),stale=R.filter(r=>r.state==="stale"||r.state==="never"),off=R.filter(r=>!r.active),ok=R.filter(r=>r.state==="ok"||r.state==="running");
   const apShare=ap&&ap.ok&&ap.limit_usd?ap.used_usd/ap.limit_usd:0;
   const worst=noBal||failed.length||apShare>=0.95?"bad":stale.length||apShare>=0.8?"warn":"";
