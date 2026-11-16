@@ -463,13 +463,17 @@ function vHome(m){const b=BOOT,arch=b.statuses["скрыто"]||0;
  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px">
  <section class="panel"><h2>Всего в базе</h2><div class="tiles" style="margin-top:14px;grid-template-columns:1fr 1fr">${big(b.total,"карточек участников",`из них в архиве ${nf(arch)}`,toHash("list",{}))}${big(b.events.total,"карточек событий",`из них в архиве ${nf(b.events.archive)}`,"#p-afisha")}</div></section>
  <section class="panel"><h2>Статус проверки</h2><div class="tiles" style="margin-top:14px;grid-template-columns:1fr 1fr">${big(b.statuses["найдено"]||0,"карточек на проверке","робот нашёл, ещё не проверены",toHash("list",{status:"найдено"}))}${big((b.statuses["проверено"]||0)+(b.statuses["опубликовано"]||0),"карточек проверено","проверены или опубликованы",toHash("list",{status:"опубликовано"}))}</div></section>
- <section class="panel"><h2>Афиша</h2><div class="tiles" style="margin-top:14px;grid-template-columns:1fr 1fr">${big(b.showcase.events,"карточек событий","на витрине Афиши","#p-afisha")}${big(b.showcase.places,"карточек мест","на витрине Афиши",toHash("list",{status:"опубликовано"}))}</div></section>
+ <section class="panel"><h2>Афиша</h2><div class="tiles" style="margin-top:14px;grid-template-columns:1fr 1fr">${big(LIVE?.events??b.showcase.events,"карточек событий","на витрине Афиши","#p-afisha")}${big(LIVE?.places??b.showcase.places,"карточек мест","на витрине Афиши","#p-afisha")}</div></section>
  <section class="panel"><h2>Eventer</h2><div class="tiles" style="margin-top:14px;grid-template-columns:1fr 1fr">${big(b.eventer.total,"карточек участников","в базе Eventer","#p-eventer")}${big(b.eventer.in_base,"карточек проверено","в базе Eventer App","#p-eventer")}</div></section>
  </div>`;
  $("qf").onsubmit=e=>{e.preventDefault();go(toHash("list",{q:$("q").value.trim()}))};
- $("reload").onclick=async()=>{$("reload").disabled=true;try{BOOT=await api("bootstrap");vHome(m)}catch(e){toast(e.message)}};
+ $("reload").onclick=async()=>{$("reload").disabled=true;try{BOOT=await api("bootstrap");LIVE=null;loadLive();vHome(m)}catch(e){toast(e.message)}};
+ if(!LIVE)loadLive();
 }
 
+/* Витрина Афиши на главной — живые цифры рабочей базы Афиши (как на экране «Афиша»), до переключения на общую базу */
+let LIVE=null;
+async function loadLive(){try{const r=await fetch("https://quzgkhzkrhdlyztzbgcc.supabase.co/functions/v1/edb-afisha-admin",{method:"POST",headers:{"content-type":"application/json","x-edb-key":EDB_KEY},body:JSON.stringify({op:"app_showcase_counts",args:{}})});const d=await r.json();if(r.ok&&d&&d.events!=null){LIVE=d;if(parseHash().view==="home")vHome($("main"))}}catch{}}
 /* ---------- Экраны продуктов (структуру обсудим с Кайратом отдельно) ---------- */
 function vProduct(m,k){const t=(PRODUCTS.find(x=>x[0]===k)||[,""])[1];
  m.innerHTML=`<button class="btn" data-h="#home" style="align-self:flex-start">← Назад</button><div class="head"><div><h1>${esc(t)}</h1></div></div><section class="panel"><p class="note2">Экран «${esc(t)}» — следующий шаг: справочники, правила, инструкции и цифры этого продукта. Структуру обсудим отдельно.</p></section>`}

@@ -844,7 +844,7 @@ function home(){
  return head+(HSerr?'<div class="note">Обновление не удалось. Ниже сохранённые данные на указанное время.</div>':'')+
  `<div class="home-top"><section class="panel"><h2>Состояние базы</h2><div class="tiles home-overview-tiles">${hLink(HS.total,'Всего карточек','data-hall="1"')}${hLink(HS.quality_total,'На проверке','data-hquality="1"')}</div></section><section class="panel"><h2>Витрина</h2><div class="tiles home-overview-tiles">${hLink(sc.events,'Событий в приложении','data-svopen="1"')}${hLink(sc.places,'Мест в приложении','data-svopen="1"')}</div>${SC.err&&!SC.data?'<div class="note2">Не удалось получить числа. <button class="btn" data-home-refresh="1">Повторить</button></div>':''}</section></div>
  <section class="tiles">${types}</section>
- ${robotBlock()}
+
  <section><div class="row" style="justify-content:space-between;margin-bottom:10px"><h2>События по датам</h2><span class="note2">Фильмов в прокате: ${hCount(c.films)}</span></div><div class="tiles">${windows}</div></section>
  <section class="panel"><h2>Состояние робота</h2><div class="tiles" style="margin-top:14px">${health.map(r=>`<button class="tile" data-go="robot"><span class="pill ${r.state==='ok'?'':r.state==='failed'?'bad':'warn'}">${esc(HOME_HEALTH[r.state]||HOME_HEALTH.unknown)}</span><span class="t">${esc(r.label)}</span>${r.last_success?`<span class="s">Успех: ${dtf(r.last_success)}</span>`:''}</button>`).join('')||'<div class="note2">Состояние функций неизвестно.</div>'}</div></section>`;
 }
