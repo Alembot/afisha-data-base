@@ -439,45 +439,43 @@ window.addEventListener("hashchange",route);
 document.addEventListener("click",e=>{const t=e.target.closest("[data-h]");if(t){e.preventDefault();location.hash=t.dataset.h}});
 
 function nav(view){const on=v=>view===v?" on":"";
- return `<button class="brand" data-h="#home" aria-label="На главную">eventer<i>.</i>data</button><span class="tlinks"><button class="tl${on("list")}" data-h="#list">Карточки</button><button class="tl${on("links")}" data-h="#links">Связи</button><button class="tl${on("review")}" data-h="#review">Склейка</button><button class="tl${on("atlas")}" data-h="#atlas">Atlas v8</button><a class="tl tlink" href="https://alembot.github.io/afisha-data-base/" title="Админка Афиши — пока приложения работают на старой базе">База Афиши ↗</a></span>`}
-
-function route(){if(!READY)return;const {view,p}=parseHash();$("nav").innerHTML=nav(view==="card"?"list":view);
+ return `<button class="brand" data-h="#home" aria-label="На главную">Eventer Data Base</button><span class="tlinks">${PRODUCTS.map(([k,t])=>`<button class="tl${on("p-"+k)}" data-h="#p-${k}">${t}</button>`).join("")}</span>`}
+const PRODUCTS=[["afisha","Афиша"],["eventer","Eventer"],["atlas","Atlas"],["academy","Академия"]];
+function route(){if(!READY)return;const {view,p}=parseHash();$("nav").innerHTML=nav(view==="atlas"?"p-atlas":view);
  const m=$("main");window.scrollTo(0,0);
  if(view==="list")return vList(m,p);
  if(view==="card")return vCard(m,p.id);
  if(view==="links")return vLinks(m);
  if(view==="review")return vReview(m,p);
- if(view==="atlas")return vAtlas(m,p);
+ if(view==="atlas"||view==="p-atlas")return vAtlas(m,p);
+ if(view.startsWith("p-"))return vProduct(m,view.slice(2));
  vHome(m)}
 
 const tile=(v,t,h,s="")=>`<button class="tile" data-h="${esc(h)}"><span class="v">${nf(v)}</span><span class="t">${esc(t)}</span>${s?`<span class="s">${esc(s)}</span>`:""}</button>`;
 const prodTags=r=>`${r.in_afisha?'<span class="tg m">Афиша</span>':""}${r.in_eventer?'<span class="tg okk">Eventer App</span>':""}`;
 
 /* ---------- Главная ---------- */
-function vHome(m){const b=BOOT;
- const roles=ROLE_ORDER.filter(r=>b.roles[r]).map(r=>tile(b.roles[r],ROLE_PL[r],toHash("list",{role:r}))).join("");
- const prods=["both","afisha","eventer","none"].map(k=>tile(b.products[k],PROD[k],toHash("list",{product:k}))).join("");
- const st=STATUS_ORDER.filter(s=>b.statuses[s]).map(s=>tile(b.statuses[s],s[0].toUpperCase()+s.slice(1),toHash("list",{status:s}),STATUS_TXT[s])).join("");
- const cities=b.cities.slice(0,8).map(c=>tile(c.n,c.city,toHash("list",{city:c.city}))).join("");
- const q=b.quality;
- m.innerHTML=`<div class="head"><div><h1>Eventer Data Base</h1><div class="sub">Общая база экосистемы: одна карточка на каждого участника — площадку, артиста, агентство, подрядчика, специалиста. Афиша, Eventer App и Atlas показывают свои срезы одной карточки.</div></div><button class="btn" id="reload">Обновить</button></div>
- <div class="note2">Проверочная копия: роботы выключены, приложения пока работают на старых базах. Данные на ${esc(dtf(b.at))}.</div>
+function vHome(m){const b=BOOT,arch=b.statuses["скрыто"]||0;
+ const big=(v,t,sub,h)=>`<button class="tile" data-h="${esc(h)}" style="padding:22px"><span class="v" style="font-size:40px">${nf(v)}</span><span class="t" style="font-size:17px">${esc(t)}</span><span class="s">${esc(sub)}</span></button>`;
+ m.innerHTML=`<div class="head"><div class="note2">Обновлено: ${esc(dtf(b.at))}</div><button class="btn" id="reload">Обновить</button></div>
  <form class="row" id="qf"><input id="q" placeholder="Поиск: название, Instagram, телефон или БИН" style="flex:1;min-width:240px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;background:var(--surface)"><button class="btn pri">Найти</button></form>
- <section class="panel"><h2>Всего в базе</h2><div class="tiles" style="margin-top:14px">${tile(b.total,"Карточек",toHash("list",{}))}${tile(b.links,"Связей",toHash("links",{}),"кто где выступает, где проходит событие")}${tile(b.who["организация"]||0,"Организаций",toHash("list",{who:"организация"}))}${tile(b.who["физлицо"]||0,"Людей",toHash("list",{who:"физлицо"}))}</div></section>
- <section class="panel"><h2>Кто это</h2><div class="tiles" style="margin-top:14px">${roles}</div></section>
- <section class="panel"><h2>В каком продукте</h2><div class="tiles" style="margin-top:14px">${prods}</div></section>
- <section class="panel"><h2>Стадия карточки</h2><div class="tiles" style="margin-top:14px">${st}</div></section>
- <section class="panel"><h2>Города</h2><div class="tiles" style="margin-top:14px">${cities}</div></section>
- <section class="panel"><h2>Чего не хватает</h2><div class="tiles" style="margin-top:14px"><div class="tile"><span class="v">${nf(q.no_instagram)}</span><span class="t">без Instagram</span></div><div class="tile"><span class="v">${nf(q.no_phone)}</span><span class="t">без телефона</span></div><div class="tile"><span class="v">${nf(q.no_photo)}</span><span class="t">без фото</span></div><div class="tile"><span class="v">${nf(q.with_bin)}</span><span class="t">с БИН</span><span class="s">по БИН найдём собственника</span></div></div></section>`;
+ <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px">
+ <section class="panel"><h2>Всего в базе</h2><div class="tiles" style="margin-top:14px;grid-template-columns:1fr 1fr">${big(b.total,"Участники",`из них в архиве ${nf(arch)}`,toHash("list",{}))}${big(b.events.total,"События",`из них в архиве ${nf(b.events.archive)}`,"#p-afisha")}</div></section>
+ <section class="panel"><h2>Статус проверки</h2><div class="tiles" style="margin-top:14px;grid-template-columns:1fr 1fr 1fr">${big(b.statuses["найдено"]||0,"На проверке","участники",toHash("list",{status:"найдено"}))}${big(b.showcase.places,"Мест в Афише","опубликовано на витрине",toHash("list",{status:"опубликовано"}))}${big(b.showcase.events,"Событий в Афише","опубликовано на витрине","#p-afisha")}</div></section>
+ </div>`;
  $("qf").onsubmit=e=>{e.preventDefault();go(toHash("list",{q:$("q").value.trim()}))};
  $("reload").onclick=async()=>{$("reload").disabled=true;try{BOOT=await api("bootstrap");vHome(m)}catch(e){toast(e.message)}};
 }
+
+/* ---------- Экраны продуктов (структуру обсудим с Кайратом отдельно) ---------- */
+function vProduct(m,k){const t=(PRODUCTS.find(x=>x[0]===k)||[,""])[1];
+ m.innerHTML=`<button class="btn" data-h="#home" style="align-self:flex-start">← Назад</button><div class="head"><div><h1>${esc(t)}</h1></div></div><section class="panel"><p class="note2">Экран «${esc(t)}» — следующий шаг: справочники, правила, инструкции и цифры этого продукта. Структуру обсудим отдельно.</p></section>`}
 
 /* ---------- Список карточек ---------- */
 const sel=(id,label,opts,val)=>`<label class="f" style="min-width:160px;background:none;padding:0">${label}<select id="${id}"><option value="">Все</option>${opts.map(([v,t])=>`<option value="${esc(v)}"${v===val?" selected":""}>${esc(t)}</option>`).join("")}</select></label>`;
 async function vList(m,p){
  const lim=50,off=+p.offset||0;
- const head=`<button class="back" data-h="#home">← Главная</button><div class="head"><div><h1>${esc(p.role?ROLE_PL[p.role]:"Все карточки")}</h1></div></div>
+ const head=`<button class="btn" data-h="#home" style="align-self:flex-start">← Назад</button><div class="head"><div><h1>${esc(p.role?ROLE_PL[p.role]:"Все карточки")}</h1></div></div>
  <form id="lf" class="row" style="align-items:flex-end"><label class="f" style="flex:1;min-width:220px;background:none;padding:0">Поиск<input id="lq" value="${esc(p.q||"")}" placeholder="Название, Instagram, телефон, БИН"></label>
  ${sel("lrole","Кто",ROLE_ORDER.map(r=>[r,ROLE_PL[r]]),p.role)}${sel("lprod","Продукт",Object.entries(PROD),p.product)}${sel("lst","Стадия",STATUS_ORDER.map(s=>[s,s]),p.status)}${sel("lcity","Город",BOOT.cities.map(c=>[c.city,c.city]),p.city)}<button class="btn pri">Показать</button></form>`;
  m.innerHTML=head+`<div class="empty" role="status">Загружаю карточки…</div>`;
@@ -495,8 +493,8 @@ const fld=(k,v)=>v==null||v===""||(Array.isArray(v)&&!v.length)?"":`<div class="
 const val=v=>Array.isArray(v)?v.map(x=>`<span class="tg">${esc(typeof x==="object"?JSON.stringify(x):x)}</span>`).join(""):typeof v==="object"&&v?esc(JSON.stringify(v)):esc(v);
 const PROF_F={official_name:"Официальное название",legal_name:"Юр. название",address:"Адрес",email:"Email",capacity:"Вместимость",guests_max:"Гостей до",price_from:"Цена от",price_to:"Цена до",price_unit:"За что цена",price_note:"О цене",event_types:"Типы событий",primary_event_type:"Главный тип событий",specializations:"Специализации",venue_tags:"Особенности площадки",known_clients:"Известные клиенты",cases:"Кейсы",languages:"Языки",customer_segments:"Клиенты",head_name:"Руководитель",oked:"ОКЭД",socials:"Соцсети"};
 async function vCard(m,id){
- m.innerHTML=`<button class="back" onclick="history.back()">← Назад</button><div class="empty" role="status">Загружаю карточку…</div>`;
- let d;try{d=await api("subject",{id})}catch(e){m.innerHTML=`<button class="back" onclick="history.back()">← Назад</button><div class="empty">${esc(e.message)}</div>`;return}
+ m.innerHTML=`<button class="btn" onclick="history.length>1?history.back():location.hash='#home'" style="align-self:flex-start">← Назад</button><div class="empty" role="status">Загружаю карточку…</div>`;
+ let d;try{d=await api("subject",{id})}catch(e){m.innerHTML=`<button class="btn" onclick="history.length>1?history.back():location.hash='#home'" style="align-self:flex-start">← Назад</button><div class="empty">${esc(e.message)}</div>`;return}
  const c=d.card,a=d.afisha,ev=d.eventer,pd=ev?.data||{};
  const ig=c.instagram?`<a href="https://instagram.com/${esc(c.instagram)}" target="_blank" rel="noopener">@${esc(c.instagram)}</a>`:"";
  const web=c.website?`<a href="${esc(c.website)}" target="_blank" rel="noopener">${esc(c.website.replace(/^https?:\/\//,""))}</a>`:"";
@@ -505,7 +503,7 @@ async function vCard(m,id){
  const prof=ev?[fld("Роль",esc(PROF_ROLE[ev.role]||ev.role)),fld("Категория",esc(ev.category)),fld("Подкатегория",esc(ev.subcategory)),fld("Как было в banqet.kz",esc([ev.category_banqet,ev.subcategory_banqet].filter(Boolean).join(" → "))),fld("Стадия в Eventer",esc(ev.stage)),fld("Проверка",esc(ev.verification_status)),fld("Нужно решение",esc(ev.needs_review)),...Object.entries(PROF_F).map(([k,t])=>fld(t,val(pd[k])))].join(""):"";
  const links=d.links.map(l=>`<tr${l.other_type==="subject"?` class="click" data-h="${esc(toHash("card",{id:l.other_id}))}"`:""}><td>${l.dir==="in"?esc(l.other_name)+` <span class="muted">${esc(l.rel)}</span> <b>${esc(c.name)}</b>`:`<b>${esc(c.name)}</b> <span class="muted">${esc(l.rel)}</span> `+esc(l.other_name)}</td><td>${l.other_type==="event"?"событие":l.other_type==="subject"?"карточка":"впечатление"}</td><td>${esc(df(l.date))}</td><td>${esc(ADDED[l.source]||l.source||"—")}</td></tr>`).join("");
  const review=d.review.map(r=>`<div class="note2">• ${esc(r.kind)}: <b>${esc(r.status)}</b>${r.reason?" — "+esc(r.reason):""}</div>`).join("");
- m.innerHTML=`<button class="back" onclick="history.back()">← Назад</button>
+ m.innerHTML=`<button class="btn" onclick="history.length>1?history.back():location.hash='#home'" style="align-self:flex-start">← Назад</button>
  <div class="head"><div><h1>${esc(c.name)}</h1><div class="sub">${prodTags(c)||'<span class="muted">Пока ни в одном продукте</span>'}</div></div></div>
  ${c.photo?`<img src="${esc(c.photo)}" alt="" style="max-width:420px;width:100%;border-radius:14px">`:""}
  ${c.about?`<section class="panel"><p>${esc(c.about)}</p></section>`:""}
@@ -518,7 +516,7 @@ async function vCard(m,id){
 
 /* ---------- Связи ---------- */
 async function vLinks(m){
- m.innerHTML=`<button class="back" data-h="#home">← Главная</button><div class="head"><div><h1>Связи</h1><div class="sub">Граф: «проходит в», «выступает на», «организует», «резидент». Сейчас в копии есть только «событие проходит в площадке» — остальные связи появятся, когда включим роботов.</div></div></div><div class="empty">Загружаю площадки с событиями…</div>`;
+ m.innerHTML=`<button class="btn" data-h="#home" style="align-self:flex-start">← Назад</button><div class="head"><div><h1>Связи</h1><div class="sub">Граф: «проходит в», «выступает на», «организует», «резидент». Сейчас в копии есть только «событие проходит в площадке» — остальные связи появятся, когда включим роботов.</div></div></div><div class="empty">Загружаю площадки с событиями…</div>`;
  let d;try{d=await api("subjects",{limit:200,has_links:"true"})}catch(e){m.querySelector(".empty").textContent=e.message;return}
  const rows=d.rows.filter(r=>r.links>0).sort((x,y)=>y.links-x.links);
  m.querySelector(".empty").outerHTML=`<div class="lbl">${nf(BOOT.links)} связей · площадки с событиями</div><div class="tablewrap"><table><thead><tr><th>Карточка</th><th>Кто</th><th style="text-align:right">Связей</th></tr></thead><tbody>${rows.map(r=>`<tr class="click" data-h="${esc(toHash("card",{id:r.id}))}"><td><b>${esc(r.name)}</b></td><td>${(r.roles||[]).map(x=>`<span class="tg">${esc(x)}</span>`).join("")}</td><td style="text-align:right">${r.links}</td></tr>`).join("")||'<tr><td colspan="3"><div class="empty">Связей пока нет.</div></td></tr>'}</tbody></table></div>`;
@@ -528,7 +526,7 @@ async function vLinks(m){
 async function vReview(m,p){const lim=50,off=+p.offset||0;
  const sts=[...new Set(BOOT.review.map(r=>r.status))];
  const tiles=BOOT.review.map(r=>`<button class="tile" data-h="${esc(toHash("review",{status:r.status}))}"><span class="v">${nf(r.n)}</span><span class="t">${esc(r.status)}</span><span class="s">${esc(r.kind)}</span></button>`).join("");
- const head=`<button class="back" data-h="#home">← Главная</button><div class="head"><div><h1>Склейка дублей</h1><div class="sub">Как робот сводил карточки базы Eventer с местами Афиши при переносе: что признал одним и тем же, что — филиалом, что — дублем.</div></div></div><div class="tiles">${tiles}</div>${p.status?`<div class="row"><span class="tg m">${esc(p.status)}</span><button class="btn" data-h="#review">Показать все</button></div>`:""}`;
+ const head=`<button class="btn" data-h="#home" style="align-self:flex-start">← Назад</button><div class="head"><div><h1>Склейка дублей</h1><div class="sub">Как робот сводил карточки базы Eventer с местами Афиши при переносе: что признал одним и тем же, что — филиалом, что — дублем.</div></div></div><div class="tiles">${tiles}</div>${p.status?`<div class="row"><span class="tg m">${esc(p.status)}</span><button class="btn" data-h="#review">Показать все</button></div>`:""}`;
  m.innerHTML=head+`<div class="empty">Загружаю…</div>`;
  let d;try{d=await api("review",{status:p.status||"",limit:lim,offset:off})}catch(e){m.innerHTML=head+`<div class="empty">${esc(e.message)}</div>`;return}
  m.innerHTML=head+`<div class="tablewrap"><table><thead><tr><th>Из базы Eventer</th><th>Карточка в общей базе</th><th>Что решено</th><th>Почему</th></tr></thead><tbody>${d.rows.map(r=>`<tr${r.subject_id?` class="click" data-h="${esc(toHash("card",{id:r.subject_id}))}"`:""}><td><b>${esc(r.eventer_name||"—")}</b><div class="id">${esc([r.city,r.instagram].filter(Boolean).join(" · "))}</div></td><td>${esc(r.subject_name||"—")}</td><td>${esc(r.status)}<div class="id">${esc(r.kind)}</div></td><td style="max-width:360px">${esc(r.reason||"")}</td></tr>`).join("")}</tbody></table></div>
@@ -538,7 +536,7 @@ async function vReview(m,p){const lim=50,off=+p.offset||0;
 /* ---------- Atlas v8 ---------- */
 async function vAtlas(m,p){const lim=50,off=+p.offset||0;
  const tiles=BOOT.atlas.map(r=>`<button class="tile" data-h="${esc(toHash("atlas",{status:r.status}))}"><span class="v">${nf(r.n)}</span><span class="t">${esc(r.status)}</span><span class="s">${esc(r.kind)}</span></button>`).join("");
- const head=`<button class="back" data-h="#home">← Главная</button><div class="head"><div><h1>Atlas v8 — проверка участников</h1><div class="sub">Участники и события из исследования Atlas v8: робот проверял, настоящие ли они, и заводил настоящих в общую базу.</div></div></div><div class="tiles">${tiles}</div>${p.status?`<div class="row"><span class="tg m">${esc(p.status)}</span><button class="btn" data-h="#atlas">Показать все</button></div>`:""}`;
+ const head=`<button class="btn" data-h="#home" style="align-self:flex-start">← Назад</button><div class="head"><div><h1>Atlas v8 — проверка участников</h1><div class="sub">Участники и события из исследования Atlas v8: робот проверял, настоящие ли они, и заводил настоящих в общую базу.</div></div></div><div class="tiles">${tiles}</div>${p.status?`<div class="row"><span class="tg m">${esc(p.status)}</span><button class="btn" data-h="#atlas">Показать все</button></div>`:""}`;
  m.innerHTML=head+`<div class="empty">Загружаю…</div>`;
  let d;try{d=await api("atlas",{status:p.status||"",limit:lim,offset:off})}catch(e){m.innerHTML=head+`<div class="empty">${esc(e.message)}</div>`;return}
  m.innerHTML=head+`<div class="tablewrap"><table><thead><tr><th>Название</th><th>Роль в v8</th><th>Категория</th><th>Город</th><th>Итог проверки</th><th>Пояснение</th></tr></thead><tbody>${d.rows.map(r=>`<tr${r.subject_id?` class="click" data-h="${esc(toHash("card",{id:r.subject_id}))}"`:""}><td><b>${esc(r.name)}</b><div class="id">${esc(r.kind)}</div></td><td>${esc(r.v8_role||"—")}</td><td>${esc(r.category||"—")}</td><td>${esc(r.city||"—")}</td><td>${esc(r.status)}</td><td style="max-width:360px">${esc(r.check_note||"")}</td></tr>`).join("")}</tbody></table></div>
