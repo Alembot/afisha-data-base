@@ -390,12 +390,10 @@ a.topup:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 <section id="auth-panel" style="max-width:420px;margin:12vh auto;padding:24px"><h1>Eventer · Data Base</h1><p id="auth-status" role="status">Загружаю общую базу…</p><button id="auth-retry" class="btn" hidden>Повторить</button></section>
 <div id="app-shell" hidden><button id="app-signout" class="btn" style="position:fixed;bottom:12px;right:12px;z-index:90">Выйти</button><header class="top"><nav class="topin" id="nav" aria-label="Разделы"></nav></header>
 <main id="main"><div class="empty">Загружаю базу…</div></main></div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
 /* Админка Eventer Data Base (общая база экосистемы), 16.11.2026.
    Пока только просмотр. Живёт рядом с админкой Афиши, пока продукты не переключены на общую базу. */
 const SUPA_URL="https://drdbpnqagecenidbyidz.supabase.co", SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyZGJwbnFhZ2VjZW5pZGJ5aWR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ1NzgyNjEsImV4cCI6MjExMDE1NDI2MX0.Fb7f5fBm68jLRdauCjdzSA9LHkZ1IKcvWgTu9_0gEMQ";
-const sb=window.supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{persistSession:true,autoRefreshToken:true,storageKey:"edb-auth"}});
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const nf=n=>Number(n||0).toLocaleString("ru-RU");
@@ -407,8 +405,11 @@ let EDB_KEY="";
 try{const u=new URL(location.href);const k=u.searchParams.get("k");if(k){localStorage.setItem("edb:key",k);u.searchParams.delete("k");history.replaceState(null,"",u.pathname+u.search+u.hash)}EDB_KEY=localStorage.getItem("edb:key")||""}catch{}
 let READY=false;
 async function api(op,args={}){
- const {data,error}=await sb.functions.invoke("edb-admin",{body:{op,args},headers:EDB_KEY?{"x-edb-key":EDB_KEY}:{}});
- if(error||data?.error)throw new Error(data?.error||"Сервер недоступен или доступ не разрешён.");
+ const ctl=new AbortController();const t=setTimeout(()=>ctl.abort(),25000);
+ let r,data;
+ try{r=await fetch(SUPA_URL+"/functions/v1/edb-admin",{method:"POST",signal:ctl.signal,headers:{"content-type":"application/json",apikey:SUPA_KEY,authorization:"Bearer "+SUPA_KEY,"x-edb-key":EDB_KEY},body:JSON.stringify({op,args})});data=await r.json().catch(()=>null)}
+ catch(e){throw new Error("Сервер не ответил. Нажмите «Повторить».")}finally{clearTimeout(t)}
+ if(!r.ok||!data||data.error)throw new Error(data?.error||"Сервер недоступен.");
  return data;
 }
 async function start(){
