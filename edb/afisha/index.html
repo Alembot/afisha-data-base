@@ -506,8 +506,11 @@ function go(view,arg,patch){
  if(!["evcard","plcard","homeList","homeDetail"].includes(view)){S.homeReturn=null;HSelection=null;}
  svVisibleNavigate(S.view,view);
  S.view=view;S.arg=arg??null;if(patch)Object.assign(S,patch);$("#nav").classList.remove("open");render();window.scrollTo(0,0);return true}
-function navHtml(){const on=v=>S.view===v||(v==="docs"&&S.view==="doc")?" on":"";
-return `<a class="brand tlink" href="../" aria-label="Eventer Data Base">← Eventer Data Base</a><span class="tlinks"><button class="tl${on("home")}" data-go="home">Афиша</button><button class="tl${on("pick")}" data-go="pick">Отбор</button><button class="tl${on("sources")}" data-go="sources">Источники</button><button class="tl${on("robot")}" data-go="robot">Робот</button><button class="tl${on("dirs")}" data-go="dirs" data-dir="show">Справочники</button><button class="tl${on("rules")}" data-go="rules" data-dir="rules">Правила</button><button class="tl${on("docs")}" data-go="docs">Инструкции</button></span>`}
+function navHtml(){const on=v=>S.view===v?" on":"";const kn=["dirs","rules","docs","doc"].includes(S.view)?" on":"";
+return `<a class="brand tlink" href="../" aria-label="Eventer Data Base">← Eventer Data Base</a><span class="tlinks"><button class="tl${on("home")}" data-go="home">Афиша</button><button class="tl${on("sources")}" data-go="sources">Источники</button><button class="tl${on("robot")}" data-go="robot">Робот</button><button class="tl${kn}" data-go="dirs" data-dir="show">Знания</button></span>`}
+/* «Знания» = Справочники + Правила и термины + Инструкции (решение Кайрата 16.11.2026) */
+function knowTabs(){const v=S.view;const t=(go,dir,label,on)=>`<button class="chip${on?" on":""}" data-go="${go}"${dir?` data-dir="${dir}"`:""}>${label}</button>`;
+ return `<div class="row" style="gap:8px;margin-bottom:6px">${t("dirs","show","Справочники",v==="dirs")}${t("rules","rules","Правила и термины",v==="rules")}${t("docs","","Инструкции",v==="docs"||v==="doc")}</div>`}
 
 // Сколько Reels ждут согласования — число на пункте меню (05.11.2026)
 let REELS_N=null,REELS_AT=0;
@@ -524,7 +527,7 @@ function render(force=false){
   const m=$("#main");
   if(S.view!=="showcase"&&S.view!=="showcasePlaces"&&S.view!=="showcaseEvents"&&S.view!=="showcaseList"&&S.view!=="showcaseDetail"&&S.view!=="homeList"&&S.view!=="homeDetail"&&S.view!=="home"&&S.view!=="dirs"&&S.view!=="rules"&&S.view!=="events"&&S.view!=="evcard"&&S.view!=="places"&&S.view!=="plcard"&&S.view!=="sources"&&S.view!=="robot"&&S.view!=="pick"&&!loaded.e){m.innerHTML=db===false?`<div class="empty">Раздел требует загрузки данных рабочей базы.</div>`:`<div class="empty">Загружаю базу…</div>`;return}
   const V={home,homeList,homeDetail,showcase,showcasePlaces:()=>showcaseSub('places'),showcaseEvents:()=>showcaseSub('events'),showcaseList,showcaseDetail,events:eventsLive,evcard:evCardLive,eventsOld:events,places:placesLive,plcard:plCardLive,robot:robotView,rules:rulesView,pick:pickView,placesOld:places,category,event:eventCard,place:placeCard,queue,dirs,docs,sources,doc:docView}[S.view]||home;
-  m.innerHTML=((S.view==="evcard"||S.view==="plcard")&&S.homeReturn?`<button class="back" data-go="${S.homeReturn}">← ${S.homeReturn==="homeList"?"К выбранному списку":"К поиску на главной"}</button>${homeSelectionPanel()}`:"")+V(S.arg);
+  m.innerHTML=(["dirs","rules","docs","doc"].includes(S.view)?knowTabs():"")+((S.view==="evcard"||S.view==="plcard")&&S.homeReturn?`<button class="back" data-go="${S.homeReturn}">← ${S.homeReturn==="homeList"?"К выбранному списку":"К поиску на главной"}</button>${homeSelectionPanel()}`:"")+V(S.arg);
 }
 
 
@@ -844,6 +847,7 @@ function home(){
  return head+(HSerr?'<div class="note">Обновление не удалось. Ниже сохранённые данные на указанное время.</div>':'')+
  `<div class="home-top"><section class="panel"><h2>Состояние базы</h2><div class="tiles home-overview-tiles">${hLink(HS.total,'Всего карточек','data-hall="1"')}${hLink(HS.quality_total,'На проверке','data-hquality="1"')}</div></section><section class="panel"><h2>Витрина</h2><div class="tiles home-overview-tiles">${hLink(sc.events,'Событий в приложении','data-svopen="1"')}${hLink(sc.places,'Мест в приложении','data-svopen="1"')}</div>${SC.err&&!SC.data?'<div class="note2">Не удалось получить числа. <button class="btn" data-home-refresh="1">Повторить</button></div>':''}</section></div>
  <section class="tiles">${types}</section>
+ ${tasksBlock()}
 
  <section><div class="row" style="justify-content:space-between;margin-bottom:10px"><h2>События по датам</h2><span class="note2">Фильмов в прокате: ${hCount(c.films)}</span></div><div class="tiles">${windows}</div></section>
 `;
@@ -1249,13 +1253,12 @@ function sources(){
   const categoryFilter=`<section class="panel"><div class="lbl">Роль</div><div class="row source-role-chips" style="margin-top:8px"><button class="chip${!S.srOwner?" on":""}" data-srcowner="">Все: ${categorySubset.length}</button>${[...Object.keys(SOURCE_ROLE_LABELS),"__none"].map(k=>[k,ownerCounts[k]||0]).map(([k,n])=>`<button class="chip${S.srOwner===k?" on":""}" data-srcowner="${esc(k)}">${esc(k==="__none"?"Не определено":SOURCE_ROLE_LABELS[k])}: ${n}</button>`).join("")}</div><div class="lbl" style="margin-top:16px">Категория досуга</div><div class="row" style="margin-top:8px"><button class="chip${!S.srCategory?" on":""}" data-srcat="">Все категории: ${medium.length}</button>${Object.entries(categoryCounts).sort(([a],[b])=>a.localeCompare(b,"ru")).map(([k,n])=>`<button class="chip${S.srCategory===k?" on":""}" data-srcat="${esc(k)}">${esc(k==="__none"?"Без категории":k==="__unloaded"?"Категория не загружена":k==="__ambiguous"?"Категория требует уточнения":k)}: ${n}</button>`).join("")}</div><div class="note2" style="margin-top:8px">Числа ролей — для выбранной категории; выбор роли не меняет числа остальных ролей. Одна основная категория досуга из справочника: явно заданная в профиле или единственная подтверждённая. Если категорий несколько и основная не указана — требуется уточнение; не выбираем первую.</div></section>`;
   let rows="",g="",num=0;
   for(const s of L.slice(0,SRshow)){num++;if(s.type!==g){g=s.type;rows+=`<tr class="grp"><td colspan="5">${esc(g)}</td></tr>`}
-    rows+=`<tr><td>${sourceIdentity(s)}</td><td>${sourceAddress(s)}</td><td>${esc(SOURCE_ROLE_LABELS[sourceRole(s)]||"Не определено")}</td><td>${sourcePrimary(s)?`<span class="tg">${esc(sourcePrimary(s))}</span>`:`<span class="muted">${sourceCategoryState(s)==="__unloaded"?"Категория не загружена":sourceCategoryState(s)==="__ambiguous"?"Категория требует уточнения":"Без категории"}</span>`}</td><td><span class="st ${s.status==="подключён"?"s4":"s1"}">${s.status==="подключён"?"Подключен":"Не подключен"}</span></td></tr>`}
+    rows+=`<tr><td>${sourceIdentity(s)}</td><td>${sourceAddress(s)}</td><td>${esc(SOURCE_ROLE_LABELS[sourceRole(s)]||(s.type==="Билетные платформы"?"Билетная платформа":"Не определено"))}</td><td>${sourcePrimary(s)?`<span class="tg">${esc(sourcePrimary(s))}</span>`:`<span class="muted">${sourceCategoryState(s)==="__unloaded"?"Категория не загружена":sourceCategoryState(s)==="__ambiguous"?"Категория требует уточнения":"Без категории"}</span>`}</td><td><span class="st ${s.status==="подключён"?"s4":"s1"}">${s.status==="подключён"?"Подключен":"Не подключен"}</span></td></tr>`}
 
   const on=SRV.filter(s=>s.status==="подключён").length;
   return `<div class="head"><div><div class="lbl">Работа</div><h1>Источники</h1>${MOVED?`<div class="muted" style="font-size:13px;margin-top:4px">${MOVED} заведений перенесено из источников в места: их Instagram читается через карточку места</div>`:""}<div class="sub">Откуда база берёт события и места. Событие попадает в базу только после сверки с первоисточником: билетной платформой или сайтом площадки.</div></div></div>
   <div class="tiles"><button class="tile${!S.srT?" sel":""}" data-srt=""><span class="v">${SRV.length}</span><span class="t">Всего источников</span><span class="s">подключено: ${on}</span></button>${SRC_TYPES.map(t=>`<button class="tile${S.srT===t?" sel":""}" data-srt="${esc(t)}"><span class="v">${SRV.filter(s=>s.type===t).length}</span><span class="t">${t}</span><span class="s">подключено: ${SRV.filter(s=>s.type===t&&s.status==="подключён").length}</span></button>`).join("")}</div>
-  ${sourceFormHtml()}
-  <div class="row"><a href="#" data-go="robot">Параметры сбора → Робот</a><a href="#" data-go="docs">Инструкции</a></div>
+  <div class="row"><a href="#" data-go="robot">Параметры сбора → Робот</a><a href="#" data-go="docs">Знания → Инструкции</a></div>
   ${categoryFilter}
   <div class="tablewrap"><table><thead><tr><th>${S.srT==="Соцсети"?"Название аккаунта":"Название"}</th><th>${instagramOnly?"Адрес в Instagram":"Адрес источника"}</th><th>Роль</th><th>Категория досуга</th><th>Статус</th></tr></thead><tbody>${rows||`<tr><td colspan="5"><div class="empty">${SR.length?"Источников по этим условиям нет.":"Источники загружаются…"}</div></td></tr>`}</tbody></table></div>${L.length>SRshow?`<div class="row" style="justify-content:space-between"><span class="note2">Показано ${SRshow} из ${L.length}</span><button class="btn more" data-srmore="1">Показать ещё ${Math.min(10,L.length-SRshow)} · осталось ${L.length-SRshow}</button></div>`:(L.length>10?`<span class="note2">Показаны все ${L.length}</span>`:"")}`;
 }
@@ -1919,18 +1922,27 @@ function robotBlock(){
    ${probs?`<div class="srows">${probs}</div>`:""}
    <div class="note2">Claude за сутки ${usd(cl.usd_24h)}, за 30 дней ${usd(cl.usd_30d)}${ap&&ap.ok?` · Apify ${usd(ap.used_usd)} из ${usd(ap.limit_usd)} в месяц`:""}${RB.at?` · данные на ${dtf(RB.at)}`:""} · <button class="lnk" data-go="robot">Подробнее →</button></div></section>`;
 }
+/* Блок «Задачи» на главной Афиши: что ждёт проверки человеком (вынесено из «Робота», решение Кайрата 16.11.2026) */
+function tasksBlock(){
+  if(!RB){if(!RBbusy&&!RBerr)setTimeout(loadRobot,0);return `<section class="panel"><h2>Задачи</h2><div class="note2" style="margin-top:10px">${RBerr?"Не удалось получить задачи.":"Загружаю…"}</div></section>`}
+  return `<section class="panel" style="display:flex;flex-direction:column;gap:12px"><h2>Задачи</h2>
+   <div class="row" style="gap:8px"><span class="note2">Ждут проверки человеком:</span>${["cancelled","gone","date_changed","price_up","price_down","link_dead"].map(k=>{const n=(RB.changes||{})[k]||0;return `<button class="chip${n?"":" zero"}" data-go="events" data-patch='${esc(JSON.stringify({evL:{chg:k}}))}'${n?"":" disabled"}>${CHG_L[k]}: ${nf(n)}</button>`}).join("")}</div>
+   <div class="row" style="gap:8px"><span class="note2">Места — сигналы 2ГИС:</span>${["closed_2gis","not_found_2gis","phone_changed"].map(k=>{const n=(RB.place_changes||{})[k]||0;return `<button class="chip${n?"":" zero"}" data-go="places" data-patch='${esc(JSON.stringify({plL:{pchg:k}}))}'${n?"":" disabled"}>${PCHG_L[k]}: ${nf(n)}</button>`}).join("")}</div>
+   ${RB.ticketon_only?`<div class="note2">${nf(RB.ticketon_only)} событий известны только по Ticketon — он не пускает роботов, поэтому их цены, переносы и отмены проверить нельзя. Решение — партнёрский доступ Ticketon или подтверждение от организатора.</div>`:""}
+  </section>`;
+}
 function robotView(){
   const head=`<div class="head"><div><div class="lbl">Работа</div><h1>Робот</h1>${RB?`<div class="lbl" style="margin-top:8px">данные на ${dtf(RB.at)}</div>`:""}<div class="row" style="margin-top:10px"><button class="btn" data-rbrefresh="1"${RBbusy?" disabled":""}>${RBbusy?"Обновляю…":"Обновить"}</button></div></div></div>`;
   if(!RB){if(!RBbusy&&!RBerr)setTimeout(loadRobot,0);return head+(RBerr?statsError(RBerr):`<div class="empty">Запрашиваю состояние робота…</div>`)}
   const m=RB.money||{},ap=m.apify||null,cl=m.claude||{},q=RB.queue||{};
   const usd=v=>"$"+new Intl.NumberFormat("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2}).format(v||0);
   const apShare=ap&&ap.ok&&ap.limit_usd?ap.used_usd/ap.limit_usd:null;const apState=!ap||!ap.ok?"off":apShare>=0.95?"bad":apShare>=0.8?"warn":"";
-  const noBal=(RB.robots||[]).some(r=>r.nobalance)||!!cl.last_error;
+  const noBal=(RB.robots||[]).some(r=>r.nobalance)||/credit|balance|billing/i.test(String(cl.last_error?.text||""));
   const stL={ok:"работает",running:"идёт запуск",failed:"ошибка",never:"ещё не запускался",stale:"давно не запускался"};
   const dotC={ok:"",running:"",failed:"bad",never:"warn",stale:"warn"};
   const errRu=t=>/statement timeout/i.test(t)?"база не успела обработать за отведённое время — нужен повтор частями":/403|forbidden/i.test(t)?"сайт не пускает робота (доступ запрещён)":/timeout|timed out/i.test(t)?"источник долго не отвечал":t;
   const errText=r=>r.nobalance?"На счёте Claude нет денег — робот ждёт пополнения и продолжит сам":r.error?esc(errRu(r.error)):"";
-  const runBtn=r=>!r.can_run?`<span class="note2">запускается по запросу</span>`:RBrun===r.key?`<button class="btn" disabled>Запускаю…</button>`:
+  const runBtn=r=>true?"":!r.can_run?`<span class="note2">запускается по запросу</span>`:RBrun===r.key?`<button class="btn" disabled>Запускаю…</button>`:
     RBconfirm===r.key?`<span class="row" style="gap:6px"><span class="note2">${esc(r.cost||"")}. Запустить?</span><button class="btn pri" data-rbyes="${r.key}">Да</button><button class="btn" data-rbno="1">Нет</button></span>`:
     `<button class="btn" data-rbrun="${r.key}"${r.claude&&noBal?` title="Сначала пополните баланс Claude"`:""}>Запустить сейчас</button>`;
   const row=r=>`<tr><td><div class="row" style="gap:8px;flex-wrap:nowrap"><span class="dot ${dotC[r.state]||""}"></span><div><div class="tt">${esc(r.title)}</div><div class="id">${esc(r.what)}</div></div></div></td><td style="font-size:14px">${esc(r.sched)}${r.active?"":`<div class="bad" style="font-size:13px">расписание выключено</div>`}</td><td style="white-space:nowrap;font-size:14px">${r.last_ok?dtf(r.last_ok):"—"}<div class="id">${stL[r.state]||""}</div></td><td style="text-align:right;font-size:14px">${r.found?nf(r.found):`<span class="muted">0</span>`}${r.added?`<div class="id">новых ${nf(r.added)}</div>`:""}</td><td style="max-width:280px;font-size:13px" class="${r.nobalance?"":"bad"}">${errText(r)}${r.cron_fail?`<div class="muted">сбоев расписания за сутки: ${nf(r.cron_fail)}</div>`:""}</td><td>${runBtn(r)}</td></tr>`;
@@ -1946,12 +1958,9 @@ function robotView(){
   ${tbl("Обработка: что делает Claude и база","process")}
   <section class="panel" style="display:flex;flex-direction:column;gap:12px"><h2>Актуализация</h2>
    <div class="row" style="gap:18px"><span><b style="font-size:20px">${nf(RB.past_week)}</b> <span class="muted">прошедших событий убрано за неделю</span></span></div>
-   <div class="row" style="gap:8px"><span class="note2">Ждут проверки человеком:</span>${["cancelled","gone","date_changed","price_up","price_down","link_dead"].map(k=>{const n=(RB.changes||{})[k]||0;return `<button class="chip${n?"":" zero"}" data-go="events" data-patch='${esc(JSON.stringify({evL:{chg:k}}))}'${n?"":" disabled"}>${CHG_L[k]}: ${nf(n)}</button>`}).join("")}</div>
-   <div class="row" style="gap:8px"><span class="note2">Места — сигналы 2ГИС:</span>${["closed_2gis","not_found_2gis","phone_changed"].map(k=>{const n=(RB.place_changes||{})[k]||0;return `<button class="chip${n?"":" zero"}" data-go="places" data-patch='${esc(JSON.stringify({plL:{pchg:k}}))}'${n?"":" disabled"}>${PCHG_L[k]}: ${nf(n)}</button>`}).join("")}</div>
-   ${RB.ticketon_only?`<div class="note2">${nf(RB.ticketon_only)} событий известны только по Ticketon — он не пускает роботов, поэтому их цены, переносы и отмены проверить нельзя. Решение — партнёрский доступ Ticketon или подтверждение от организатора.</div>`:""}
   </section>
   ${tbl("Робот актуализации","actual")}
-  <div class="note2">Время — алматинское. «Запустить сейчас» делает внеплановый запуск, расписание при этом не меняется.</div></div>`;
+  <div class="note2">Время — алматинское.</div></div>`;
 }
 document.addEventListener("click",ev=>{
   if(S.view!=="robot")return;let t;

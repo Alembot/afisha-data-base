@@ -1920,7 +1920,7 @@ function robotView(){
   const m=RB.money||{},ap=m.apify||null,cl=m.claude||{},q=RB.queue||{};
   const usd=v=>"$"+new Intl.NumberFormat("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2}).format(v||0);
   const apShare=ap&&ap.ok&&ap.limit_usd?ap.used_usd/ap.limit_usd:null;const apState=!ap||!ap.ok?"off":apShare>=0.95?"bad":apShare>=0.8?"warn":"";
-  const noBal=(RB.robots||[]).some(r=>r.nobalance)||!!cl.last_error;
+  const noBal=(RB.robots||[]).some(r=>r.nobalance)||/credit|balance|billing/i.test(String(cl.last_error?.text||""));
   const stL={ok:"работает",running:"идёт запуск",failed:"ошибка",never:"ещё не запускался",stale:"давно не запускался"};
   const dotC={ok:"",running:"",failed:"bad",never:"warn",stale:"warn"};
   const errRu=t=>/statement timeout/i.test(t)?"база не успела обработать за отведённое время — нужен повтор частями":/403|forbidden/i.test(t)?"сайт не пускает робота (доступ запрещён)":/timeout|timed out/i.test(t)?"источник долго не отвечал":t;
