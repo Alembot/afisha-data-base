@@ -1,0 +1,181 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}
+/* Compact program features: only the live event form. */
+.fields.ec-fields{grid-template-columns:repeat(3,minmax(0,1fr))}
+.ec-lower{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px}
+.ec-prices{display:grid;grid-template-columns:1fr 1fr;gap:6px}.ec-prices label{min-width:0;font-size:12px}
+.ec-program{min-width:0;position:relative;font:inherit;color:var(--ink)}
+.ec-fields .f>select,.ec-program>summary{box-sizing:border-box;height:38px;min-height:38px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;padding:7px 28px 7px 9px;width:100%;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m2 2 4 4 4-4' fill='none' stroke='%238F8B84' stroke-width='1.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center}
+.ec-program>summary{display:block;list-style:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:22px}
+.ec-program>summary::-webkit-details-marker{display:none}
+.ec-program>summary:focus-visible,.ec-fields .f>select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.ec-program-options{display:grid;gap:4px;padding:6px;margin-top:4px;border:1px solid var(--line);border-radius:8px;background:var(--surface);max-height:240px;overflow:auto}
+.ec-program-options label{display:flex;gap:8px;align-items:center;font:inherit;padding:5px 6px;border-radius:5px;cursor:pointer}
+.ec-program-options label:hover{background:var(--surface2)}
+.ec-program-options label input{width:16px;height:16px;flex:0 0 16px;padding:0;margin:0;accent-color:var(--accent)}.ec-program-options small{color:var(--ink3)}
+@media(max-width:760px){.fields.ec-fields{grid-template-columns:1fr}.ec-lower{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:420px){.ec-lower{grid-template-columns:1fr}}
+</style><title>Eventer Data Base</title></head>
+<body>
+<div class="toast" id="toast" hidden></div>
+<section id="auth-panel" style="max-width:400px;margin:12vh auto;padding:24px"><h1>Eventer · Data Base</h1><p>Общая база экосистемы. Вход без пароля: введите почту — придёт письмо с кнопкой «Войти». Один раз на устройство, дальше база открывается сразу.</p><form id="auth-form"><label>Email<input id="auth-email" type="email" autocomplete="username" required style="width:100%;margin:8px 0 16px"></label><button class="btn pri" type="submit">Прислать ссылку для входа</button></form><p id="auth-status" role="status"></p><button id="auth-retry" class="btn" hidden>Повторить загрузку</button><button id="auth-signout" class="btn" hidden>Сменить аккаунт</button></section>
+<div id="app-shell" hidden><button id="app-signout" class="btn" style="position:fixed;bottom:12px;right:12px;z-index:90">Выйти</button><header class="top"><nav class="topin" id="nav" aria-label="Разделы"></nav></header>
+<main id="main"><div class="empty">Загружаю базу…</div></main></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+/* Админка Eventer Data Base (общая база экосистемы), 16.11.2026.
+   Пока только просмотр. Живёт рядом с админкой Афиши, пока продукты не переключены на общую базу. */
+const SUPA_URL="https://drdbpnqagecenidbyidz.supabase.co", SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyZGJwbnFhZ2VjZW5pZGJ5aWR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ1NzgyNjEsImV4cCI6MjExMDE1NDI2MX0.Fb7f5fBm68jLRdauCjdzSA9LHkZ1IKcvWgTu9_0gEMQ";
+const sb=window.supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{persistSession:true,autoRefreshToken:true,storageKey:"edb-auth"}});
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const nf=n=>Number(n||0).toLocaleString("ru-RU");
+const dtf=d=>d?new Date(d).toLocaleString("ru-RU",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}):"";
+const df=d=>d?new Date(d).toLocaleDateString("ru-RU",{day:"numeric",month:"short",year:"numeric"}):"";
+const authStatus=t=>$("auth-status").textContent=t;
+let READY=false;
+async function api(op,args={}){
+ const {data,error}=await sb.functions.invoke("edb-admin",{body:{op,args}});
+ if(error||data?.error)throw new Error(data?.error||"Сервер недоступен или доступ не разрешён.");
+ return data;
+}
+async function start(session){
+ $("auth-signout").hidden=!session;
+ if(!session){$("app-shell").hidden=true;$("auth-panel").hidden=false;authStatus("Войдите в свой аккаунт.");return}
+ if(READY)return;authStatus("Загружаю общую базу…");
+ try{BOOT=await api("bootstrap");READY=true;$("auth-panel").hidden=true;$("app-shell").hidden=false;route()}
+ catch(e){authStatus(e.message);$("auth-retry").hidden=false}
+}
+async function signOut(){await sb.auth.signOut();location.reload()}
+$("app-signout").onclick=signOut;$("auth-signout").onclick=signOut;
+$("auth-retry").onclick=async()=>start((await sb.auth.getSession()).data.session);
+$("auth-form").onsubmit=async e=>{e.preventDefault();const b=e.target.querySelector("button");const email=$("auth-email").value.trim();b.disabled=true;authStatus("Отправляю письмо…");
+ try{localStorage.setItem("edb:email",email)}catch{}
+ const {error}=await sb.auth.signInWithOtp({email,options:{shouldCreateUser:false,emailRedirectTo:location.origin+location.pathname}});
+ b.disabled=false;authStatus(error?"Не получилось отправить письмо: "+error.message:"Письмо отправлено. Откройте его на этом устройстве и нажмите «Войти».")};
+try{const em=localStorage.getItem("edb:email");if(em)$("auth-email").value=em}catch{}
+sb.auth.onAuthStateChange((ev,s)=>setTimeout(()=>start(s),0));
+sb.auth.getSession().then(({data})=>start(data.session));
+
+/* ---------- Состояние и навигация (через #адрес, чтобы работали «назад» и ссылки) ---------- */
+let BOOT=null;
+const ROLE_ORDER=["площадка","артист","агентство","подрядчик","специалист","заказчик"];
+const ROLE_PL={"площадка":"Площадки","артист":"Артисты","агентство":"Агентства","подрядчик":"Подрядчики","специалист":"Специалисты","заказчик":"Заказчики"};
+const PROD={both:"Афиша + Eventer App",afisha:"Только Афиша",eventer:"Только Eventer App",none:"Пока ни в одном"};
+const STATUS_ORDER=["найдено","обогащается","проверено","опубликовано","скрыто"];
+const STATUS_TXT={"найдено":"робот нашёл, не проверено","обогащается":"робот дополняет","проверено":"проверено человеком","опубликовано":"видно в Афише","скрыто":"архив / не показываем"};
+const ADDED={afisha:"Афиша",eventer:"Eventer",atlas:"Atlas"};
+const PROF_ROLE={venue:"Площадка",artist:"Артист",agency:"Агентство",contractor:"Подрядчик",specialist:"Специалист"};
+const go=(h)=>{location.hash=h};
+const parseHash=()=>{const h=decodeURIComponent(location.hash.slice(1));const [view,qs]=h.split("?");const p=Object.fromEntries(new URLSearchParams(qs||""));return {view:view||"home",p}};
+const toHash=(view,p)=>"#"+view+(Object.keys(p).length?"?"+new URLSearchParams(Object.entries(p).filter(([,v])=>v!==""&&v!=null)).toString():"");
+window.addEventListener("hashchange",route);
+document.addEventListener("click",e=>{const t=e.target.closest("[data-h]");if(t){e.preventDefault();location.hash=t.dataset.h}});
+
+function nav(view){const on=v=>view===v?" on":"";
+ return `<button class="brand" data-h="#home" aria-label="На главную">eventer<i>.</i>data</button><span class="tlinks"><button class="tl${on("list")}" data-h="#list">Карточки</button><button class="tl${on("links")}" data-h="#links">Связи</button><button class="tl${on("review")}" data-h="#review">Склейка</button><button class="tl${on("atlas")}" data-h="#atlas">Atlas v8</button><a class="tl tlink" href="https://alembot.github.io/afisha-data-base/" title="Админка Афиши — пока приложения работают на старой базе">База Афиши ↗</a></span>`}
+
+function route(){if(!READY)return;const {view,p}=parseHash();$("nav").innerHTML=nav(view==="card"?"list":view);
+ const m=$("main");window.scrollTo(0,0);
+ if(view==="list")return vList(m,p);
+ if(view==="card")return vCard(m,p.id);
+ if(view==="links")return vLinks(m);
+ if(view==="review")return vReview(m,p);
+ if(view==="atlas")return vAtlas(m,p);
+ vHome(m)}
+
+const tile=(v,t,h,s="")=>`<button class="tile" data-h="${esc(h)}"><span class="v">${nf(v)}</span><span class="t">${esc(t)}</span>${s?`<span class="s">${esc(s)}</span>`:""}</button>`;
+const prodTags=r=>`${r.in_afisha?'<span class="tg m">Афиша</span>':""}${r.in_eventer?'<span class="tg okk">Eventer App</span>':""}`;
+
+/* ---------- Главная ---------- */
+function vHome(m){const b=BOOT;
+ const roles=ROLE_ORDER.filter(r=>b.roles[r]).map(r=>tile(b.roles[r],ROLE_PL[r],toHash("list",{role:r}))).join("");
+ const prods=["both","afisha","eventer","none"].map(k=>tile(b.products[k],PROD[k],toHash("list",{product:k}))).join("");
+ const st=STATUS_ORDER.filter(s=>b.statuses[s]).map(s=>tile(b.statuses[s],s[0].toUpperCase()+s.slice(1),toHash("list",{status:s}),STATUS_TXT[s])).join("");
+ const cities=b.cities.slice(0,8).map(c=>tile(c.n,c.city,toHash("list",{city:c.city}))).join("");
+ const q=b.quality;
+ m.innerHTML=`<div class="head"><div><h1>Eventer Data Base</h1><div class="sub">Общая база экосистемы: одна карточка на каждого участника — площадку, артиста, агентство, подрядчика, специалиста. Афиша, Eventer App и Atlas показывают свои срезы одной карточки.</div></div><button class="btn" id="reload">Обновить</button></div>
+ <div class="note2">Проверочная копия: роботы выключены, приложения пока работают на старых базах. Данные на ${esc(dtf(b.at))}.</div>
+ <form class="row" id="qf"><input id="q" placeholder="Поиск: название, Instagram, телефон или БИН" style="flex:1;min-width:240px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;background:var(--surface)"><button class="btn pri">Найти</button></form>
+ <section class="panel"><h2>Всего в базе</h2><div class="tiles" style="margin-top:14px">${tile(b.total,"Карточек",toHash("list",{}))}${tile(b.links,"Связей",toHash("links",{}),"кто где выступает, где проходит событие")}${tile(b.who["организация"]||0,"Организаций",toHash("list",{who:"организация"}))}${tile(b.who["физлицо"]||0,"Людей",toHash("list",{who:"физлицо"}))}</div></section>
+ <section class="panel"><h2>Кто это</h2><div class="tiles" style="margin-top:14px">${roles}</div></section>
+ <section class="panel"><h2>В каком продукте</h2><div class="tiles" style="margin-top:14px">${prods}</div></section>
+ <section class="panel"><h2>Стадия карточки</h2><div class="tiles" style="margin-top:14px">${st}</div></section>
+ <section class="panel"><h2>Города</h2><div class="tiles" style="margin-top:14px">${cities}</div></section>
+ <section class="panel"><h2>Чего не хватает</h2><div class="tiles" style="margin-top:14px"><div class="tile"><span class="v">${nf(q.no_instagram)}</span><span class="t">без Instagram</span></div><div class="tile"><span class="v">${nf(q.no_phone)}</span><span class="t">без телефона</span></div><div class="tile"><span class="v">${nf(q.no_photo)}</span><span class="t">без фото</span></div><div class="tile"><span class="v">${nf(q.with_bin)}</span><span class="t">с БИН</span><span class="s">по БИН найдём собственника</span></div></div></section>`;
+ $("qf").onsubmit=e=>{e.preventDefault();go(toHash("list",{q:$("q").value.trim()}))};
+ $("reload").onclick=async()=>{$("reload").disabled=true;try{BOOT=await api("bootstrap");vHome(m)}catch(e){toast(e.message)}};
+}
+
+/* ---------- Список карточек ---------- */
+const sel=(id,label,opts,val)=>`<label class="f" style="min-width:160px;background:none;padding:0">${label}<select id="${id}"><option value="">Все</option>${opts.map(([v,t])=>`<option value="${esc(v)}"${v===val?" selected":""}>${esc(t)}</option>`).join("")}</select></label>`;
+async function vList(m,p){
+ const lim=50,off=+p.offset||0;
+ const head=`<button class="back" data-h="#home">← Главная</button><div class="head"><div><h1>${esc(p.role?ROLE_PL[p.role]:"Все карточки")}</h1></div></div>
+ <form id="lf" class="row" style="align-items:flex-end"><label class="f" style="flex:1;min-width:220px;background:none;padding:0">Поиск<input id="lq" value="${esc(p.q||"")}" placeholder="Название, Instagram, телефон, БИН"></label>
+ ${sel("lrole","Кто",ROLE_ORDER.map(r=>[r,ROLE_PL[r]]),p.role)}${sel("lprod","Продукт",Object.entries(PROD),p.product)}${sel("lst","Стадия",STATUS_ORDER.map(s=>[s,s]),p.status)}${sel("lcity","Город",BOOT.cities.map(c=>[c.city,c.city]),p.city)}<button class="btn pri">Показать</button></form>`;
+ m.innerHTML=head+`<div class="empty" role="status">Загружаю карточки…</div>`;
+ $("lf").onsubmit=e=>{e.preventDefault();go(toHash("list",{q:$("lq").value.trim(),role:$("lrole").value,product:$("lprod").value,status:$("lst").value,city:$("lcity").value}))};
+ let d;try{d=await api("subjects",{...p,limit:lim,offset:off})}catch(e){m.innerHTML=head+`<div class="empty">${esc(e.message)}</div>`;bindList(p);return}
+ const rows=d.rows.map(r=>`<tr class="click" data-h="${esc(toHash("card",{id:r.id}))}"><td><b>${esc(r.name)}</b>${r.instagram?`<div class="id">@${esc(r.instagram)}</div>`:""}</td><td>${(r.roles||[]).map(x=>`<span class="tg">${esc(x)}</span>`).join("")}</td><td>${esc(r.category||"—")}</td><td>${esc(r.city||"—")}</td><td>${prodTags(r)||'<span class="muted">—</span>'}</td><td>${esc(r.status)}</td><td style="text-align:right">${r.links||""}</td></tr>`).join("");
+ m.innerHTML=head+`<div class="lbl">${nf(d.total)} карточек</div><div class="tablewrap"><table><thead><tr><th>Название</th><th>Кто</th><th>Категория Eventer</th><th>Город</th><th>Продукт</th><th>Стадия</th><th style="text-align:right">Связей</th></tr></thead><tbody>${rows||'<tr><td colspan="7"><div class="empty">Под эти условия карточек нет.</div></td></tr>'}</tbody></table></div>
+ <div class="row"><button class="btn" data-h="${esc(toHash("list",{...p,offset:Math.max(0,off-lim)}))}"${off===0?" disabled":""}>← Назад</button><span class="note2">${d.total?off+1:0}–${Math.min(off+d.rows.length,d.total)} из ${nf(d.total)}</span><button class="btn" data-h="${esc(toHash("list",{...p,offset:off+lim}))}"${off+lim>=d.total?" disabled":""}>Далее →</button></div>`;
+ bindList(p);
+}
+function bindList(){const f=$("lf");if(f)f.onsubmit=e=>{e.preventDefault();go(toHash("list",{q:$("lq").value.trim(),role:$("lrole").value,product:$("lprod").value,status:$("lst").value,city:$("lcity").value}))}}
+
+/* ---------- Карточка ---------- */
+const fld=(k,v)=>v==null||v===""||(Array.isArray(v)&&!v.length)?"":`<div class="f"><span class="lbl">${esc(k)}</span><span>${v}</span></div>`;
+const val=v=>Array.isArray(v)?v.map(x=>`<span class="tg">${esc(typeof x==="object"?JSON.stringify(x):x)}</span>`).join(""):typeof v==="object"&&v?esc(JSON.stringify(v)):esc(v);
+const PROF_F={official_name:"Официальное название",legal_name:"Юр. название",address:"Адрес",email:"Email",capacity:"Вместимость",guests_max:"Гостей до",price_from:"Цена от",price_to:"Цена до",price_unit:"За что цена",price_note:"О цене",event_types:"Типы событий",primary_event_type:"Главный тип событий",specializations:"Специализации",venue_tags:"Особенности площадки",known_clients:"Известные клиенты",cases:"Кейсы",languages:"Языки",customer_segments:"Клиенты",head_name:"Руководитель",oked:"ОКЭД",socials:"Соцсети"};
+async function vCard(m,id){
+ m.innerHTML=`<button class="back" onclick="history.back()">← Назад</button><div class="empty" role="status">Загружаю карточку…</div>`;
+ let d;try{d=await api("subject",{id})}catch(e){m.innerHTML=`<button class="back" onclick="history.back()">← Назад</button><div class="empty">${esc(e.message)}</div>`;return}
+ const c=d.card,a=d.afisha,ev=d.eventer,pd=ev?.data||{};
+ const ig=c.instagram?`<a href="https://instagram.com/${esc(c.instagram)}" target="_blank" rel="noopener">@${esc(c.instagram)}</a>`:"";
+ const web=c.website?`<a href="${esc(c.website)}" target="_blank" rel="noopener">${esc(c.website.replace(/^https?:\/\//,""))}</a>`:"";
+ const common=[fld("Кто",esc(c.who||"—")),fld("Роли",val(c.roles)),fld("Город",esc(c.city)),fld("Instagram",ig),fld("Сайт",web),fld("Телефон",esc(c.phone)),fld("БИН",esc(c.bin)),fld("Стадия",esc(c.status)+(STATUS_TXT[c.status]?` <span class="muted">· ${esc(STATUS_TXT[c.status])}</span>`:"")),fld("Кто внёс",esc(ADDED[c.added_by]||c.added_by)),fld("Источники",val((c.sources||[]).map(x=>ADDED[x]||x))),fld("Заведена",esc(df(c.created_at))),fld("ID",`<span class="id">${esc(c.id)}</span>`)].join("");
+ const afisha=a?[fld("ID Афиши",esc(a.public_id)),fld("Адрес",esc(a.address)),fld("Район",esc(a.district)),fld("Тип места",esc(a.place_type)),fld("Категория досуга",esc(a.category)),fld("Средний чек",esc(a.average_check)),fld("Настроения",val(a.moods)),fld("Для кого",val(a.for_whom)),fld("Стадия в Афише",esc(a.stage||a.status))].join(""):"";
+ const prof=ev?[fld("Роль",esc(PROF_ROLE[ev.role]||ev.role)),fld("Категория",esc(ev.category)),fld("Подкатегория",esc(ev.subcategory)),fld("Как было в banqet.kz",esc([ev.category_banqet,ev.subcategory_banqet].filter(Boolean).join(" → "))),fld("Стадия в Eventer",esc(ev.stage)),fld("Проверка",esc(ev.verification_status)),fld("Нужно решение",esc(ev.needs_review)),...Object.entries(PROF_F).map(([k,t])=>fld(t,val(pd[k])))].join(""):"";
+ const links=d.links.map(l=>`<tr${l.other_type==="subject"?` class="click" data-h="${esc(toHash("card",{id:l.other_id}))}"`:""}><td>${l.dir==="in"?esc(l.other_name)+` <span class="muted">${esc(l.rel)}</span> <b>${esc(c.name)}</b>`:`<b>${esc(c.name)}</b> <span class="muted">${esc(l.rel)}</span> `+esc(l.other_name)}</td><td>${l.other_type==="event"?"событие":l.other_type==="subject"?"карточка":"впечатление"}</td><td>${esc(df(l.date))}</td><td>${esc(ADDED[l.source]||l.source||"—")}</td></tr>`).join("");
+ const review=d.review.map(r=>`<div class="note2">• ${esc(r.kind)}: <b>${esc(r.status)}</b>${r.reason?" — "+esc(r.reason):""}</div>`).join("");
+ m.innerHTML=`<button class="back" onclick="history.back()">← Назад</button>
+ <div class="head"><div><h1>${esc(c.name)}</h1><div class="sub">${prodTags(c)||'<span class="muted">Пока ни в одном продукте</span>'}</div></div></div>
+ ${c.photo?`<img src="${esc(c.photo)}" alt="" style="max-width:420px;width:100%;border-radius:14px">`:""}
+ ${c.about?`<section class="panel"><p>${esc(c.about)}</p></section>`:""}
+ <h2>Общее — видят все продукты</h2><div class="fields">${common}</div>
+ ${a?`<h2>Срез Афиши</h2><div class="fields">${afisha}</div>`:""}
+ ${ev?`<h2>Срез Eventer App</h2><div class="fields">${prof}</div>`:""}
+ <h2>Связи <span class="muted">${d.links.length||""}</span></h2>${d.links.length?`<div class="tablewrap"><table><thead><tr><th>Связь</th><th>С чем</th><th>Дата</th><th>Кто нашёл</th></tr></thead><tbody>${links}</tbody></table></div>`:'<div class="note2">Связей пока нет.</div>'}
+ ${review?`<h2>Склейка</h2><section class="panel">${review}</section>`:""}`;
+}
+
+/* ---------- Связи ---------- */
+async function vLinks(m){
+ m.innerHTML=`<button class="back" data-h="#home">← Главная</button><div class="head"><div><h1>Связи</h1><div class="sub">Граф: «проходит в», «выступает на», «организует», «резидент». Сейчас в копии есть только «событие проходит в площадке» — остальные связи появятся, когда включим роботов.</div></div></div><div class="empty">Загружаю площадки с событиями…</div>`;
+ let d;try{d=await api("subjects",{limit:200,has_links:"true"})}catch(e){m.querySelector(".empty").textContent=e.message;return}
+ const rows=d.rows.filter(r=>r.links>0).sort((x,y)=>y.links-x.links);
+ m.querySelector(".empty").outerHTML=`<div class="lbl">${nf(BOOT.links)} связей · площадки с событиями</div><div class="tablewrap"><table><thead><tr><th>Карточка</th><th>Кто</th><th style="text-align:right">Связей</th></tr></thead><tbody>${rows.map(r=>`<tr class="click" data-h="${esc(toHash("card",{id:r.id}))}"><td><b>${esc(r.name)}</b></td><td>${(r.roles||[]).map(x=>`<span class="tg">${esc(x)}</span>`).join("")}</td><td style="text-align:right">${r.links}</td></tr>`).join("")||'<tr><td colspan="3"><div class="empty">Связей пока нет.</div></td></tr>'}</tbody></table></div>`;
+}
+
+/* ---------- Склейка дублей Eventer ↔ Афиша ---------- */
+async function vReview(m,p){const lim=50,off=+p.offset||0;
+ const sts=[...new Set(BOOT.review.map(r=>r.status))];
+ const tiles=BOOT.review.map(r=>`<button class="tile" data-h="${esc(toHash("review",{status:r.status}))}"><span class="v">${nf(r.n)}</span><span class="t">${esc(r.status)}</span><span class="s">${esc(r.kind)}</span></button>`).join("");
+ const head=`<button class="back" data-h="#home">← Главная</button><div class="head"><div><h1>Склейка дублей</h1><div class="sub">Как робот сводил карточки базы Eventer с местами Афиши при переносе: что признал одним и тем же, что — филиалом, что — дублем.</div></div></div><div class="tiles">${tiles}</div>${p.status?`<div class="row"><span class="tg m">${esc(p.status)}</span><button class="btn" data-h="#review">Показать все</button></div>`:""}`;
+ m.innerHTML=head+`<div class="empty">Загружаю…</div>`;
+ let d;try{d=await api("review",{status:p.status||"",limit:lim,offset:off})}catch(e){m.innerHTML=head+`<div class="empty">${esc(e.message)}</div>`;return}
+ m.innerHTML=head+`<div class="tablewrap"><table><thead><tr><th>Из базы Eventer</th><th>Карточка в общей базе</th><th>Что решено</th><th>Почему</th></tr></thead><tbody>${d.rows.map(r=>`<tr${r.subject_id?` class="click" data-h="${esc(toHash("card",{id:r.subject_id}))}"`:""}><td><b>${esc(r.eventer_name||"—")}</b><div class="id">${esc([r.city,r.instagram].filter(Boolean).join(" · "))}</div></td><td>${esc(r.subject_name||"—")}</td><td>${esc(r.status)}<div class="id">${esc(r.kind)}</div></td><td style="max-width:360px">${esc(r.reason||"")}</td></tr>`).join("")}</tbody></table></div>
+ <div class="row"><button class="btn" data-h="${esc(toHash("review",{...p,offset:Math.max(0,off-lim)}))}"${off===0?" disabled":""}>← Назад</button><span class="note2">${d.total?off+1:0}–${Math.min(off+d.rows.length,d.total)} из ${nf(d.total)}</span><button class="btn" data-h="${esc(toHash("review",{...p,offset:off+lim}))}"${off+lim>=d.total?" disabled":""}>Далее →</button></div>`;
+}
+
+/* ---------- Atlas v8 ---------- */
+async function vAtlas(m,p){const lim=50,off=+p.offset||0;
+ const tiles=BOOT.atlas.map(r=>`<button class="tile" data-h="${esc(toHash("atlas",{status:r.status}))}"><span class="v">${nf(r.n)}</span><span class="t">${esc(r.status)}</span><span class="s">${esc(r.kind)}</span></button>`).join("");
+ const head=`<button class="back" data-h="#home">← Главная</button><div class="head"><div><h1>Atlas v8 — проверка участников</h1><div class="sub">Участники и события из исследования Atlas v8: робот проверял, настоящие ли они, и заводил настоящих в общую базу.</div></div></div><div class="tiles">${tiles}</div>${p.status?`<div class="row"><span class="tg m">${esc(p.status)}</span><button class="btn" data-h="#atlas">Показать все</button></div>`:""}`;
+ m.innerHTML=head+`<div class="empty">Загружаю…</div>`;
+ let d;try{d=await api("atlas",{status:p.status||"",limit:lim,offset:off})}catch(e){m.innerHTML=head+`<div class="empty">${esc(e.message)}</div>`;return}
+ m.innerHTML=head+`<div class="tablewrap"><table><thead><tr><th>Название</th><th>Роль в v8</th><th>Категория</th><th>Город</th><th>Итог проверки</th><th>Пояснение</th></tr></thead><tbody>${d.rows.map(r=>`<tr${r.subject_id?` class="click" data-h="${esc(toHash("card",{id:r.subject_id}))}"`:""}><td><b>${esc(r.name)}</b><div class="id">${esc(r.kind)}</div></td><td>${esc(r.v8_role||"—")}</td><td>${esc(r.category||"—")}</td><td>${esc(r.city||"—")}</td><td>${esc(r.status)}</td><td style="max-width:360px">${esc(r.check_note||"")}</td></tr>`).join("")}</tbody></table></div>
+ <div class="row"><button class="btn" data-h="${esc(toHash("atlas",{...p,offset:Math.max(0,off-lim)}))}"${off===0?" disabled":""}>← Назад</button><span class="note2">${d.total?off+1:0}–${Math.min(off+d.rows.length,d.total)} из ${nf(d.total)}</span><button class="btn" data-h="${esc(toHash("atlas",{...p,offset:off+lim}))}"${off+lim>=d.total?" disabled":""}>Далее →</button></div>`;
+}
+function toast(t){const el=$("toast");el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,3500)}
+</script></body></html>
