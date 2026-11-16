@@ -417,7 +417,7 @@ async function apiCall(op,args={}){
 }
 async function startSession(session){
  const id=session?.user?.id||null;
- if(id){try{const n=localStorage.getItem("afdb:next");if(n){localStorage.removeItem("afdb:next");location.replace(n);return}}catch{}}
+ if(id){try{const n=localStorage.getItem("edbaf:next");if(n){localStorage.removeItem("edbaf:next");location.replace(n);return}}catch{}}
  if(id!==AUTH_ID){AUTH_EPOCH++;APP_CLEAR_PRIVATE_CACHE();AUTH_ID=id;if(APP_READY){AUTH_LOCKED=true;document.getElementById("app-shell").hidden=true;document.getElementById("auth-panel").hidden=false;authStatus("Сессия изменилась. Перезагрузите страницу для безопасного входа.");location.reload();return}}
  document.getElementById("auth-signout").hidden=!id;
  if(!id){document.getElementById("app-shell").hidden=true;document.getElementById("auth-panel").hidden=false;authStatus("Войдите в свой аккаунт.");return}
@@ -2105,7 +2105,7 @@ APP_CAN_LEAVE=()=>{if(ECsave||PCsave)return false;return !(evDirty()||(PD&&PC&&J
 render();loadStats();homeStart();
 apiCall("legacy_data",{}).then(r=>{EV=r.events||[];PL=r.places||[];render()}).catch(()=>toast("Не удалось загрузить сводные счётчики. Рабочие реестры доступны отдельно."));
 /* ссылка из «Редактора витрины»: ?open=place:PL-0122 — сразу открыть карточку на правку */
-try{const o=localStorage.getItem("afdb:open");if(o){localStorage.removeItem("afdb:open");const [k,id]=o.split(":");setTimeout(()=>go(k,id),50)}}catch{}
+try{const o=localStorage.getItem("edbaf:open");if(o){localStorage.removeItem("edbaf:open");const [k,id]=o.split(":");setTimeout(()=>go(k,id),50)}}catch{}
 
 }
 </script>
