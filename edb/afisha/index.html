@@ -603,7 +603,7 @@ const HOME_HEALTH={ok:'Работает',failed:'Ошибка',stale:'Данны
 let HS=null,HSerr=null,HSbusy=false,HSseq=0;
 // Главная не перезагружается при каждом переходе (решение Кайрата 05.11.2026): числа держим,
 // пока не нажата «Обновить»; сами обновляем только при новом входе после 2 часов отсутствия.
-const HOME_CACHE_KEY='edbaf:home:v1',HOME_STALE_MS=2*3600*1000;
+const HOME_CACHE_KEY='edbaf:home:v2',HOME_STALE_MS=2*3600*1000;
 function homeCacheSave(){try{localStorage.setItem(HOME_CACHE_KEY,JSON.stringify({savedAt:Date.now(),hs:HS,sc:(typeof SC!=='undefined'&&SC.data)||null}))}catch{}}
 function homeCacheLoad(){try{const c=JSON.parse(localStorage.getItem(HOME_CACHE_KEY)||'null');if(c&&c.hs&&Date.now()-c.savedAt<HOME_STALE_MS)return c}catch{}return null}
 function homeStart(){const c=homeCacheLoad();if(c){HS=c.hs;if(c.sc)SC.data=c.sc;render();return}loadHomeSummary();}
