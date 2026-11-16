@@ -448,6 +448,7 @@ function route(){if(!READY)return;const {view,p}=parseHash();$("nav").innerHTML=
  if(view==="links")return vLinks(m);
  if(view==="review")return vReview(m,p);
  if(view==="atlas"||view==="p-atlas")return vAtlas(m,p);
+ if(view==="p-afisha"){location.href="afisha/";return}
  if(view.startsWith("p-"))return vProduct(m,view.slice(2));
  vHome(m)}
 
