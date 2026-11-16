@@ -846,7 +846,7 @@ function home(){
  <section class="tiles">${types}</section>
 
  <section><div class="row" style="justify-content:space-between;margin-bottom:10px"><h2>События по датам</h2><span class="note2">Фильмов в прокате: ${hCount(c.films)}</span></div><div class="tiles">${windows}</div></section>
- <section class="panel"><h2>Состояние робота</h2><div class="tiles" style="margin-top:14px">${health.map(r=>`<button class="tile" data-go="robot"><span class="pill ${r.state==='ok'?'':r.state==='failed'?'bad':'warn'}">${esc(HOME_HEALTH[r.state]||HOME_HEALTH.unknown)}</span><span class="t">${esc(r.label)}</span>${r.last_success?`<span class="s">Успех: ${dtf(r.last_success)}</span>`:''}</button>`).join('')||'<div class="note2">Состояние функций неизвестно.</div>'}</div></section>`;
+`;
 }
 function hListTitle(){return HL.bucket?({raw:'Сырые записи',base:'В базу',trash:'В корзине',processing:'В обработке',review:'Ожидают решения'}[HL.bucket]):HL.quality?'На проверке':HOME_TYPES[HL.entity]||'Карточки базы'}
 function hListParams(){const f=HLFunnel||{};return {...HL,at:HS&&HS.at,from:f.from,to:f.to,limit:50}}
