@@ -841,7 +841,9 @@ function home(){
  if(!HS)return head+(HSerr?hApiError()+`<button class="btn" data-home-refresh="1">Повторить</button>`:'<div class="empty" role="status">Загружаю состояние базы…</div>');
  const f=HS.funnel||{},c=HS.calendar||{},sh=SVV.data?.verified_totals||{};
  const sc=SC.data||{};
- const types=Object.keys(HOME_TYPES).map(k=>hLink(HS.counts[k],HOME_TYPES[k],`data-hlist="${k}"`)).join('');
+ if(!EVS&&!EVSbusy){EVSbusy=true;apiCall('edb_events_split',{}).then(d=>{EVS=d}).catch(()=>{}).finally(()=>{EVSbusy=false;if(S.view==='home')render()})}
+ /* Событие без площадки — не событие, а сырые данные (Кайрат, 16.11.2026) */
+ const types=Object.keys(HOME_TYPES).map(k=>k==='events'?hLink(EVS?EVS.events:null,'События',`data-hlist="${k}"`)+hLink(EVS?EVS.raw:null,'Сырые данные','disabled style="cursor:default"',EVS?`без площадки${EVS.raw_past?`, из них прошли ${nf(EVS.raw_past)}`:''}`:''):hLink(HS.counts[k],HOME_TYPES[k],`data-hlist="${k}"`)).join('');
  const windows=Object.keys(HOME_PERIODS).map(k=>hLink(c[k],HOME_PERIODS[k],`data-hperiod="${k}"`)).join('');
  const health=Array.isArray(HS.health)?HS.health:[];
  return head+(HSerr?'<div class="note">Обновление не удалось. Ниже сохранённые данные на указанное время.</div>':'')+
@@ -1903,6 +1905,7 @@ document.addEventListener("click",ev=>{const t=ev.target.closest&&ev.target.clos
   if(d.pkreset)return pickSet(d.pkreset,"reset");
   if(d.pkmore)return loadPick(true)});
 /* экран робота */
+let EVS=null,EVSbusy=false;
 let RB=null,RBbusy=false,RBerr=null,RBrun=null,RBconfirm=null;
 async function loadRobot(){if(RBbusy)return;RBbusy=true;if(S.view==="robot")render();
   try{RB=await apiCall("robot_screen");RBerr=null}catch(e){RBerr={code:(e&&e.code)||"upstream_error",message:(e&&e.message)||""}}
