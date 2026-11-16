@@ -387,7 +387,7 @@ a.topup:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 </style><title>Eventer Data Base</title></head>
 <body>
 <div class="toast" id="toast" hidden></div>
-<section id="auth-panel" style="max-width:400px;margin:12vh auto;padding:24px"><h1>Eventer · Data Base</h1><p>Общая база экосистемы. Вход без пароля: введите почту — придёт письмо с кнопкой «Войти». Один раз на устройство, дальше база открывается сразу.</p><form id="auth-form"><label>Email<input id="auth-email" type="email" autocomplete="username" required style="width:100%;margin:8px 0 16px"></label><button class="btn pri" type="submit">Прислать ссылку для входа</button></form><p id="auth-status" role="status"></p><button id="auth-retry" class="btn" hidden>Повторить загрузку</button><button id="auth-signout" class="btn" hidden>Сменить аккаунт</button></section>
+<section id="auth-panel" style="max-width:420px;margin:12vh auto;padding:24px"><h1>Eventer · Data Base</h1><p id="auth-status" role="status">Загружаю общую базу…</p><button id="auth-retry" class="btn" hidden>Повторить</button></section>
 <div id="app-shell" hidden><button id="app-signout" class="btn" style="position:fixed;bottom:12px;right:12px;z-index:90">Выйти</button><header class="top"><nav class="topin" id="nav" aria-label="Разделы"></nav></header>
 <main id="main"><div class="empty">Загружаю базу…</div></main></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -402,29 +402,25 @@ const nf=n=>Number(n||0).toLocaleString("ru-RU");
 const dtf=d=>d?new Date(d).toLocaleString("ru-RU",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}):"";
 const df=d=>d?new Date(d).toLocaleDateString("ru-RU",{day:"numeric",month:"short",year:"numeric"}):"";
 const authStatus=t=>$("auth-status").textContent=t;
+/* Вход по личной ссылке Кайрата (16.11.2026): ключ из ссылки ?k=… запоминается на устройстве, писем нет. */
+let EDB_KEY="";
+try{const u=new URL(location.href);const k=u.searchParams.get("k");if(k){localStorage.setItem("edb:key",k);u.searchParams.delete("k");history.replaceState(null,"",u.pathname+u.search+u.hash)}EDB_KEY=localStorage.getItem("edb:key")||""}catch{}
 let READY=false;
 async function api(op,args={}){
- const {data,error}=await sb.functions.invoke("edb-admin",{body:{op,args}});
+ const {data,error}=await sb.functions.invoke("edb-admin",{body:{op,args},headers:EDB_KEY?{"x-edb-key":EDB_KEY}:{}});
  if(error||data?.error)throw new Error(data?.error||"Сервер недоступен или доступ не разрешён.");
  return data;
 }
-async function start(session){
- $("auth-signout").hidden=!session;
- if(!session){$("app-shell").hidden=true;$("auth-panel").hidden=false;authStatus("Войдите в свой аккаунт.");return}
- if(READY)return;authStatus("Загружаю общую базу…");
+async function start(){
+ if(READY)return;
+ if(!EDB_KEY){$("app-shell").hidden=true;$("auth-panel").hidden=false;authStatus("Откройте базу по своей личной ссылке — один раз на этом устройстве, дальше она открывается сразу.");return}
+ authStatus("Загружаю общую базу…");$("auth-retry").hidden=true;
  try{BOOT=await api("bootstrap");READY=true;$("auth-panel").hidden=true;$("app-shell").hidden=false;route()}
  catch(e){authStatus(e.message);$("auth-retry").hidden=false}
 }
-async function signOut(){await sb.auth.signOut();location.reload()}
-$("app-signout").onclick=signOut;$("auth-signout").onclick=signOut;
-$("auth-retry").onclick=async()=>start((await sb.auth.getSession()).data.session);
-$("auth-form").onsubmit=async e=>{e.preventDefault();const b=e.target.querySelector("button");const email=$("auth-email").value.trim();b.disabled=true;authStatus("Отправляю письмо…");
- try{localStorage.setItem("edb:email",email)}catch{}
- const {error}=await sb.auth.signInWithOtp({email,options:{shouldCreateUser:false,emailRedirectTo:location.origin+location.pathname}});
- b.disabled=false;authStatus(error?"Не получилось отправить письмо: "+error.message:"Письмо отправлено. Откройте его на этом устройстве и нажмите «Войти».")};
-try{const em=localStorage.getItem("edb:email");if(em)$("auth-email").value=em}catch{}
-sb.auth.onAuthStateChange((ev,s)=>setTimeout(()=>start(s),0));
-sb.auth.getSession().then(({data})=>start(data.session));
+$("app-signout").onclick=()=>{try{localStorage.removeItem("edb:key")}catch{};location.reload()};
+$("auth-retry").onclick=()=>start();
+start();
 
 /* ---------- Состояние и навигация (через #адрес, чтобы работали «назад» и ссылки) ---------- */
 let BOOT=null;
