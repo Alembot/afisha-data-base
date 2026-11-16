@@ -467,13 +467,13 @@ function vMembers(m){const b=BOOT,r=b.statgov_raw||{total:0,too:0,ip:0},w=b.who_
  <section class="panel"><h2>Сырые данные</h2><div class="tiles" style="margin-top:14px;grid-template-columns:repeat(3,minmax(0,1fr))">${big(r.total,"сырых карточек",toHash("list",{raw:"all"}))}${big(r.too,"юрлиц",toHash("list",{raw:"too"}))}${big(r.ip,"ИП",toHash("list",{raw:"ip"}))}</div></section>
  <section class="panel"><h2>Физлица и организации</h2><div class="tiles" style="margin-top:14px;grid-template-columns:repeat(2,minmax(0,1fr))">${bigS(b.who["физлицо"]||0,"физлиц","#fiz",[[w.fiz_legal,"с ИП"],[w.fiz_none,"без ИП"]])}${bigS(b.who["организация"]||0,"организаций",toHash("list",{who:"организация",from:"members"}),[[w.org_too,"юрлица (ТОО и др.)"],[w.org_ip,"ИП"],[w.org_none,"без юрданных"]])}</div></section>`}
 
-/* ---------- Физлица: артисты и специалисты по категориям справочника Eventer ---------- */
+/* ---------- Физлица: «Сцена и творчество» / «Организаторы и услуги» (решение Кайрата 16.11.2026) ---------- */
 function vFiz(m){const b=BOOT,fc=b.fiz_cats||[];
  const panel=(role,title,word)=>{const cs=fc.filter(x=>x.role===role),tot=cs.reduce((t,x)=>t+x.n,0);
   return `<section class="panel"><button class="tile" data-h="${esc(toHash("list",{who:"физлицо",role,from:"fiz"}))}" style="padding:22px;width:100%"><span class="v" style="font-size:40px">${nf(tot)}</span><span class="t" style="font-size:17px">${esc(word)}</span></button>
   <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:14px">${cs.map(x=>`<button class="btn" data-h="${esc(toHash("list",{who:"физлицо",role,cat:x.cat,from:"fiz"}))}" style="font-size:13px;padding:6px 10px">${esc(x.cat)} <b style="color:var(--ok)">${nf(x.n)}</b></button>`).join("")}</div></section>`};
  m.innerHTML=`<button class="btn" data-h="#members" style="align-self:flex-start">← Назад</button><div class="head"><div><h1>${nf((b.who||{})["физлицо"]||0)} физлиц</h1></div><button class="btn" data-h="${esc(toHash("list",{who:"физлицо",from:"fiz"}))}">Все физлица списком</button></div>
- <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px">${panel("артист","Артисты","артистов")}${panel("специалист","Специалисты","специалистов")}</div>`}
+ <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px">${panel("артист","Сцена и творчество","сцена и творчество")}${panel("специалист","Организаторы и услуги","организаторы и услуги")}</div>`}
 
 /* ---------- Главная ---------- */
 function vHome(m){const b=BOOT,arch=b.statuses["скрыто"]||0;
