@@ -475,6 +475,27 @@ function vFiz(m){const b=BOOT,fc=b.fiz_cats||[];
  m.innerHTML=`<button class="btn" data-h="#members" style="align-self:flex-start">← Назад</button><div class="head"><div><h1>${nf((b.who||{})["физлицо"]||0)} физлиц</h1></div><button class="btn" data-h="${esc(toHash("list",{who:"физлицо",from:"fiz"}))}">Все физлица списком</button></div>
  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px">${panel("артист","Сцена и творчество","сцена и творчество")}${panel("специалист","Организаторы и услуги","организаторы и услуги")}</div>`}
 
+/* ---------- Реестр категории физлиц: плитки + таблица (решение Кайрата 17.11.2026) ---------- */
+const STATUS_RU={"найдено":"сырая","обогащается":"обогащается","проверено":"проверено","опубликовано":"опубликовано","скрыто":"в архиве"};
+const cardNo=n=>n?"E-"+String(n).padStart(5,"0"):"—";
+async function vCat(m,p){
+ const lim=50,off=+p.offset||0,b=BOOT,cat=p.cat,role=p.role||"";
+ const ft=(b.fiz_tiles||[]).filter(x=>x.cat===cat);
+ const named=(b.cat_tiles||{})[cat]||[...new Set(ft.filter(x=>x.tile).map(x=>x.tile))];
+ const cnt=t=>ft.filter(x=>t===null?!x.tile:x.tile===t).reduce((a,x)=>a+x.n,0);
+ const total=ft.reduce((a,x)=>a+x.n,0);
+ const base={who:"физлицо",role,cat};
+ const tiles=[...named.map(t=>({label:t,key:t,n:cnt(t)})),{label:"Без категории",key:"__none",n:cnt(null)}];
+ const tileHtml=tiles.map(t=>`<button class="tile${p.tile===t.key?" on":""}" data-h="${esc(toHash("list",{...base,tile:p.tile===t.key?"":t.key}))}" style="padding:18px${p.tile===t.key?";outline:2px solid #e91e8c":""}"><span class="v" style="font-size:32px">${nf(t.n)}</span><span class="t">${esc(t.label)}</span>${t.key==="__none"?'<span class="s">специальность не проверена</span>':""}</button>`).join("");
+ const head=`<button class="btn" data-h="#fiz" style="align-self:flex-start">← Назад</button><div class="head"><div><h1>${esc(cat)}</h1><div class="sub">${nf(total)} карточек${p.tile?" · показано: "+esc(p.tile==="__none"?"Без категории":p.tile)+" (нажмите плитку ещё раз, чтобы показать все)":""}</div></div></div>
+ <div class="tiles" style="grid-template-columns:repeat(${tiles.length},minmax(0,1fr))">${tileHtml}</div>`;
+ m.innerHTML=head+`<div class="empty">Загружаю реестр…</div>`;
+ let d;try{d=await api("subjects",{...base,tile:p.tile||"",limit:lim,offset:off})}catch(e){m.innerHTML=head+`<div class="empty">${esc(e.message)}</div>`;return}
+ const ico=r=>[r.instagram?`<span class="tg" title="Instagram @${esc(r.instagram)}">IG</span>`:"",r.phone?'<span class="tg" title="Телефон">тел</span>':"",r.website?'<span class="tg" title="Сайт">сайт</span>':""].join("")||'<span class="muted">—</span>';
+ const rows=d.rows.map(r=>`<tr class="click" data-h="${esc(toHash("card",{id:r.id}))}"><td class="id">${cardNo(r.num)}</td><td><b>${esc(r.name)}</b>${r.instagram?`<div class="id">@${esc(r.instagram)}</div>`:""}</td><td>${esc(r.genre||"—")}</td><td>${esc(r.city||"—")}</td><td>${ico(r)}</td><td style="text-align:right">${r.links||'<span class="muted">0</span>'}</td><td>${esc(ADDED[r.added_by]||r.added_by||"—")}</td><td>${esc(STATUS_RU[r.status]||r.status)}</td><td class="id">${esc((r.updated_at||"").slice(0,10).split("-").reverse().join("."))}</td><td>${r.status==="опубликовано"?'<span class="tg m">да</span>':'<span class="muted">—</span>'}</td></tr>`).join("")||'<tr><td colspan="10"><div class="empty">Пусто.</div></td></tr>';
+ m.innerHTML=head+`<div class="tablewrap"><table><thead><tr><th>ID</th><th>Имя</th><th>Жанр</th><th>Город</th><th>Контакты</th><th style="text-align:right">Связи</th><th>Источник</th><th>Статус</th><th>Обновлено</th><th>На витрине</th></tr></thead><tbody>${rows}</tbody></table></div>
+ <div class="row"><button class="btn" data-h="${esc(toHash("list",{...base,tile:p.tile||"",offset:Math.max(0,off-lim)}))}"${off===0?" disabled":""}>← Назад</button><span class="note2">${d.total?off+1:0}–${Math.min(off+d.rows.length,d.total)} из ${nf(d.total)}</span><button class="btn" data-h="${esc(toHash("list",{...base,tile:p.tile||"",offset:off+lim}))}"${off+lim>=d.total?" disabled":""}>Далее →</button></div>`}
+
 /* ---------- Главная ---------- */
 function vHome(m){const b=BOOT,arch=b.statuses["скрыто"]||0;
  const big=(v,t,sub,h)=>`<button class="tile" data-h="${esc(h)}" style="padding:22px"><span class="v" style="font-size:40px">${v==null?"…":nf(v)}</span><span class="t" style="font-size:17px">${esc(t)}</span><span class="s">${esc(sub)}</span></button>`;
@@ -514,6 +535,7 @@ function vProduct(m,k){const t=(PRODUCTS.find(x=>x[0]===k)||[,""])[1];
 /* ---------- Список карточек ---------- */
 const sel=(id,label,opts,val)=>`<label class="f" style="min-width:160px;background:none;padding:0">${label}<select id="${id}"><option value="">Все</option>${opts.map(([v,t])=>`<option value="${esc(v)}"${v===val?" selected":""}>${esc(t)}</option>`).join("")}</select></label>`;
 async function vList(m,p){
+ if(p.cat&&p.who==="физлицо")return vCat(m,p);
  const lim=50,off=+p.offset||0;
  const head=`<button class="btn" data-h="${p.raw?"#members":p.from?"#"+esc(p.from):"#home"}" style="align-self:flex-start">← Назад</button><div class="head"><div><h1>${esc(p.cat?p.cat:p.raw?({all:"Сырые карточки",too:"Юрлица",ip:"ИП"})[p.raw]||"Сырые карточки":p.who&&!p.role?({"физлицо":"Физлица","организация":"Организации"})[p.who]||"Все карточки":p.role?ROLE_PL[p.role]:"Все карточки")}</h1></div></div>
  <form id="lf" class="row" style="align-items:flex-end"><label class="f" style="flex:1;min-width:220px;background:none;padding:0">Поиск<input id="lq" value="${esc(p.q||"")}" placeholder="Название, Instagram, телефон, БИН"></label>
