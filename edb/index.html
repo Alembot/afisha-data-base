@@ -556,26 +556,60 @@ const fld=(k,v)=>v==null||v===""||(Array.isArray(v)&&!v.length)?"":`<div class="
 const val=v=>Array.isArray(v)?v.map(x=>`<span class="tg">${esc(typeof x==="object"?JSON.stringify(x):x)}</span>`).join(""):typeof v==="object"&&v?esc(JSON.stringify(v)):esc(v);
 const PROF_F={official_name:"Официальное название",legal_name:"Юр. название",address:"Адрес",email:"Email",capacity:"Вместимость",guests_max:"Гостей до",price_from:"Цена от",price_to:"Цена до",price_unit:"За что цена",price_note:"О цене",event_types:"Типы событий",primary_event_type:"Главный тип событий",specializations:"Специализации",venue_tags:"Особенности площадки",known_clients:"Известные клиенты",cases:"Кейсы",languages:"Языки",customer_segments:"Клиенты",head_name:"Руководитель",oked:"ОКЭД",socials:"Соцсети"};
 async function vCard(m,id){
- m.innerHTML=`<button class="btn" onclick="history.length>1?history.back():location.hash='#home'" style="align-self:flex-start">← Назад</button><div class="empty" role="status">Загружаю карточку…</div>`;
- let d;try{d=await api("subject",{id})}catch(e){m.innerHTML=`<button class="btn" onclick="history.length>1?history.back():location.hash='#home'" style="align-self:flex-start">← Назад</button><div class="empty">${esc(e.message)}</div>`;return}
- const c=d.card,a=d.afisha,ev=d.eventer,pd=ev?.data||{};
- const ig=c.instagram?`<a href="https://instagram.com/${esc(c.instagram)}" target="_blank" rel="noopener">@${esc(c.instagram)}</a>`:"";
- const web=c.website?`<a href="${esc(c.website)}" target="_blank" rel="noopener">${esc(c.website.replace(/^https?:\/\//,""))}</a>`:"";
- const common=[fld("Кто",esc(c.who||"—")),fld("Роли",val(c.roles)),fld("Город",esc(c.city)),fld("Instagram",ig),fld("Сайт",web),fld("Телефон",esc(c.phone)),fld("БИН",esc(c.bin)),fld("Стадия",esc(c.status)+(STATUS_TXT[c.status]?` <span class="muted">· ${esc(STATUS_TXT[c.status])}</span>`:"")),fld("Кто внёс",esc(ADDED[c.added_by]||c.added_by)),fld("Источники",val((c.sources||[]).map(x=>ADDED[x]||x))),fld("Заведена",esc(df(c.created_at))),fld("ID",`<span class="id">${esc(c.id)}</span>`)].join("");
- const afisha=a?[fld("ID Афиши",esc(a.public_id)),fld("Адрес",esc(a.address)),fld("Район",esc(a.district)),fld("Тип места",esc(a.place_type)),fld("Категория досуга",esc(a.category)),fld("Средний чек",esc(a.average_check)),fld("Настроения",val(a.moods)),fld("Для кого",val(a.for_whom)),fld("Стадия в Афише",esc(a.stage||a.status))].join(""):"";
- const prof=ev?[fld("Роль",esc(PROF_ROLE[ev.role]||ev.role)),fld("Категория",esc(ev.category)),fld("Подкатегория",esc(ev.subcategory)),fld("Как было в banqet.kz",esc([ev.category_banqet,ev.subcategory_banqet].filter(Boolean).join(" → "))),fld("Стадия в Eventer",esc(ev.stage)),fld("Проверка",esc(ev.verification_status)),fld("Нужно решение",esc(ev.needs_review)),...Object.entries(PROF_F).map(([k,t])=>fld(t,val(pd[k])))].join(""):"";
- const links=d.links.map(l=>`<tr${l.other_type==="subject"?` class="click" data-h="${esc(toHash("card",{id:l.other_id}))}"`:""}><td>${l.dir==="in"?esc(l.other_name)+` <span class="muted">${esc(l.rel)}</span> <b>${esc(c.name)}</b>`:`<b>${esc(c.name)}</b> <span class="muted">${esc(l.rel)}</span> `+esc(l.other_name)}</td><td>${l.other_type==="event"?"событие":l.other_type==="subject"?"карточка":"впечатление"}</td><td>${esc(df(l.date))}</td><td>${esc(ADDED[l.source]||l.source||"—")}</td></tr>`).join("");
- const review=d.review.map(r=>`<div class="note2">• ${esc(r.kind)}: <b>${esc(r.status)}</b>${r.reason?" — "+esc(r.reason):""}</div>`).join("");
- m.innerHTML=`<button class="btn" onclick="history.length>1?history.back():location.hash='#home'" style="align-self:flex-start">← Назад</button>
- <div class="head"><div><h1>${esc(c.name)}</h1><div class="sub">${prodTags(c)||'<span class="muted">Пока ни в одном продукте</span>'}</div></div></div>
- ${c.photo?`<img src="${esc(c.photo)}" alt="" style="max-width:420px;width:100%;border-radius:14px">`:""}
- ${c.about?`<section class="panel"><p>${esc(c.about)}</p></section>`:""}
- <h2>Общее — видят все продукты</h2><div class="fields">${common}</div>
- ${d.legal?`<h2>Юрданные <span class="muted">госстат</span></h2><div class="fields">${[fld("БИН",esc(d.legal.bin)),fld("Юридическое название",esc(d.legal.legal_name)),fld("Юридический адрес",esc(d.legal.legal_addr)),fld("ОКЭД",esc([d.legal.okved,d.legal.okved_name].filter(Boolean).join(" · "))),fld("Доп. ОКЭД",esc(d.legal.okved_extra)),fld("Руководитель",esc(d.legal.director)),fld("Размер",esc(d.legal.size)),fld("Дата регистрации",esc(df(d.legal.reg_date)))].join("")}</div>`:""}
- ${a?`<h2>Срез Афиши</h2><div class="fields">${afisha}</div>`:""}
- ${ev?`<h2>Срез Eventer App</h2><div class="fields">${prof}</div>`:""}
- <h2>Связи <span class="muted">${d.links.length||""}</span></h2>${d.links.length?`<div class="tablewrap"><table><thead><tr><th>Связь</th><th>С чем</th><th>Дата</th><th>Кто нашёл</th></tr></thead><tbody>${links}</tbody></table></div>`:'<div class="note2">Связей пока нет.</div>'}
- ${review?`<h2>Склейка</h2><section class="panel">${review}</section>`:""}`;
+ const back=`<button class="btn" onclick="history.length>1?history.back():location.hash='#home'" style="align-self:flex-start">← Назад</button>`;
+ m.innerHTML=back+`<div class="empty" role="status">Загружаю карточку…</div>`;
+ let d;try{d=await api("subject",{id})}catch(e){m.innerHTML=back+`<div class="empty">${esc(e.message)}</div>`;return}
+ const c=d.card,a=d.afisha,ev=d.eventer,pd=ev?.data||{},g=d.legal,k=d.cat;
+ const PINK="#e91e8c",cap=t=>t?t.charAt(0)+t.slice(1).toLowerCase():t;
+ const grp=k?(k.role==="артист"?"Сцена и творчество":"Организаторы и услуги"):(c.roles||[]).map(r=>ROLE_PL[r]||r).join(", ");
+ const verified=k&&k.sub_group;
+ const district=g?.district?cap(g.district.replace(/^Г\.\s*/i,"").replace(/,\s*/," · ")).replace(/ · (\S)/,(x,y)=>" · "+y.toUpperCase()):"";
+ const initials=(c.name||"?").split(/\s+/).slice(0,2).map(w=>w[0]).join("").toUpperCase();
+ const form=g?(g.is_ip?"ИП":"Юрлицо"):"Без юрлица";
+ // насколько мы его знаем
+ const checks=[["ФИО",!!c.name],["Город",!!c.city],["Юрданные",!!g],["Чем занимается — проверено",!!verified],["Контакты",!!(c.instagram||c.phone||c.website)],["Фото",!!c.photo],["Описание",!!c.about],["События и площадки",d.links.length>0]];
+ const pct=Math.round(checks.filter(x=>x[1]).length/checks.length*100);
+ const chip=([t,ok])=>`<span style="display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:5px 11px;font-size:13px;${ok?"background:#121212;color:#fff":"border:1px dashed #b9b4b8;color:#6b6b6b"}">${ok?"✓":"+"} ${esc(t)}</span>`;
+ // чем занимается
+ const what=verified?`<b>${esc(k.category)}</b>${k.subcategory?` · ${esc(k.subcategory)}`:""}`:k?`Пока известно только по коду госреестра — <b>ОКЭД ${esc(g?.okved||"")}</b> «${esc(g?.okved_name||k.category)}». Под этим кодом регистрируются художники и писатели, но также журналисты, блогеры, дизайнеры. Специальность нужно подтвердить.`:esc((c.roles||[]).join(", "));
+ // поиск
+ const qn=encodeURIComponent(`${c.name} ${c.city||""}`.trim());
+ const finds=[["Google",`https://www.google.com/search?q=${qn}`],["Instagram",`https://www.google.com/search?q=${qn}+site%3Ainstagram.com`],["2ГИС",`https://2gis.kz/almaty/search/${encodeURIComponent(c.name)}`]].map(([t,u])=>`<a class="btn" href="${u}" target="_blank" rel="noopener">${t} ↗</a>`).join("");
+ // экосистема
+ const evCnt=d.links.filter(l=>l.other_type==="event").length,plCnt=d.links.filter(l=>l.other_type==="subject").length;
+ const eco=(name,col,big,line)=>`<div style="border-radius:18px;padding:16px;background:${col};color:${col==="#ffffff"?"#121212":"#fff"};${col==="#ffffff"?"border:1px solid #e4e0da;":""}display:flex;flex-direction:column;gap:6px"><span style="font-size:12px;letter-spacing:.06em;opacity:.8">${name}</span><span style="font-size:24px;font-weight:700">${big}</span><span style="font-size:13px;opacity:.85">${line}</span></div>`;
+ const ecoHtml=[eco("AFISHA.KZ",c.in_afisha?PINK:"#ffffff",c.in_afisha?"На витрине":"Нет на витрине",evCnt?`${evCnt} событий с участием`:"событий с участием пока нет"),eco("EVENTER",c.in_eventer?"#121212":"#ffffff",c.in_eventer?"Есть профиль":"Нет профиля",c.in_eventer?esc(ev?.category||""):"не продаётся как исполнитель"),eco("СВЯЗИ",plCnt?"#8b5cf6":"#ffffff",String(d.links.length),plCnt?`${plCnt} с площадками и людьми`:"ни с кем не связан")].join("");
+ const row=(t,v)=>v?`<div style="display:flex;justify-content:space-between;gap:16px;padding:9px 0;border-bottom:1px solid #eee"><span class="muted">${t}</span><span style="text-align:right">${v}</span></div>`:"";
+ const legalHtml=g?[row("Форма",form),row(g.is_ip?"ИИН":"БИН",`<span class="id">${esc(g.bin)}</span>`),row("Название",esc(g.legal_name)),row("ОКЭД",`${esc(g.okved)} · ${esc(g.okved_name)}`),g.okved_extra?row("Доп. ОКЭД",esc(g.okved_extra)):"",row("Руководитель",esc(cap(g.director||""))),row("Размер",esc((g.size||"").replace("Малые предприятия","малое").replace("<=","до"))),row("Юрадрес",esc(g.legal_addr)),row("Район",esc(district)),row("Регистрация",esc(df(g.reg_date)))].join(""):`<div class="note2">Юрлица или ИП не найдено — работает как физлицо.</div>`;
+ const links=d.links.map(l=>`<tr${l.other_type==="subject"?` class="click" data-h="${esc(toHash("card",{id:l.other_id}))}"`:""}><td>${l.dir==="in"?esc(l.other_name)+` <span class="muted">${esc(l.rel)}</span>`:`<span class="muted">${esc(l.rel)}</span> `+esc(l.other_name)}</td><td>${l.other_type==="event"?"событие":"карточка"}</td><td>${esc(df(l.date))}</td></tr>`).join("");
+ const afisha=a?[fld("ID Афиши",esc(a.public_id)),fld("Адрес",esc(a.address)),fld("Район",esc(a.district)),fld("Тип места",esc(a.place_type)),fld("Категория досуга",esc(a.category)),fld("Средний чек",esc(a.average_check)),fld("Настроения",val(a.moods)),fld("Для кого",val(a.for_whom))].join(""):"";
+ const prof=ev?[fld("Категория",esc(ev.category)),fld("Подкатегория",esc(ev.subcategory)),...Object.entries(PROF_F).map(([kk,t])=>fld(t,val(pd[kk])))].join(""):"";
+ m.innerHTML=back+`
+ <section class="panel" style="display:flex;gap:22px;align-items:center;flex-wrap:wrap">
+  ${c.photo?`<img src="${esc(c.photo)}" alt="" style="width:96px;height:96px;border-radius:50%;object-fit:cover">`:`<div aria-hidden="true" style="width:96px;height:96px;border-radius:50%;background:${PINK};color:#fff;display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:700">${esc(initials)}</div>`}
+  <div style="flex:1;min-width:260px;display:flex;flex-direction:column;gap:8px">
+   <h1 style="margin:0">${esc(c.name)}</h1>
+   <div style="font-size:15px">${esc(grp)}${k?` → <b>${esc(k.category)}</b>`:""}${k?.subcategory?` · ${esc(k.subcategory)}`:""}</div>
+   <div style="display:flex;gap:8px;flex-wrap:wrap"><span class="tg">${cardNo(c.num)}</span><span class="tg m">${esc(STATUS_RU[c.status]||c.status)} карточка</span><span class="tg">${esc(c.city||"город не указан")}${district?" · "+esc(district.split(" · ").pop()):""}</span><span class="tg">${form}</span></div>
+  </div>
+ </section>
+ <section class="panel" style="display:flex;flex-direction:column;gap:12px">
+  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px"><h2 style="margin:0">Насколько мы его знаем</h2><span style="font-size:28px;font-weight:700;color:${PINK}">${pct}%</span></div>
+  <div style="height:8px;border-radius:99px;background:#eee"><div style="height:8px;border-radius:99px;background:${PINK};width:${pct}%"></div></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">${checks.map(chip).join("")}</div>
+ </section>
+ <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:16px">
+  <section class="panel" style="display:flex;flex-direction:column;gap:12px"><h2 style="margin:0">Чем занимается</h2><p style="margin:0;line-height:1.5">${what}</p>${c.about?`<p style="margin:0;line-height:1.5">${esc(c.about)}</p>`:""}
+   ${!verified?`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="muted" style="font-size:13px">Найти больше:</span>${finds}</div>`:""}
+   ${[c.instagram?`<a href="https://instagram.com/${esc(c.instagram)}" target="_blank" rel="noopener">@${esc(c.instagram)}</a>`:"",c.phone?esc(c.phone):"",c.website?`<a href="${esc(c.website)}" target="_blank" rel="noopener">${esc(c.website.replace(/^https?:\/\//,""))}</a>`:""].filter(Boolean).join(" · ")||'<span class="muted" style="font-size:13px">Контактов пока нет</span>'}
+  </section>
+  <section class="panel" style="display:flex;flex-direction:column;gap:12px"><h2 style="margin:0">Юридические данные</h2><div>${legalHtml}</div></section>
+ </div>
+ <h2>В экосистеме</h2><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">${ecoHtml}</div>
+ ${d.links.length?`<h2>Связи</h2><div class="tablewrap"><table><thead><tr><th>Связь</th><th>С чем</th><th>Дата</th></tr></thead><tbody>${links}</tbody></table></div>`:""}
+ ${a?`<details class="panel"><summary><b>Данные Афиши</b></summary><div class="fields">${afisha}</div></details>`:""}
+ ${ev?`<details class="panel"><summary><b>Данные Eventer</b></summary><div class="fields">${prof}</div></details>`:""}
+ <div class="note2">Источник: ${esc((c.sources||[c.added_by]).map(x=>ADDED[x]||x).join(", "))} · заведена ${esc(df(c.created_at))}${c.updated_at&&c.updated_at!==c.created_at?" · обновлена "+esc(df(c.updated_at)):""}${k?.method?` · категория: ${esc(k.method)}`:""}</div>`;
 }
 
 /* ---------- Связи ---------- */
