@@ -572,13 +572,20 @@ async function vCard(m,id){
  const evCnt0=d.links.filter(l=>l.other_type==="event").length,plCnt0=d.links.filter(l=>l.other_type==="subject").length;
  const have={specialty:!!verified,online:!!(c.instagram||c.website),phone:!!c.phone,photo:!!c.photo,about:!!c.about,events:evCnt0>0,venues:plCnt0>0,booking:!!(pd.price_from||pd.price_to)};
  const pass=(d.passport||[]).map(f=>{const st=d.fields?.[f.key]?.status||(have[f.key]?"найдено":f.who==="специалист"?"нужен человек":"ищет робот");return{...f,st,src:d.fields?.[f.key]?.source||"",val:d.fields?.[f.key]?.value||""}});
+ const LAYERS=[["core","Ядро","общее для всех продуктов"],["afisha","Афиша","витрина и события"],["eventer","Eventer","заказ и аренда"],["academy","Академия","кадры и практика"],["atlas","Атлас","данные рынка"]];
+ const lay=f=>f.layer||(f.key==="events"||f.key==="venues"?"afisha":f.key==="booking"?"eventer":"core");
+ const byL=Object.fromEntries(LAYERS.map(([l])=>[l,pass.filter(f=>lay(f)===l)]));
+ const lp=l=>{const x=byL[l];return x.length?Math.round(x.filter(f=>f.st==="найдено").length/x.length*100):0};
  const checks=pass.length?pass.map(f=>[f.label,f.st==="найдено"]):[["ФИО",!!c.name],["Город",!!c.city],["Юрданные",!!g],["Контакты",!!(c.instagram||c.phone||c.website)],["Фото",!!c.photo],["Описание",!!c.about],["Связи",d.links.length>0]];
- const pct=c.score??Math.round(checks.filter(x=>x[1]).length/checks.length*100);
+ const pct=pass.length?lp("core"):c.score??Math.round(checks.filter(x=>x[1]).length/checks.length*100);
  const nextStep=!verified&&k?"подтвердить специальность и найти контакты":!(c.instagram||c.website||c.phone)?"найти контакты":!(c.photo&&c.about)?"фото и описание для витрины":!d.links.length?"связать с событиями и площадками":"держать профиль свежим";
  const ident=[["ФИО",!!c.name],["Город",!!c.city],["Юрданные",!!g]];
  const ST={"найдено":["✓","#121212","#ffffff"],"ищет робот":["🔍","#EEF2FB","#1E4A8C"],"нужен человек":["👤","#FDF1E3","#7A4E00"],"не нашли":["✗","#FBE9E7","#9A2E1F"]};
  const pill=st=>{const [i,bg,fg]=ST[st]||["·","#eee","#333"];return `<span style="display:inline-block;white-space:nowrap;border-radius:999px;padding:4px 10px;font-size:12.5px;background:${bg};color:${fg}">${i} ${esc(st)}</span>`};
- const passHtml=pass.length?`<div class="tablewrap"><table><thead><tr><th>Что нужно знать</th><th>Зачем</th><th>Статус</th></tr></thead><tbody>${pass.map(f=>`<tr><td><b>${esc(f.label)}</b>${f.val?`<div style="margin-top:3px">${linkify(f.val)}</div>`:""}${f.src?`<div class="id">${esc(f.src)}</div>`:""}</td><td class="muted">${esc(f.why)}</td><td>${pill(f.st)}</td></tr>`).join("")}</tbody></table></div>
+ const passTbl=list=>`<div class="tablewrap"><table><thead><tr><th>Что нужно знать</th><th>Зачем</th><th>Статус</th></tr></thead><tbody>${list.map(f=>`<tr><td><b>${esc(f.label)}</b>${f.val?`<div style="margin-top:3px">${linkify(f.val)}</div>`:""}${f.src?`<div class="id">${linkify(f.src)}</div>`:""}</td><td class="muted">${esc(f.why)}</td><td>${pill(f.st)}</td></tr>`).join("")}</tbody></table></div>`;
+ const prodLine={afisha:c.in_afisha?"на витрине":"нет на витрине",eventer:c.in_eventer?"есть профиль":"нет профиля",academy:"",atlas:""};
+ const layTiles=LAYERS.slice(1).filter(([l])=>byL[l].length).map(([l,t,sub])=>{const n=byL[l].length,f=byL[l].filter(x=>x.st==="найдено").length;return `<button class="tile" data-layer="${l}" style="padding:16px;text-align:left"><span class="t" style="font-weight:700">${t}</span><span class="v" style="font-size:28px;color:${PINK}">${lp(l)}%</span><span class="s">${f} из ${n} · ${esc(prodLine[l]||sub)}</span></button>`}).join("");
+ const passHtml0=pass.length?`<div class="tablewrap"><table><thead><tr><th>Что нужно знать</th><th>Зачем</th><th>Статус</th></tr></thead><tbody>${pass.map(f=>`<tr><td><b>${esc(f.label)}</b>${f.val?`<div style="margin-top:3px">${linkify(f.val)}</div>`:""}${f.src?`<div class="id">${esc(f.src)}</div>`:""}</td><td class="muted">${esc(f.why)}</td><td>${pill(f.st)}</td></tr>`).join("")}</tbody></table></div>
   <div class="note2">${pill("ищет робот")} — найдёт автопоиск, когда запустим обогащение · ${pill("нужен человек")} — звонок или переписка специалиста · ${pill("не нашли")} — робот искал, дальше только человек</div>`:"";
  const chip=([t,ok])=>`<span style="display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:5px 11px;font-size:13px;${ok?"background:#121212;color:#fff":"border:1px dashed #b9b4b8;color:#6b6b6b"}">${ok?"✓":"+"} ${esc(t)}</span>`;
  // чем занимается
@@ -609,7 +616,10 @@ async function vCard(m,id){
   <div style="height:8px;border-radius:99px;background:#eee"><div style="height:8px;border-radius:99px;background:${PINK};width:${pct}%"></div></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${ident.map(chip).join("")}<span class="note2" style="margin-left:6px">Следующий шаг: <b>${esc(nextStep)}</b></span></div>
   <div class="note2">Уровни: 0–20% опознан · 20–50% известен · 50–80% готов к витрине · 80–100% полный профиль</div>
-  ${pass.length?`<div class="note2">Паспорт категории «${esc(k.category)}»: ${checks.filter(x=>x[1]).length} из ${checks.length} пунктов найдено</div>${passHtml}`:`<div style="display:flex;gap:8px;flex-wrap:wrap">${checks.map(chip).join("")}</div>`}
+  ${pass.length?`<h3 style="margin:6px 0 0">Ядро — общее для всех продуктов <span class="muted" style="font-weight:400;font-size:14px">${byL.core.filter(f=>f.st==="найдено").length} из ${byL.core.length}</span></h3>${passTbl(byL.core)}
+  <h3 style="margin:10px 0 0">Слои продуктов</h3><div class="note2">Каждый продукт достраивает карточку своими данными. Нажмите слой, чтобы открыть.</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px">${layTiles}</div><div id="layerbox"></div>
+  <div class="note2">${pill("ищет робот")} — найдёт автопоиск · ${pill("нужен человек")} — звонок или переписка специалиста · ${pill("не нашли")} — робот искал, дальше только человек</div>`:`<div style="display:flex;gap:8px;flex-wrap:wrap">${checks.map(chip).join("")}</div>`}
  </section>
  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:16px">
   <section class="panel" style="display:flex;flex-direction:column;gap:12px"><h2 style="margin:0">Чем занимается</h2><p style="margin:0;line-height:1.5">${what}</p>${c.about?`<p style="margin:0;line-height:1.5">${esc(c.about)}</p>`:""}
@@ -618,11 +628,11 @@ async function vCard(m,id){
   </section>
   <section class="panel" style="display:flex;flex-direction:column;gap:12px"><h2 style="margin:0">Юридические данные</h2><div>${legalHtml}</div></section>
  </div>
- <h2>В экосистеме</h2><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">${ecoHtml}</div>
  ${d.links.length?`<h2>Связи</h2><div class="tablewrap"><table><thead><tr><th>Связь</th><th>С чем</th><th>Дата</th></tr></thead><tbody>${links}</tbody></table></div>`:""}
  ${a?`<details class="panel"><summary><b>Данные Афиши</b></summary><div class="fields">${afisha}</div></details>`:""}
  ${ev?`<details class="panel"><summary><b>Данные Eventer</b></summary><div class="fields">${prof}</div></details>`:""}
  <div class="note2">Источник: ${esc((c.sources||[c.added_by]).map(x=>ADDED[x]||x).join(", "))} · заведена ${esc(df(c.created_at))}${c.updated_at&&c.updated_at!==c.created_at?" · обновлена "+esc(df(c.updated_at)):""}${k?.method?` · категория: ${esc(k.method)}`:""}</div>`;
+ m.querySelectorAll("[data-layer]").forEach(b=>b.onclick=()=>{const l=b.dataset.layer,box=$("layerbox"),on=box.dataset.l===l;m.querySelectorAll("[data-layer]").forEach(x=>x.style.outline="");box.dataset.l=on?"":l;box.innerHTML=on?"":`<h3 style="margin:8px 0">${esc(LAYERS.find(x=>x[0]===l)[1])}</h3>`+passTbl(byL[l]);if(!on)b.style.outline="2px solid "+PINK});
 }
 
 /* ---------- Связи ---------- */
