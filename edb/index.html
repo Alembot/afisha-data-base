@@ -566,9 +566,16 @@ async function vCard(m,id){
  const district=g?.district?cap(g.district.replace(/^Г\.\s*/i,"").replace(/,\s*/," · ")).replace(/ · (\S)/,(x,y)=>" · "+y.toUpperCase()):"";
  const initials=(c.name||"?").split(/\s+/).slice(0,2).map(w=>w[0]).join("").toUpperCase();
  const form=g?(g.is_ip?"ИП":"Юрлицо"):"Без юрлица";
- // насколько мы его знаем
- const checks=[["ФИО",!!c.name],["Город",!!c.city],["Юрданные",!!g],["Чем занимается — проверено",!!verified],["Контакты",!!(c.instagram||c.phone||c.website)],["Фото",!!c.photo],["Описание",!!c.about],["События и площадки",d.links.length>0]];
+ // паспорт категории: что нам нужно знать, и статус каждого пункта
+ const evCnt0=d.links.filter(l=>l.other_type==="event").length,plCnt0=d.links.filter(l=>l.other_type==="subject").length;
+ const have={specialty:!!verified,online:!!(c.instagram||c.website),phone:!!c.phone,photo:!!c.photo,about:!!c.about,events:evCnt0>0,venues:plCnt0>0,booking:!!(pd.price_from||pd.price_to)};
+ const pass=(d.passport||[]).map(f=>{const st=d.fields?.[f.key]?.status||(have[f.key]?"найдено":f.who==="специалист"?"нужен человек":"ищет робот");return{...f,st,src:d.fields?.[f.key]?.source||""}});
+ const checks=pass.length?pass.map(f=>[f.label,f.st==="найдено"]):[["ФИО",!!c.name],["Город",!!c.city],["Юрданные",!!g],["Контакты",!!(c.instagram||c.phone||c.website)],["Фото",!!c.photo],["Описание",!!c.about],["Связи",d.links.length>0]];
  const pct=Math.round(checks.filter(x=>x[1]).length/checks.length*100);
+ const ST={"найдено":["✓","#121212","#ffffff"],"ищет робот":["🔍","#EEF2FB","#1E4A8C"],"нужен человек":["👤","#FDF1E3","#7A4E00"],"не нашли":["✗","#FBE9E7","#9A2E1F"]};
+ const pill=st=>{const [i,bg,fg]=ST[st]||["·","#eee","#333"];return `<span style="display:inline-block;white-space:nowrap;border-radius:999px;padding:4px 10px;font-size:12.5px;background:${bg};color:${fg}">${i} ${esc(st)}</span>`};
+ const passHtml=pass.length?`<div class="tablewrap"><table><thead><tr><th>Что нужно знать</th><th>Зачем</th><th>Статус</th></tr></thead><tbody>${pass.map(f=>`<tr><td><b>${esc(f.label)}</b>${f.src?`<div class="id">${esc(f.src)}</div>`:""}</td><td class="muted">${esc(f.why)}</td><td>${pill(f.st)}</td></tr>`).join("")}</tbody></table></div>
+  <div class="note2">${pill("ищет робот")} — найдёт автопоиск, когда запустим обогащение · ${pill("нужен человек")} — звонок или переписка специалиста · ${pill("не нашли")} — робот искал, дальше только человек</div>`:"";
  const chip=([t,ok])=>`<span style="display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:5px 11px;font-size:13px;${ok?"background:#121212;color:#fff":"border:1px dashed #b9b4b8;color:#6b6b6b"}">${ok?"✓":"+"} ${esc(t)}</span>`;
  // чем занимается
  const what=verified?`<b>${esc(k.category)}</b>${k.subcategory?` · ${esc(k.subcategory)}`:""}`:k?`Пока известно только по коду госреестра — <b>ОКЭД ${esc(g?.okved||"")}</b> «${esc(g?.okved_name||k.category)}». Под этим кодом регистрируются художники и писатели, но также журналисты, блогеры, дизайнеры. Специальность нужно подтвердить.`:esc((c.roles||[]).join(", "));
@@ -596,7 +603,7 @@ async function vCard(m,id){
  <section class="panel" style="display:flex;flex-direction:column;gap:12px">
   <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px"><h2 style="margin:0">Насколько мы его знаем</h2><span style="font-size:28px;font-weight:700;color:${PINK}">${pct}%</span></div>
   <div style="height:8px;border-radius:99px;background:#eee"><div style="height:8px;border-radius:99px;background:${PINK};width:${pct}%"></div></div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap">${checks.map(chip).join("")}</div>
+  ${pass.length?`<div class="note2">Паспорт категории «${esc(k.category)}»: ${checks.filter(x=>x[1]).length} из ${checks.length} пунктов найдено</div>${passHtml}`:`<div style="display:flex;gap:8px;flex-wrap:wrap">${checks.map(chip).join("")}</div>`}
  </section>
  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:16px">
   <section class="panel" style="display:flex;flex-direction:column;gap:12px"><h2 style="margin:0">Чем занимается</h2><p style="margin:0;line-height:1.5">${what}</p>${c.about?`<p style="margin:0;line-height:1.5">${esc(c.about)}</p>`:""}
