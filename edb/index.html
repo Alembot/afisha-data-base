@@ -477,6 +477,7 @@ function vFiz(m){const b=BOOT,fc=b.fiz_cats||[];
 
 /* ---------- Реестр категории физлиц: плитки + таблица (решение Кайрата 17.11.2026) ---------- */
 const STATUS_RU={"найдено":"сырая","обогащается":"обогащается","проверено":"проверено","опубликовано":"опубликовано","скрыто":"в архиве"};
+const LEVEL=p=>p>=80?"Полный профиль":p>=50?"Готов к витрине":p>20?"Известен":"Опознан";
 const cardNo=n=>n?"E-"+String(n).padStart(5,"0"):"—";
 async function vCat(m,p){
  const lim=50,off=+p.offset||0,b=BOOT,cat=p.cat,role=p.role||"";
@@ -493,8 +494,8 @@ async function vCat(m,p){
  m.innerHTML=head+`<div class="empty">Загружаю реестр…</div>`;
  let d;try{d=await api("subjects",{...base,tile:p.tile||"",limit:lim,offset:off})}catch(e){m.innerHTML=head+`<div class="empty">${esc(e.message)}</div>`;return}
  const ico=r=>[r.instagram?`<span class="tg" title="Instagram @${esc(r.instagram)}">IG</span>`:"",r.phone?'<span class="tg" title="Телефон">тел</span>':"",r.website?'<span class="tg" title="Сайт">сайт</span>':""].join("")||'<span class="muted">—</span>';
- const rows=d.rows.map((r,i)=>`<tr class="click" data-h="${esc(toHash("card",{id:r.id}))}"><td class="id" style="text-align:right">${off+i+1}</td><td class="id">${cardNo(r.num)}</td><td><b>${esc(r.name)}</b>${r.instagram?`<div class="id">@${esc(r.instagram)}</div>`:""}</td><td>${esc(r.genre||"—")}</td><td>${esc(r.lform||"—")}</td><td class="id">${esc(r.okved||"—")}</td><td>${esc(r.city||"—")}</td><td>${ico(r)}</td><td style="text-align:right">${r.links||'<span class="muted">0</span>'}</td><td>${esc(ADDED[r.added_by]||r.added_by||"—")}</td><td>${esc(STATUS_RU[r.status]||r.status)}</td><td class="id">${esc((r.updated_at||"").slice(0,10).split("-").reverse().join("."))}</td><td>${r.status==="опубликовано"?'<span class="tg m">да</span>':'<span class="muted">—</span>'}</td></tr>`).join("")||'<tr><td colspan="13"><div class="empty">Пусто.</div></td></tr>';
- m.innerHTML=head+`<div class="tablewrap"><table><thead><tr><th style="text-align:right">№</th><th>ID</th><th>Имя</th><th>Жанр</th><th>Форма</th><th>ОКЭД</th><th>Город</th><th>Контакты</th><th style="text-align:right">Связи</th><th>Источник</th><th>Статус</th><th>Обновлено</th><th>На витрине</th></tr></thead><tbody>${rows}</tbody></table></div>
+ const rows=d.rows.map((r,i)=>`<tr class="click" data-h="${esc(toHash("card",{id:r.id}))}"><td class="id" style="text-align:right">${off+i+1}</td><td class="id">${cardNo(r.num)}</td><td><b>${esc(r.name)}</b>${r.instagram?`<div class="id">@${esc(r.instagram)}</div>`:""}</td><td style="white-space:nowrap"><b>${r.score??0}%</b> <span class="muted">${LEVEL(r.score??0)}</span></td><td>${esc(r.genre||"—")}</td><td>${esc(r.lform||"—")}</td><td class="id">${esc(r.okved||"—")}</td><td>${esc(r.city||"—")}</td><td>${ico(r)}</td><td style="text-align:right">${r.links||'<span class="muted">0</span>'}</td><td>${esc(ADDED[r.added_by]||r.added_by||"—")}</td><td>${esc(STATUS_RU[r.status]||r.status)}</td><td class="id">${esc((r.updated_at||"").slice(0,10).split("-").reverse().join("."))}</td><td>${r.status==="опубликовано"?'<span class="tg m">да</span>':'<span class="muted">—</span>'}</td></tr>`).join("")||'<tr><td colspan="14"><div class="empty">Пусто.</div></td></tr>';
+ m.innerHTML=head+`<div class="tablewrap"><table><thead><tr><th style="text-align:right">№</th><th>ID</th><th>Имя</th><th>Знаем</th><th>Жанр</th><th>Форма</th><th>ОКЭД</th><th>Город</th><th>Контакты</th><th style="text-align:right">Связи</th><th>Источник</th><th>Статус</th><th>Обновлено</th><th>На витрине</th></tr></thead><tbody>${rows}</tbody></table></div>
  <div class="row"><button class="btn" data-h="${esc(toHash("list",{...base,tile:p.tile||"",offset:Math.max(0,off-lim)}))}"${off===0?" disabled":""}>← Назад</button><span class="note2">${d.total?off+1:0}–${Math.min(off+d.rows.length,d.total)} из ${nf(d.total)}</span><button class="btn" data-h="${esc(toHash("list",{...base,tile:p.tile||"",offset:off+lim}))}"${off+lim>=d.total?" disabled":""}>Далее →</button></div>`}
 
 /* ---------- Главная ---------- */
@@ -571,7 +572,9 @@ async function vCard(m,id){
  const have={specialty:!!verified,online:!!(c.instagram||c.website),phone:!!c.phone,photo:!!c.photo,about:!!c.about,events:evCnt0>0,venues:plCnt0>0,booking:!!(pd.price_from||pd.price_to)};
  const pass=(d.passport||[]).map(f=>{const st=d.fields?.[f.key]?.status||(have[f.key]?"найдено":f.who==="специалист"?"нужен человек":"ищет робот");return{...f,st,src:d.fields?.[f.key]?.source||""}});
  const checks=pass.length?pass.map(f=>[f.label,f.st==="найдено"]):[["ФИО",!!c.name],["Город",!!c.city],["Юрданные",!!g],["Контакты",!!(c.instagram||c.phone||c.website)],["Фото",!!c.photo],["Описание",!!c.about],["Связи",d.links.length>0]];
- const pct=Math.round(checks.filter(x=>x[1]).length/checks.length*100);
+ const pct=c.score??Math.round(checks.filter(x=>x[1]).length/checks.length*100);
+ const nextStep=!verified&&k?"подтвердить специальность и найти контакты":!(c.instagram||c.website||c.phone)?"найти контакты":!(c.photo&&c.about)?"фото и описание для витрины":!d.links.length?"связать с событиями и площадками":"держать профиль свежим";
+ const ident=[["ФИО",!!c.name],["Город",!!c.city],["Юрданные",!!g]];
  const ST={"найдено":["✓","#121212","#ffffff"],"ищет робот":["🔍","#EEF2FB","#1E4A8C"],"нужен человек":["👤","#FDF1E3","#7A4E00"],"не нашли":["✗","#FBE9E7","#9A2E1F"]};
  const pill=st=>{const [i,bg,fg]=ST[st]||["·","#eee","#333"];return `<span style="display:inline-block;white-space:nowrap;border-radius:999px;padding:4px 10px;font-size:12.5px;background:${bg};color:${fg}">${i} ${esc(st)}</span>`};
  const passHtml=pass.length?`<div class="tablewrap"><table><thead><tr><th>Что нужно знать</th><th>Зачем</th><th>Статус</th></tr></thead><tbody>${pass.map(f=>`<tr><td><b>${esc(f.label)}</b>${f.src?`<div class="id">${esc(f.src)}</div>`:""}</td><td class="muted">${esc(f.why)}</td><td>${pill(f.st)}</td></tr>`).join("")}</tbody></table></div>
@@ -601,8 +604,10 @@ async function vCard(m,id){
   </div>
  </section>
  <section class="panel" style="display:flex;flex-direction:column;gap:12px">
-  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px"><h2 style="margin:0">Насколько мы его знаем</h2><span style="font-size:28px;font-weight:700;color:${PINK}">${pct}%</span></div>
+  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap"><h2 style="margin:0">Насколько мы его знаем</h2><span><span style="font-size:28px;font-weight:700;color:${PINK}">${pct}%</span> <b style="font-size:17px">· ${LEVEL(pct)}</b></span></div>
   <div style="height:8px;border-radius:99px;background:#eee"><div style="height:8px;border-radius:99px;background:${PINK};width:${pct}%"></div></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${ident.map(chip).join("")}<span class="note2" style="margin-left:6px">Следующий шаг: <b>${esc(nextStep)}</b></span></div>
+  <div class="note2">Уровни: 0–20% опознан · 20–50% известен · 50–80% готов к витрине · 80–100% полный профиль</div>
   ${pass.length?`<div class="note2">Паспорт категории «${esc(k.category)}»: ${checks.filter(x=>x[1]).length} из ${checks.length} пунктов найдено</div>${passHtml}`:`<div style="display:flex;gap:8px;flex-wrap:wrap">${checks.map(chip).join("")}</div>`}
  </section>
  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:16px">
