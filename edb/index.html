@@ -478,6 +478,7 @@ function vFiz(m){const b=BOOT,fc=b.fiz_cats||[];
 /* ---------- Реестр категории физлиц: плитки + таблица (решение Кайрата 17.11.2026) ---------- */
 const STATUS_RU={"найдено":"сырая","обогащается":"обогащается","проверено":"проверено","опубликовано":"опубликовано","скрыто":"в архиве"};
 const LEVEL=p=>p>=80?"Полный профиль":p>=50?"Готов к витрине":p>20?"Известен":"Опознан";
+const linkify=t=>esc(t).replace(/https?:\/\/[^\s<]+/g,u=>`<a href="${u}" target="_blank" rel="noopener">${u.replace(/^https?:\/\/(www\.)?/,"").replace(/\?.*$/,"")}</a>`);
 const cardNo=n=>n?"E-"+String(n).padStart(5,"0"):"—";
 async function vCat(m,p){
  const lim=50,off=+p.offset||0,b=BOOT,cat=p.cat,role=p.role||"";
@@ -577,7 +578,7 @@ async function vCard(m,id){
  const ident=[["ФИО",!!c.name],["Город",!!c.city],["Юрданные",!!g]];
  const ST={"найдено":["✓","#121212","#ffffff"],"ищет робот":["🔍","#EEF2FB","#1E4A8C"],"нужен человек":["👤","#FDF1E3","#7A4E00"],"не нашли":["✗","#FBE9E7","#9A2E1F"]};
  const pill=st=>{const [i,bg,fg]=ST[st]||["·","#eee","#333"];return `<span style="display:inline-block;white-space:nowrap;border-radius:999px;padding:4px 10px;font-size:12.5px;background:${bg};color:${fg}">${i} ${esc(st)}</span>`};
- const passHtml=pass.length?`<div class="tablewrap"><table><thead><tr><th>Что нужно знать</th><th>Зачем</th><th>Статус</th></tr></thead><tbody>${pass.map(f=>`<tr><td><b>${esc(f.label)}</b>${f.val?`<div style="margin-top:3px">${esc(f.val)}</div>`:""}${f.src?`<div class="id">${esc(f.src)}</div>`:""}</td><td class="muted">${esc(f.why)}</td><td>${pill(f.st)}</td></tr>`).join("")}</tbody></table></div>
+ const passHtml=pass.length?`<div class="tablewrap"><table><thead><tr><th>Что нужно знать</th><th>Зачем</th><th>Статус</th></tr></thead><tbody>${pass.map(f=>`<tr><td><b>${esc(f.label)}</b>${f.val?`<div style="margin-top:3px">${linkify(f.val)}</div>`:""}${f.src?`<div class="id">${esc(f.src)}</div>`:""}</td><td class="muted">${esc(f.why)}</td><td>${pill(f.st)}</td></tr>`).join("")}</tbody></table></div>
   <div class="note2">${pill("ищет робот")} — найдёт автопоиск, когда запустим обогащение · ${pill("нужен человек")} — звонок или переписка специалиста · ${pill("не нашли")} — робот искал, дальше только человек</div>`:"";
  const chip=([t,ok])=>`<span style="display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:5px 11px;font-size:13px;${ok?"background:#121212;color:#fff":"border:1px dashed #b9b4b8;color:#6b6b6b"}">${ok?"✓":"+"} ${esc(t)}</span>`;
  // чем занимается
