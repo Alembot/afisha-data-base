@@ -549,29 +549,34 @@ function money(){const a=OPS.apify||{},ai=OPS.ai||{};const pct=a.limit_usd?a.use
  return{apify:{c:ap,name:"Apify — Instagram и 2ГИС",txt:a.ok?`потрачено $${a.used_usd} из $${a.limit_usd} · до ${df(a.cycle_end)}${OPS.ig_budget&&+OPS.ig_budget!==a.limit_usd?` · утверждено $${OPS.ig_budget} в месяц, в аккаунте стоит лимит $${a.limit_usd}`:""}`:"нет ответа от Apify"},
   ai:{c:ai.money_err?"r":ai.last_ok?"g":"y",name:"ИИ (Claude) — разбор и отбор",txt:ai.money_err?"ошибки оплаты за сутки: "+ai.money_err:`запусков за сутки ${ai.runs24||0}, последний успешный ${ago(ai.last_ok)} · баланс через API не виден — смотреть в консоли Anthropic`}}}
 function moneyBlock(){const M=money();return`<section class="panel"><h2 style="margin:0 0 10px">Деньги</h2>${Object.values(M).map(x=>`<div class="srow">${dot(x.c)}<b>${esc(x.name)}</b><span class="muted">${esc(x.txt)}</span></div>`).join("")}</section>`}
-async function vSources(m,p){const L=p.layer||"";
+/* Источники: плитки по типу → реестр с категориями (Кайрат 18.11.2026: смотреть с точки зрения индустрии) */
+let SRC_AF=null,SRC_BASE=null;
+const SRC_TILES=[["instagram","Instagram"],["website","Сайты"],["telegram","Telegram"],["maps","Карты"],["catalog","Каталоги"],["gov","Государство"],["manual","Вручную"]];
+const AF_CAT={place:"Площадки",organizer:"Организаторы",performer:"Артисты","blogger-author":"Блогеры","media-editorial":"Медиа","city_media":"Городские медиа","city-media":"Городские медиа","industry-resource":"Отраслевые ресурсы","official-organization":"Организации","официальный аккаунт":"Организации","community-no-editorial":"Сообщества","ticket-platform":"Билетные операторы","ticket_platform":"Билетные операторы","place_catalog":"Каталоги мест","официальный сайт организации":"Сайты организаций","официальная страница площадки":"Сайты площадок","museum":"Сайты площадок","city_tourism":"Туризм","sports_event":"Спорт","government":"Государственные органы","официальный канал":"Каналы организаций","карты и справочники":"Карты и справочники"};
+function srcAll(){const af=(SRC_AF||[]).filter(x=>x.status!=="отключён"&&x.status!=="архив").map(x=>{
+  let ch=x.channel==="instagram"?"instagram":x.channel==="telegram"?"telegram":x.channel==="web"?"maps":x.account_type==="government"?"gov":"website";
+  return{ch,cat:AF_CAT[x.account_type]||"Без категории",name:x.name,url:x.url,gives:"события",prod:"Афиша",freq:x.freq||(ch==="instagram"?"по расписанию Instagram-роботов":""),status:x.status,last:x.last_checked_at,paid:ch==="instagram"}});
+ const gis=[{ch:"maps",cat:"Карты и справочники",name:"2ГИС",url:"https://2gis.kz",gives:"места, адреса, часы, контакты",prod:"Афиша, Eventer",freq:"сверка раз в месяц",status:"подключён",paid:true}];
+ const PR={afisha:"Афиша",eventer:"Eventer",atlas:"Атлас",academy:"Академия"};
+ const base=(SRC_BASE||[]).map(x=>({ch:x.channel,cat:x.category||"Без категории",name:x.name,url:x.url,gives:(x.gives||[]).join(", "),prod:(x.products||[]).map(k=>PR[k]||k).join(", "),freq:x.freq||"",status:x.status,note:x.note,last:x.updated_at}));
+ return[...af,...gis,...base]}
+async function vSources(m,p){const L=p.layer||"",ch=p.ch||"";
  m.innerHTML=`<div class="empty" role="status">Загружаю источники…</div>`;
- try{if(!OPS)await loadOps()}catch(e){m.innerHTML=`<div class="empty">${esc(e.message)}</div>`;return}
- const AB=BOOT.added_by||{},runs=Object.fromEntries((OPS.runs||[]).map(r=>[r.source,r])),M=money();
- const rs=k=>{const r=runs[k];if(!r)return{c:"x",t:"за неделю не собирали"};return{c:r.last_status==="failed"&&!r.last_ok?"r":r.failed&&r.last_status==="failed"?"y":"g",t:`последний сбор ${ago(r.last)}`}};
- const ig=(OPS.sources||[]).filter(x=>x.channel==="instagram"),igN=ig.reduce((a,x)=>a+x.n,0);
- const TYPES={place:"площадки",organizer:"организаторы",performer:"артисты","blogger-author":"блогеры","media-editorial":"медиа"};
- const igBy={};ig.forEach(x=>{const t=TYPES[x.type]||"прочие";igBy[t]=(igBy[t]||0)+x.n});
- const web=(OPS.sources||[]).filter(x=>x.channel!=="instagram").reduce((a,x)=>a+x.n,0),C=OPS.candidates||{};
- const row=(c,name,what,how,extra)=>`<div class="srow">${dot(c)}<b>${esc(name)}</b><span>${esc(what)}</span><span class="muted">${esc(how)}${extra?" · "+esc(extra):""}</span></div>`;
- const grp=(t,rows)=>rows.length?`<section class="panel"><h2 style="margin:0 0 10px">${t}</h2>${rows.join("")}</section>`:"";
- const afisha=L===""||L==="afisha",eventer=L===""||L==="eventer",atlas=L===""||L==="atlas";
- const out=[];
- if(afisha){
-  out.push(grp("Instagram",[row(M.apify.c==="r"?"r":"g",`Аккаунты · ${nf(igN)}`,"события и места для Афиши",Object.entries(igBy).map(([k,v])=>`${k} ${v}`).join(", "),"платно, через Apify"),
-   row(C.review?"y":"g","Новые источники",`регулярных ${C.regular||0} · эпизодических ${C.episodic||0} · спорных ${C.review||0}`,`ждут разбора ${C["нет"]||0} · отсеяно ${(C.none||0)+(C.skip||0)}`)]));
-  out.push(grp("Сайты",[["sxodim","Sxodim"],["kinokz","Kino.kz"],["yandex_listings","Яндекс Афиша"],["onvibe","Onvibe"],["zakazbiletov","Zakazbiletov"],["topbilet","TopBilet"],["venue","Сайты площадок"]].map(([k,n])=>{const r=rs(k);return row(r.c,n,"события",r.t)}).concat([row("g",`Прочие сайты и Telegram · ${nf(web)}`,"события","подключены как источники Афиши")])));
-  {const r=rs("2gis");out.push(grp("Карты",[row(r.c,"2ГИС","места: адреса, часы работы, контакты",r.t,"платно, через Apify")]))}
- }
- if(eventer)out.push(grp("Каталоги",[row("g","Каталог Eventer (вместе с banqet.kz)",`участники · ${nf(AB.eventer||0)} карточек`,"загружен 13.11, разовая загрузка")]));
- if(atlas)out.push(grp("Госреестр и исследования",[row("g","Госреестр stat.gov.kz",`организации и ИП по ОКЭД · ${nf(AB.statgov||0)} карточек`,"выгрузка вручную, последняя 16.11"),row("g","Атлас v8",`участники рынка · ${nf(AB.atlas||0)} карточек`,"загружен 14.11")]));
- if(L==="")out.push(grp("Вручную",[row("g","Кайрат и владельцы карточек",`${nf(AB.kairat||0)} карточек`,"по мере поступления")]));
- m.innerHTML=`<div class="head"><h1>Источники${L?" · "+esc((H_LAYERS.find(x=>x[0]===L)||[,""])[1]):""}</h1></div>${out.join("")||'<div class="empty">Источников пока нет</div>'}`}
+ try{if(!SRC_AF){const r=await fetch("https://quzgkhzkrhdlyztzbgcc.supabase.co/functions/v1/edb-afisha-admin",{method:"POST",headers:{"content-type":"application/json","x-edb-key":EDB_KEY},body:JSON.stringify({op:"sources_list",args:{}})});const d=await r.json();SRC_AF=Array.isArray(d)?d:[]}
+  if(!SRC_BASE)SRC_BASE=await api("sources")}catch(e){m.innerHTML=`<div class="empty">${esc(e.message)}</div>`;return}
+ const PL={afisha:"Афиша",eventer:"Eventer",atlas:"Атлас",academy:"Академия"}[L];
+ const all=srcAll().filter(x=>!PL||x.prod.includes(PL));
+ const title=`Источники${L?" · "+esc(PL):""}`;
+ if(!ch){
+  const tiles=SRC_TILES.map(([k,t])=>{const n=all.filter(x=>x.ch===k).length;return n||k==="gov"?`<button type="button" class="tile" data-h="${esc(toHash("sources",{layer:L,ch:k}))}"><span class="t" style="font-weight:600">${t}</span><span class="v" style="font-size:28px;font-weight:700">${nf(n)}</span><span class="s">${esc([...new Set(all.filter(x=>x.ch===k).map(x=>x.cat))].slice(0,4).join(" · ")||"собираем список")}</span></button>`:""}).join("");
+  m.innerHTML=`<div class="head"><h1>${title}</h1><div class="muted">всего ${nf(all.length)}</div></div><div class="tiles" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">${tiles}</div>`;return}
+ const list=all.filter(x=>x.ch===ch),cats=[...new Set(list.map(x=>x.cat))].sort((a,b)=>a==="Без категории"?1:b==="Без категории"?-1:list.filter(x=>x.cat===b).length-list.filter(x=>x.cat===a).length);
+ const cat=p.cat||"",shown=cat?list.filter(x=>x.cat===cat):list;
+ const chips=`<div class="hchips">${[["","Все"],...cats.map(c=>[c,c])].map(([k,t])=>`<button type="button" class="hchip${cat===k?" on":""}" aria-pressed="${cat===k}" data-h="${esc(toHash("sources",{layer:L,ch,cat:k}))}">${esc(t)} <span class="hn">${nf(k?list.filter(x=>x.cat===k).length:list.length)}</span></button>`).join("")}</div>`;
+ const rows=shown.map(x=>`<tr><td><b>${x.url?`<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.name)}</a>`:esc(x.name)}</b>${x.note?`<div class="id">${esc(x.note)}</div>`:""}</td><td>${esc(x.cat)}</td><td>${esc(x.gives)}</td><td>${esc(x.prod)}</td><td class="muted">${esc(x.freq||"—")}${x.paid?" · платно":""}</td><td>${esc(x.status)}</td></tr>`).join("");
+ const tname=(SRC_TILES.find(t=>t[0]===ch)||[,""])[1];
+ m.innerHTML=`<button class="btn" data-h="${esc(toHash("sources",{layer:L}))}" style="align-self:flex-start">← Все источники</button><div class="head"><h1>${esc(tname)}</h1><div class="muted">${nf(list.length)} источников</div></div>${chips}
+ ${shown.length?`<div class="tablewrap"><table><thead><tr><th>Источник</th><th>Категория</th><th>Что даёт</th><th>Для кого</th><th>Как часто</th><th>Статус</th></tr></thead><tbody>${rows}</tbody></table></div>`:`<div class="empty">${ch==="gov"?"Список государственных источников собираю — покажу на утверждение.":"Источников пока нет"}</div>`}`}
 /* Каталог роботов: имя задания → [этап, что делает, платный сервис] */
 const RB={"collect-onvibe-daily":["Сбор","Забирает события с Onvibe"],"collect-kinokz-daily":["Сбор","Забирает сеансы кино с Kino.kz"],"collect-kinokz-movies-daily":["Сбор","Забирает фильмы с Kino.kz"],"kinokz-details":["Сбор","Дописывает детали фильмов Kino.kz"],
  "collect-yandex-listings":["Сбор","Забирает события с Яндекс Афиши"],"collect-yandex-fetch":["Сбор","Дочитывает страницы событий Яндекса"],"collect-sxodim":["Сбор","Забирает события с Sxodim"],"collect-zakazbiletov":["Сбор","Забирает события с Zakazbiletov"],"collect-topbilet-daily":["Сбор","Забирает события с TopBilet"],
