@@ -70,6 +70,16 @@ main{flex:1;min-width:0;padding-block:28px 60px;padding-inline:clamp(16px,3.5vw,
 .btn:hover{border-color:var(--accent)}
 .btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
 .btn:focus-visible,.nv:focus-visible,.tile:focus-visible,.chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.hchips{display:flex;flex-wrap:wrap;gap:8px}
+.hchip{font:inherit;font-weight:600;padding:10px 16px;min-height:44px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:inherit;cursor:pointer}
+.hchip.on{background:var(--accent);border-color:var(--accent);color:#fff}.hchip .hn{font-weight:500;opacity:.8}
+.htotal{font-size:18px;cursor:pointer}.htotal b{font-size:24px}
+.hroles{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}.hrole .v{font-size:28px;font-weight:700}
+.hrole.on{border:2px solid var(--accent)}
+.hcats{grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
+.hcat.none,.hsys.none{border-style:dashed;cursor:default;opacity:.75}.hcat.nocat{background:var(--warn-bg);border-color:var(--warn)}
+.hsyss{grid-template-columns:repeat(3,minmax(0,1fr))}
+.hatlas{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}.hatlas>div{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:4px}.hatlas .v{font-size:28px;font-weight:700}
 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
 .tile{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:6px;cursor:pointer;text-align:left}
 .tile:hover{border-color:var(--accent)}
@@ -439,7 +449,7 @@ window.addEventListener("hashchange",route);
 document.addEventListener("click",e=>{const t=e.target.closest("[data-h]");if(t){e.preventDefault();location.hash=t.dataset.h}});
 
 function nav(view){const on=v=>view===v?" on":"";
- return `<button class="brand" data-h="#home" aria-label="На главную">Eventer Data Base</button><span class="tlinks">${PRODUCTS.map(([k,t])=>`<button class="tl${on("p-"+k)}" data-h="#p-${k}">${t}</button>`).join("")}</span>`}
+ return `<button class="brand" data-h="#home" aria-label="На главную">Eventer Data Base</button>`}
 const PRODUCTS=[["afisha","Афиша"],["eventer","Eventer"],["atlas","Atlas"],["academy","Академия"]];
 function route(){if(!READY)return;const {view,p}=parseHash();$("nav").innerHTML=nav(["atlas","oked"].includes(view)?"p-atlas":view);
  const m=$("main");window.scrollTo(0,0);
@@ -454,7 +464,7 @@ function route(){if(!READY)return;const {view,p}=parseHash();$("nav").innerHTML=
  if(view==="atlas")return vAtlas(m,p);
  if(view==="p-afisha"){location.href="afisha/";return}
  if(view.startsWith("p-"))return vProduct(m,view.slice(2));
- vHome(m)}
+ vHome(m,p)}
 
 const tile=(v,t,h,s="")=>`<button class="tile" data-h="${esc(h)}"><span class="v">${nf(v)}</span><span class="t">${esc(t)}</span>${s?`<span class="s">${esc(s)}</span>`:""}</button>`;
 const prodTags=r=>`${r.in_afisha?'<span class="tg m">Афиша</span>':""}${r.in_eventer?'<span class="tg okk">Eventer App</span>':""}`;
@@ -500,21 +510,51 @@ async function vCat(m,p){
  <div class="row"><button class="btn" data-h="${esc(toHash("list",{...base,tile:p.tile||"",offset:Math.max(0,off-lim)}))}"${off===0?" disabled":""}>← Назад</button><span class="note2">${d.total?off+1:0}–${Math.min(off+d.rows.length,d.total)} из ${nf(d.total)}</span><button class="btn" data-h="${esc(toHash("list",{...base,tile:p.tile||"",offset:off+lim}))}"${off+lim>=d.total?" disabled":""}>Далее →</button></div>`}
 
 /* ---------- Главная ---------- */
-function vHome(m){const b=BOOT,arch=b.statuses["скрыто"]||0;
- const big=(v,t,sub,h)=>`<button class="tile" data-h="${esc(h)}" style="padding:22px"><span class="v" style="font-size:40px">${v==null?"…":nf(v)}</span><span class="t" style="font-size:17px">${esc(t)}</span><span class="s">${esc(sub)}</span></button>`;
- m.innerHTML=`<div class="head"><div class="note2">Обновлено: ${esc(dtf(b.at))}</div><button class="btn" id="reload">Обновить</button></div>
- <form class="row" id="qf"><input id="q" placeholder="Поиск: название, Instagram, телефон или БИН" style="flex:1;min-width:240px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;background:var(--surface)"><button class="btn pri">Найти</button></form>
- <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px">
- <section class="panel"><h2>Всего в базе</h2><div class="tiles" style="margin-top:14px;grid-template-columns:1fr 1fr">${big(b.total,"карточек участников",`из них в архиве ${nf(arch)}`,"#members")}${big(b.events.total,"карточек событий",`из них в архиве ${nf(b.events.archive)}`,"#p-afisha")}</div></section>
- <section class="panel"><h2>Статус проверки</h2><div class="tiles" style="margin-top:14px;grid-template-columns:1fr 1fr">${big(b.statuses["найдено"]||0,"карточек на проверке","робот нашёл, ещё не проверены",toHash("list",{status:"найдено"}))}${big((b.statuses["проверено"]||0)+(b.statuses["опубликовано"]||0),"карточек проверено","проверены или опубликованы",toHash("list",{status:"опубликовано"}))}</div></section>
- ${b.statgov_raw?`<section class="panel" style="grid-column:1/-1"><h2>Сырые данные</h2><div class="tiles" style="margin-top:14px;grid-template-columns:repeat(3,minmax(0,1fr))">${big(b.statgov_raw.total,"карточек сырых данных","ждут обогащения","#home")}${big(b.statgov_raw.too,"юрлиц (ТОО и др.)","с юрадресом","#home")}${big(b.statgov_raw.ip,"ИП","без адреса и контактов","#home")}</div></section>`:""}
- <section class="panel"><h2>Афиша</h2><div class="tiles" style="margin-top:14px;grid-template-columns:1fr 1fr">${big(LIVE?.events??null,"карточек событий","на витрине Афиши","#p-afisha")}${big(LIVE?.places??null,"карточек мест","на витрине Афиши","#p-afisha")}</div></section>
- <section class="panel"><h2>Eventer</h2><div class="tiles" style="margin-top:14px;grid-template-columns:1fr 1fr">${big(b.eventer.total,"карточек участников","в базе Eventer","#p-eventer")}${big(b.eventer.in_base,"карточек проверено","в базе Eventer App","#p-eventer")}</div></section>
- <section class="panel" style="grid-column:1/-1"><h2>Участники по городам</h2><div class="tiles" style="margin-top:14px;grid-template-columns:repeat(5,minmax(0,1fr))">${CITY_BIG.map(c=>big(cityN(c),c,"город-миллионник",toHash("list",{city:c}))).join("")}${big(cityGroup("reg").reduce((t,c)=>t+c.n,0),"Областные центры",`${cityGroup("reg").length} городов`,"#cities")}${big(cityGroup("other").reduce((t,c)=>t+c.n,0),"Другие",`${cityGroup("other").length} населённых пунктов, без города и др.`,"#cities")}</div></section>
- </div>`;
+/* ---------- Главная: база экосистемы (макет утверждён Кайратом 18.11.2026) ---------- */
+const H_ROLES=[["площадка","Площадки"],["агентство","Агентства"],["подрядчик","Подрядчики"],["артист","Артисты"],["специалист","Специалисты"],["заказчик","Заказчики"]];
+const H_CATS={
+ "площадка":["Банкетные площадки","Бизнес-площадки","Концертные площадки","Игровые площадки","Спортивные площадки","Особые площадки","Загородные площадки"],
+ "агентство":["Event агентства","Концертные агентства","Агентства деловых мероприятий","Рекламные и PR агентства","Свадебные агентства","Тимбилдинг агентства","Букинговые агентства","Выставочные агентства","Модельные агентства","Event-продюсеры"],
+ "подрядчик":["Техническое обеспечение","Обслуживание/прокат","Кейтеринг","Оформление/декор","Элементы интерактива","Производство","Фото/видео/аудио","Персонал","Подарки"],
+ "артист":["Ведущие","Музыкальная программа","Шоу-программа","DJ/диджеи","Танцевальная программа","Артисты цирка","Атмосферные артисты","Художники и авторы","Актёры и театр"],
+ "специалист":["Креатив","Организация","Фото и видео","Красота и стиль","Техническое сопровождение","Декор и оформление","FNB","Языковое сопровождение","Протокол и сопровождение гостей","Безопасность и логистика","Досуг и активности","Блогеры и медиа","Прочие специалисты"],
+ "заказчик":[]};
+const H_LAYERS=[["","Все"],["afisha","Афиша"],["eventer","Eventer"],["academy","Академия"],["atlas","Атлас"]];
+const H_CITIES=[["ala","Алматы"],["ast","Астана"],["oth","Другие города"]];
+/* Источники · Роботы · Знания у каждого продукта: [название, ссылка или null = скоро] */
+const H_SYS={
+ "":[["Источники","#members"],["Роботы","#review"],["Знания",null]],
+ afisha:[["Источники","afisha/#sources"],["Роботы","afisha/#robot"],["Знания","afisha/#rules"]],
+ eventer:[["Источники",toHash("list",{product:"eventer"})],["Роботы","#review"],["Знания",null]],
+ academy:[["Источники",null],["Роботы",null],["Знания",null]],
+ atlas:[["Источники","#members"],["Роботы",null],["Знания","#oked"]]};
+let HOME=null;
+async function vHome(m,p={}){
+ if(!HOME){m.innerHTML=`<div class="empty" role="status">Загружаю базу…</div>`;try{HOME=(await api("home")).rows}catch(e){m.innerHTML=`<div class="empty">${esc(e.message)}</div>`;return}}
+ const L=p.layer||"",role=p.role||"площадка",city=p.city||"";
+ const v=r=>L==="afisha"?r[4]:L==="eventer"?r[5]:L==="atlas"?r[6]+r[7]+r[8]:L==="academy"?0:r[3];
+ const sum=f=>HOME.filter(f).reduce((a,r)=>a+v(r),0);
+ const inCity=r=>!city||r[2]===city;
+ const h=o=>toHash("home",{layer:L,role,city,...o});
+ const chip=(on,lbl,href,extra="")=>`<button type="button" class="hchip${on?" on":""}" aria-pressed="${on}" data-h="${esc(href)}">${esc(lbl)}${extra}</button>`;
+ const total=L==="academy"?null:sum(inCity);
+ const atlasTop=L==="atlas"?`<div class="hatlas"><div><span class="v">${nf(HOME.filter(inCity).reduce((a,r)=>a+r[6]+r[7],0))}</span><span class="t">Индустрия событий · уровни 1–2</span></div><div><span class="v">${nf(HOME.filter(inCity).reduce((a,r)=>a+r[6]+r[7]+r[8],0))}</span><span class="t">Экономический эффект · уровни 1–3</span></div></div>`:"";
+ const roles=H_ROLES.map(([k,t])=>`<button type="button" class="tile hrole${k===role?" on":""}" aria-pressed="${k===role}" data-h="${esc(h({role:k}))}"><span class="t" style="font-weight:600">${esc(t)}</span><span class="v">${L==="academy"?"—":nf(sum(r=>r[0]===k&&inCity(r)))}</span></button>`).join("");
+ const cities=H_CITIES.map(([k,t])=>chip(city===k,t,h({city:city===k?"":k}),` <span class="hn">${nf(sum(r=>r[0]===role&&r[2]===k))}</span>`)).join("");
+ const cityName={ala:"Алматы",ast:"Астана"}[city]||"";
+ const catTile=name=>{const n=sum(r=>r[0]===role&&r[1]===name&&inCity(r));const no=name==="Без категории";
+  if(no&&!n)return"";
+  return`<button type="button" class="tile hcat${!n?" none":no?" nocat":""}" data-h="${esc(toHash("list",{role,city:cityName,product:L==="afisha"||L==="eventer"?L:""}))}"><span class="t" style="font-weight:600">${esc(name)}</span><span class="v" style="font-size:20px">${n?nf(n):"—"}</span></button>`};
+ const sys=(H_SYS[L]||H_SYS[""]).map(([t,href])=>href?(href[0]==="#"?`<button type="button" class="tile hsys" data-h="${esc(href)}"><span class="t" style="font-weight:600">${esc(t)}</span></button>`:`<a class="tile hsys" href="${esc(href)}" style="color:inherit;text-decoration:none"><span class="t" style="font-weight:600">${esc(t)}</span></a>`):`<div class="tile hsys none" aria-disabled="true"><span class="t" style="font-weight:600">${esc(t)}</span><span class="s">скоро</span></div>`).join("");
+ m.innerHTML=`<div class="head" style="align-items:baseline"><div class="htotal" role="button" tabindex="0" data-h="#members">Всего карточек <b>${total==null?"—":nf(total)}</b></div>
+ <form class="row" id="qf" style="flex:1;justify-content:flex-end"><input id="q" aria-label="Поиск" placeholder="Поиск: название, Instagram, телефон или БИН" style="flex:1;max-width:420px;min-width:220px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;background:var(--surface)"><button class="btn pri">Найти</button></form></div>
+ <div class="hchips">${H_LAYERS.map(([k,t])=>chip(L===k,t,h({layer:k}))).join("")}</div>
+ ${atlasTop}
+ <div class="tiles hroles">${roles}</div>
+ <section class="panel" style="display:flex;flex-direction:column;gap:16px"><div class="head" style="margin:0"><h2 style="margin:0">${esc((H_ROLES.find(x=>x[0]===role)||[,""])[1])}</h2><div class="hchips">${cities}</div></div>
+ <div class="tiles hcats">${[...new Set([...H_CATS[role],...HOME.filter(r=>r[0]===role).map(r=>r[1]).filter(c=>c!=="Без категории"),"Без категории"])].map(catTile).join("")||'<div class="empty">Категорий пока нет</div>'}</div></section>
+ <div class="tiles hsyss">${sys}</div>`;
  $("qf").onsubmit=e=>{e.preventDefault();go(toHash("list",{q:$("q").value.trim()}))};
- $("reload").onclick=async()=>{$("reload").disabled=true;try{BOOT=await api("bootstrap");LIVE=null;loadLive();vHome(m)}catch(e){toast(e.message)}};
- if(!LIVE)loadLive();
 }
 
 /* Витрина Афиши на главной — живые цифры рабочей базы Афиши (как на экране «Афиша»), до переключения на общую базу */
