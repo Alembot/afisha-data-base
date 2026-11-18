@@ -637,11 +637,21 @@ async function vDirs(m,kind){
    const inner=roots.map(r=>{const k=kids(r.id);return`<div style="margin:0 0 10px"><b>${esc(r.name)}</b>${k.length?`<div class="muted" style="margin-top:3px">${k.map(x=>esc(x.name)).join(" · ")}</div>`:""}</div>`}).join("")||'<div class="muted">Пусто</div>';
    return box(`${esc(c.name)} <span class="muted" style="font-weight:400">${nf(c.items.length)}</span>`,inner,c.name==="Категории по ролям")}).join("");
   m.innerHTML=back+`<div class="head"><h1>Справочники Eventer</h1></div>${cats}`;return}
- const g={};DIRS.persons.forEach(x=>{(g[x.grp]=g[x.grp]||[]).push(x)});
- const pers=Object.entries(g).map(([grp,list])=>`<h3 style="margin:8px 0">${esc(grp)}</h3>`+list.map(x=>`<div style="margin:0 0 10px"><b>${esc(x.category)}</b> <span class="muted">${[x.afisha?"Афиша":"",x.eventer?"Eventer":""].filter(Boolean).join(" · ")}</span>${(x.subcats||[]).length?`<div class="muted" style="margin-top:3px">${x.subcats.map(esc).join(" · ")}</div>`:""}</div>`).join("")).join("");
+ if(!HOME){try{HOME=(await api("home")).rows}catch{HOME=[]}}
+ const role=(parseHash().p.role)||"артист";
+ const ROLES_D=[["артист","Артисты"],["специалист","Специалисты"],["площадка","Площадки"],["агентство","Агентства"],["подрядчик","Подрядчики"]];
+ const catBook=(DIRS.eventer.find(c=>c.name==="Категории по ролям")||{items:[]}).items;
+ const ex=name=>{const r=catBook.find(i=>!i.parent&&i.name===name);return r?catBook.filter(i=>i.parent===r.id).slice(0,4).map(i=>i.name.toLowerCase()).join(", "):""};
+ const cnt=(r,c)=>HOME.filter(x=>x[0]===r&&x[1]===c).reduce((a,x)=>a+x[3],0);
+ const rows=(DIRS.cats||[]).filter(c=>c.role===role);
+ const nocat=HOME.filter(x=>x[0]===role&&x[1]==="Без категории").reduce((a,x)=>a+x[3],0);
+ const pers=`<div class="hchips" style="margin-bottom:12px">${ROLES_D.map(([k,t])=>`<button type="button" class="hchip${k===role?" on":""}" aria-pressed="${k===role}" data-h="#dirs?role=${encodeURIComponent(k)}">${t}</button>`).join("")}</div>
+ <div class="tablewrap"><table><thead><tr><th>Категория</th><th>Кто это</th><th>Примеры</th><th>В Афише</th><th>В Eventer</th><th style="text-align:right">Карточек</th></tr></thead><tbody>
+ ${rows.map(c=>`<tr><td><b>${esc(c.category)}</b>${c.ours?'<div class="id">наше дополнение</div>':""}</td><td>${esc(c.who||"")}</td><td class="muted">${esc(ex(c.category)||"—")}</td><td>${c.afisha?"показываем":'<span class="muted">—</span>'}</td><td>${c.eventer?"можно заказать":'<span class="muted">—</span>'}</td><td style="text-align:right">${nf(cnt(role,c.category))}</td></tr>`).join("")}
+ ${nocat?`<tr><td><b>Без категории</b></td><td class="muted">Ещё не разнесены по категориям</td><td></td><td></td><td></td><td style="text-align:right">${nf(nocat)}</td></tr>`:""}</tbody></table></div>`;
  const LAY={core:"Ядро",afisha:"Афиша",eventer:"Eventer",academy:"Академия",atlas:"Атлас"};
  const pass=DIRS.passports.map(p=>box(`Паспорт: ${esc(p.scope)}`,`<div class="tablewrap"><table><thead><tr><th>Что нужно знать</th><th>Слой</th><th>Зачем</th></tr></thead><tbody>${(p.passport||[]).map(f=>`<tr><td><b>${esc(f.label)}</b></td><td>${esc(LAY[f.layer]||f.layer||"")}</td><td class="muted">${esc(f.why||"")}</td></tr>`).join("")}</tbody></table></div>`)).join("");
- m.innerHTML=back+`<div class="head"><h1>Справочники базы</h1></div>${box("Категории физлиц",pers,true)}${pass}${box("Категории Eventer по ролям",`<a href="#dirs-eventer" data-h="#dirs-eventer">Открыть справочники Eventer</a>`)}${box("ОКЭД и уровни Атласа",`<a href="#oked" data-h="#oked">Открыть справочник ОКЭД</a>`)}`;
+ m.innerHTML=back+`<div class="head"><h1>Справочники базы</h1></div>${box("Категории участников",pers,true)}${pass}${box("Другие справочники Eventer",`<a href="#dirs-eventer" data-h="#dirs-eventer">Типы событий, цены, сегменты заказчиков и другие</a>`)}${box("ОКЭД и уровни Атласа",`<a href="#oked" data-h="#oked">Открыть справочник ОКЭД</a>`)}`;
 }
 let HOME=null,EVH=null,EVH_LOADING=false;
 async function loadEvH(){if(EVH_LOADING)return;EVH_LOADING=true;try{const r=await fetch("https://quzgkhzkrhdlyztzbgcc.supabase.co/functions/v1/edb-afisha-admin",{method:"POST",headers:{"content-type":"application/json","x-edb-key":EDB_KEY},body:JSON.stringify({op:"edb_events_home",args:{}})});const d=await r.json();if(r.ok&&d&&d.rows){EVH=d.rows;const q=parseHash();if(q.view==="home")vHome($("main"),q.p)}}catch{}finally{EVH_LOADING=false}}
