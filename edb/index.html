@@ -80,6 +80,10 @@ main{flex:1;min-width:0;padding-block:28px 60px;padding-inline:clamp(16px,3.5vw,
 .hcat.none,.hsys.none{border-style:dashed;cursor:default;opacity:.75}.hcat.nocat{background:var(--warn-bg);border-color:var(--warn)}
 .hsyss{grid-template-columns:repeat(3,minmax(0,1fr))}
 .hatlas{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}.hatlas>div{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:4px}.hatlas .v{font-size:28px;font-weight:700}
+.srow{display:grid;grid-template-columns:14px minmax(180px,1.2fr) minmax(140px,1fr) minmax(160px,1.2fr);gap:4px 12px;align-items:baseline;padding:9px 0;border-top:1px solid var(--line)}.srow:first-of-type{border-top:0}
+@media (max-width:720px){.srow{grid-template-columns:14px 1fr}.srow>span{grid-column:2}}
+.sdot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#9AA0A6}.sdot.g{background:#2E9E5B}.sdot.y{background:#E0A100}.sdot.r{background:#D93A2B}.sdot.x{background:#C3C7CC}.sdot.n{background:transparent;border:2px solid #9AA0A6;width:8px;height:8px}
+.paytag{display:inline-flex;align-items:center;gap:4px}
 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
 .tile{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:6px;cursor:pointer;text-align:left}
 .tile:hover{border-color:var(--accent)}
@@ -449,12 +453,14 @@ window.addEventListener("hashchange",route);
 document.addEventListener("click",e=>{const t=e.target.closest("[data-h]");if(t){e.preventDefault();location.hash=t.dataset.h}});
 
 function nav(view){const on=v=>view===v?" on":"";
- const L=view==="home"?(parseHash().p.layer||""):view==="dirs-eventer"?"eventer":view==="oked"?"atlas":"";
+ const L=["home","sources","robots"].includes(view)?(parseHash().p.layer||""):view==="dirs-eventer"?"eventer":view==="oked"?"atlas":"";
  const sys=(typeof H_SYS!=="undefined"?(H_SYS[L]||H_SYS[""]):[]).map(([t,href])=>href?(href[0]==="#"?`<button class="tl" data-h="${esc(href)}">${t}</button>`:`<a class="tl" href="${esc(href)}">${t}</a>`):`<span class="tl" aria-disabled="true" style="opacity:.45">${t}</span>`).join("");
  return `<button class="brand" data-h="#home" aria-label="На главную">Eventer Data Base</button><span class="tlinks">${sys}</span>`}
 const PRODUCTS=[["afisha","Афиша"],["eventer","Eventer"],["atlas","Atlas"],["academy","Академия"]];
 function route(){if(!READY)return;const {view,p}=parseHash();$("nav").innerHTML=nav(["atlas","oked"].includes(view)?"p-atlas":view);
  const m=$("main");window.scrollTo(0,0);
+ if(view==="sources")return vSources(m,p);
+ if(view==="robots")return vRobots(m,p);
  if(view==="dirs")return vDirs(m,"base");
  if(view==="dirs-eventer")return vDirs(m,"eventer");
  if(view==="list")return vList(m,p);
@@ -527,11 +533,89 @@ const H_LAYERS=[["","Все"],["afisha","Афиша"],["eventer","Eventer"],["ac
 const H_CITIES=[["ala","Алматы"],["ast","Астана"],["oth","Другие города"]];
 /* Источники · Роботы · Знания у каждого продукта: [название, ссылка или null = скоро] */
 const H_SYS={
- "":[["Источники","#members"],["Роботы","#review"],["Знания",null],["Справочники","#dirs"]],
- afisha:[["Источники","afisha/#sources"],["Роботы","afisha/#robot"],["Знания","afisha/#rules"],["Справочники","afisha/#dirs"]],
- eventer:[["Источники",toHash("list",{product:"eventer"})],["Роботы","#review"],["Знания",null],["Справочники","#dirs-eventer"]],
+ "":[["Источники","#sources"],["Роботы","#robots"],["Знания",null],["Справочники","#dirs"]],
+ afisha:[["Источники","#sources?layer=afisha"],["Роботы","#robots?layer=afisha"],["Знания","afisha/#rules"],["Справочники","afisha/#dirs"]],
+ eventer:[["Источники","#sources?layer=eventer"],["Роботы","#robots?layer=eventer"],["Знания",null],["Справочники","#dirs-eventer"]],
  academy:[["Источники",null],["Роботы",null],["Знания",null],["Справочники",null]],
- atlas:[["Источники","#members"],["Роботы",null],["Знания",null],["Справочники","#oked"]]};
+ atlas:[["Источники","#sources?layer=atlas"],["Роботы","#robots?layer=atlas"],["Знания",null],["Справочники","#oked"]]};
+/* ---------- Источники и Роботы (концепция Кайрата 18.11.2026) ---------- */
+let OPS=null;
+async function loadOps(){const r=await fetch("https://quzgkhzkrhdlyztzbgcc.supabase.co/functions/v1/edb-afisha-admin",{method:"POST",headers:{"content-type":"application/json","x-edb-key":EDB_KEY},body:JSON.stringify({op:"edb_ops",args:{}})});const d=await r.json();if(!r.ok||!d||d.error)throw new Error(d?.error||"Афиша не ответила");OPS=d;return d}
+const ago=t=>{if(!t)return"—";const m=(Date.now()-new Date(t))/6e4;return m<60?Math.max(1,Math.round(m))+" мин назад":m<1440?Math.round(m/60)+" ч назад":Math.round(m/1440)+" дн назад"};
+const dot=c=>`<span class="sdot ${c}" aria-hidden="true"></span>`;
+const ST_TXT={g:"работает",y:"есть сбои",r:"не работает",x:"выключен",n:"не отслеживается"};
+function money(){const a=OPS.apify||{},ai=OPS.ai||{};const pct=a.limit_usd?a.used_usd/a.limit_usd:0;
+ const ap=!a.ok?"r":pct>=1?"r":pct>=.75?"y":"g";
+ return{apify:{c:ap,name:"Apify — Instagram и 2ГИС",txt:a.ok?`потрачено $${a.used_usd} из $${a.limit_usd} · до ${df(a.cycle_end)}${OPS.ig_budget&&+OPS.ig_budget!==a.limit_usd?` · утверждено $${OPS.ig_budget} в месяц, в аккаунте стоит лимит $${a.limit_usd}`:""}`:"нет ответа от Apify"},
+  ai:{c:ai.money_err?"r":ai.last_ok?"g":"y",name:"ИИ (Claude) — разбор и отбор",txt:ai.money_err?"ошибки оплаты за сутки: "+ai.money_err:`запусков за сутки ${ai.runs24||0}, последний успешный ${ago(ai.last_ok)} · баланс через API не виден — смотреть в консоли Anthropic`}}}
+function moneyBlock(){const M=money();return`<section class="panel"><h2 style="margin:0 0 10px">Деньги</h2>${Object.values(M).map(x=>`<div class="srow">${dot(x.c)}<b>${esc(x.name)}</b><span class="muted">${esc(x.txt)}</span></div>`).join("")}</section>`}
+async function vSources(m,p){const L=p.layer||"";
+ m.innerHTML=`<div class="empty" role="status">Загружаю источники…</div>`;
+ try{if(!OPS)await loadOps()}catch(e){m.innerHTML=`<div class="empty">${esc(e.message)}</div>`;return}
+ const AB=BOOT.added_by||{},runs=Object.fromEntries((OPS.runs||[]).map(r=>[r.source,r])),M=money();
+ const rs=k=>{const r=runs[k];if(!r)return{c:"x",t:"за неделю не собирали"};return{c:r.last_status==="failed"&&!r.last_ok?"r":r.failed&&r.last_status==="failed"?"y":"g",t:`последний сбор ${ago(r.last)}`}};
+ const ig=(OPS.sources||[]).filter(x=>x.channel==="instagram"),igN=ig.reduce((a,x)=>a+x.n,0);
+ const TYPES={place:"площадки",organizer:"организаторы",performer:"артисты","blogger-author":"блогеры","media-editorial":"медиа"};
+ const igBy={};ig.forEach(x=>{const t=TYPES[x.type]||"прочие";igBy[t]=(igBy[t]||0)+x.n});
+ const web=(OPS.sources||[]).filter(x=>x.channel!=="instagram").reduce((a,x)=>a+x.n,0),C=OPS.candidates||{};
+ const row=(c,name,what,how,extra)=>`<div class="srow">${dot(c)}<b>${esc(name)}</b><span>${esc(what)}</span><span class="muted">${esc(how)}${extra?" · "+esc(extra):""}</span></div>`;
+ const grp=(t,rows)=>rows.length?`<section class="panel"><h2 style="margin:0 0 10px">${t}</h2>${rows.join("")}</section>`:"";
+ const afisha=L===""||L==="afisha",eventer=L===""||L==="eventer",atlas=L===""||L==="atlas";
+ const out=[];
+ if(afisha){
+  out.push(grp("Instagram",[row(M.apify.c==="r"?"r":"g",`Аккаунты · ${nf(igN)}`,"события и места для Афиши",Object.entries(igBy).map(([k,v])=>`${k} ${v}`).join(", "),"платно, через Apify"),
+   row(C.review?"y":"g","Новые источники",`регулярных ${C.regular||0} · эпизодических ${C.episodic||0} · спорных ${C.review||0}`,`ждут разбора ${C["нет"]||0} · отсеяно ${(C.none||0)+(C.skip||0)}`)]));
+  out.push(grp("Сайты",[["sxodim","Sxodim"],["kinokz","Kino.kz"],["yandex_listings","Яндекс Афиша"],["onvibe","Onvibe"],["zakazbiletov","Zakazbiletov"],["topbilet","TopBilet"],["venue","Сайты площадок"]].map(([k,n])=>{const r=rs(k);return row(r.c,n,"события",r.t)}).concat([row("g",`Прочие сайты и Telegram · ${nf(web)}`,"события","подключены как источники Афиши")])));
+  {const r=rs("2gis");out.push(grp("Карты",[row(r.c,"2ГИС","места: адреса, часы работы, контакты",r.t,"платно, через Apify")]))}
+ }
+ if(eventer)out.push(grp("Каталоги",[row("g","Каталог Eventer (вместе с banqet.kz)",`участники · ${nf(AB.eventer||0)} карточек`,"загружен 13.11, разовая загрузка")]));
+ if(atlas)out.push(grp("Госреестр и исследования",[row("g","Госреестр stat.gov.kz",`организации и ИП по ОКЭД · ${nf(AB.statgov||0)} карточек`,"выгрузка вручную, последняя 16.11"),row("g","Атлас v8",`участники рынка · ${nf(AB.atlas||0)} карточек`,"загружен 14.11")]));
+ if(L==="")out.push(grp("Вручную",[row("g","Кайрат и владельцы карточек",`${nf(AB.kairat||0)} карточек`,"по мере поступления")]));
+ m.innerHTML=`<div class="head"><h1>Источники${L?" · "+esc((H_LAYERS.find(x=>x[0]===L)||[,""])[1]):""}</h1></div>${out.join("")||'<div class="empty">Источников пока нет</div>'}`}
+/* Каталог роботов: имя задания → [этап, что делает, платный сервис] */
+const RB={"collect-onvibe-daily":["Сбор","Забирает события с Onvibe"],"collect-kinokz-daily":["Сбор","Забирает сеансы кино с Kino.kz"],"collect-kinokz-movies-daily":["Сбор","Забирает фильмы с Kino.kz"],"kinokz-details":["Сбор","Дописывает детали фильмов Kino.kz"],
+ "collect-yandex-listings":["Сбор","Забирает события с Яндекс Афиши"],"collect-yandex-fetch":["Сбор","Дочитывает страницы событий Яндекса"],"collect-sxodim":["Сбор","Забирает события с Sxodim"],"collect-zakazbiletov":["Сбор","Забирает события с Zakazbiletov"],"collect-topbilet-daily":["Сбор","Забирает события с TopBilet"],
+ "collect-instagram-ingest":["Сбор","Принимает посты Instagram","apify"],"instagram-night-1-15":["Сбор","Читает Instagram клубов и баров","apify"],"instagram-wellness-8-22":["Сбор","Читает Instagram студий, галерей, СПА","apify"],"instagram-city-2d":["Сбор","Читает Instagram городских источников","apify"],"instagram-reels-daily":["Сбор","Собирает Reels","apify"],
+ "collect-2gis-ingest":["Сбор","Принимает места из 2ГИС","apify"],"read-venues-daily":["Сбор","Читает сайты площадок"],"experiences-import":["Сбор","Загружает впечатления"],
+ "read-posts":["Разбор","Читает посты и находит анонсы","ai"],"collector-posts-to-events":["Разбор","Превращает анонсы в события"],"enrich-events":["Разбор","Дописывает события: описание, категория, настроение","ai"],"relabel-events-v2":["Разбор","Переразмечает события по новым правилам","ai"],
+ "resolve-events":["Разбор","Находит дубли событий","ai"],"collector-daily-merge":["Разбор","Склеивает собранные события с базой"],"collector-merge-new":["Разбор","Склеивает новые события"],"collector-merge-places":["Разбор","Склеивает места"],"collector-route-not-events":["Разбор","Убирает то, что не события"],
+ "collector-route-place-cards":["Разбор","Раскладывает места по карточкам"],"places-fill-for-whom":["Разбор","Пишет «для кого» у мест"],"events-fill-description":["Разбор","Дописывает описания событий"],"events-fill-media":["Разбор","Подбирает фото событиям"],
+ "events-screen":["Отбор","Отбирает события тебе на согласование","ai"],"reels-screen":["Отбор","Отбирает Reels тебе на согласование","ai"],"showcase-score":["Отбор","Оценивает события для витрины","ai"],"collector-weekly-evenings":["Отбор","Собирает подборку вечеров недели"],
+ "source-scout":["Отбор","Ищет новые источники в Instagram","ai"],"source-tier":["Отбор","Раскладывает новые источники: регулярный, эпизодический, спорный","ai"],
+ "media-copy":["Медиа","Копирует фото к себе"],"reels-copy":["Медиа","Копирует видео Reels (только H.264)"],"showcase-thumbs":["Медиа","Делает превью для витрины"],
+ "collector-health":["Обслуживание","Проверяет расход Apify"],"actualize-nightly":["Обслуживание","Проверяет, что события ещё актуальны"],"actualize-links-collect":["Обслуживание","Проверяет ссылки на билеты"],"places-2gis-verify-monthly":["Обслуживание","Раз в месяц сверяет места с 2ГИС","apify"],
+ "places-2gis-flags":["Обслуживание","Помечает закрывшиеся места по 2ГИС"],"gis-verify":["Обслуживание","Сверяет места с 2ГИС"],"stats-daily-snapshot":["Обслуживание","Снимает статистику за день"],"beta-digest-daily":["Обслуживание","Шлёт сводку по бета-тесту"]};
+const RUNSRC={"collect-instagram-ingest":"instagram","instagram-night-1-15":"instagram","instagram-wellness-8-22":"instagram","instagram-city-2d":"instagram","instagram-reels-daily":"instagram","read-venues-daily":"venue","collect-2gis-ingest":"2gis","relabel-events-v2":"relabel_events","collect-yandex-fetch":"yandex","collector-daily-merge":"merge","collector-merge-new":"merge","actualize-nightly":"actualize","experiences-import":"experiences_import","source-scout":"source_scout"};
+const STAGES=["Сбор","Разбор","Отбор","Медиа","Обслуживание"];
+function cronHuman(c,cond){const[mi,h,dm,,dw]=c.split(" ");const tz=x=>{const H=(+x+5)%24;return String(H).padStart(2,"0")};const mm=x=>String(x).padStart(2,"0");let t;
+ const ev=/^(?:\*|\d+-59)\/(\d+)$/.exec(mi);
+ if(ev&&h==="*")t=`каждые ${ev[1]} мин`;
+ else if(mi==="*"&&h==="*")t="каждую минуту";
+ else if(/^\d+$/.test(mi)&&h==="*")t="каждый час";
+ else if(/^\d+(,\d+)+$/.test(mi)&&h==="*")t=`${mi.split(",").length} раза в час`;
+ else if(/^\d+$/.test(mi)&&/^\*\/(\d+)$/.test(h))t=`каждые ${h.split("/")[1]} ч`;
+ else if(/^\d+$/.test(mi)&&/^\d+$/.test(h)){const at=`в ${tz(h)}:${mm(mi)}`;
+  t=dw==="1"?`по понедельникам ${at}`:/^\*\/(\d+)$/.test(dm)?`раз в ${dm.split("/")[1]} дня ${at}`:/^[\d,]+$/.test(dm)?`${dm.split(",").join(" и ")} числа ${at}`:`каждый день ${at}`}
+ else t=c;
+ return t+(cond?", если есть работа":"")}
+async function vRobots(m,p){const L=p.layer||"";
+ m.innerHTML=`<div class="empty" role="status">Загружаю роботов…</div>`;
+ try{if(!OPS)await loadOps()}catch(e){m.innerHTML=`<div class="empty">${esc(e.message)}</div>`;return}
+ const M=money();const base=n=>n.replace(/-[abc]$/,"");const by={};
+ (OPS.jobs||[]).forEach(j=>{const k=base(j.name);const x=by[k]||(by[k]={name:k,jobs:[]});x.jobs.push(j)});
+ const robots=Object.values(by).map(r=>{const meta=RB[r.name]||["Обслуживание",r.name];const j=r.jobs;const active=j.some(x=>x.active);
+  const last=j.map(x=>x.last).filter(Boolean).sort().pop();const failed=j.some(x=>x.active&&x.last_status==="failed");const fails=j.reduce((a,x)=>a+(x.fails7||0),0);
+  const rsrc=RUNSRC[r.name]||r.name.replace(/^collect-/,"").replace(/-(daily|v2|ingest)$/,"").replace(/-/g,"_");const run=(OPS.runs||[]).find(x=>x.source===rsrc);
+  const runBad=run&&run.last_status==="failed"&&!run.last_ok,runWarn=run&&run.failed>(run.ok+run.failed)*.2;
+  let c=!active?"x":(failed||runBad)?"r":(fails||runWarn)?"y":"g";const pay=meta[2]&&M[meta[2]];if(active&&pay&&pay.c==="r")c="r";
+  return{stage:meta[0],txt:meta[1],c,pay:meta[2]?(meta[2]==="apify"?"Apify":"ИИ"):"",payC:pay?pay.c:"",sched:cronHuman(j[0].schedule,false)+(j.length>1?` · ${j.length} запуска подряд`:""),last}});
+ const showAfisha=L===""||L==="afisha";
+ const baseRobots=[{stage:"Разбор",txt:"Склейка двойников в общей базе",c:"n",sched:"по запросу",last:null,pay:""},{stage:"Разбор",txt:"Разнос карточек по категориям Eventer",c:"n",sched:"по запросу",last:null,pay:"ИИ"},{stage:"Разбор",txt:"Уровни Атласа по ОКЭД",c:"g",sched:"при загрузке карточек",last:"2026-11-18T06:50:00Z",pay:""},{stage:"Сбор",txt:"Обогащение карточек из интернета",c:"x",sched:"на паузе — нет бюджета (~$145 за 4 003 ИП)",last:null,pay:"ИИ"}]
+  .filter(r=>L===""||(L==="atlas"&&/Атлас|Обогащ/.test(r.txt))||(L==="eventer"&&/двойник|Eventer/.test(r.txt)));
+ const list=[...(showAfisha?robots:[]),...baseRobots];
+ const cnt=k=>list.filter(r=>r.c===k).length;
+ const sec=STAGES.map(st=>{const rs=list.filter(r=>r.stage===st);if(!rs.length)return"";return`<section class="panel"><h2 style="margin:0 0 10px">${st} <span class="muted" style="font-weight:400">${rs.length}</span></h2>${rs.map(r=>`<div class="srow">${dot(r.c)}<b>${esc(r.txt)}</b><span class="muted">${esc(r.sched)}</span><span class="muted">${r.last?"был "+ago(r.last):ST_TXT[r.c]}${r.pay?` · <span class="paytag">${dot(r.payC||"n")}${esc(r.pay)}</span>`:""}</span></div>`).join("")}</section>`}).join("");
+ m.innerHTML=`<div class="head"><h1>Роботы${L?" · "+esc((H_LAYERS.find(x=>x[0]===L)||[,""])[1]):""}</h1><div class="muted">${dot("g")}работают ${cnt("g")} · ${dot("y")}сбои ${cnt("y")} · ${dot("r")}стоят ${cnt("r")} · ${dot("x")}выключены ${cnt("x")}</div></div>${showAfisha||L===""?moneyBlock():""}${sec}`}
 /* ---------- Справочники (только просмотр) ---------- */
 let DIRS=null;
 async function vDirs(m,kind){
