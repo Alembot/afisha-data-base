@@ -84,6 +84,8 @@ main{flex:1;min-width:0;padding-block:28px 60px;padding-inline:clamp(16px,3.5vw,
 @media (max-width:720px){.srow{grid-template-columns:14px 1fr}.srow>span{grid-column:2}}
 .sdot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#9AA0A6}.sdot.g{background:#2E9E5B}.sdot.y{background:#E0A100}.sdot.r{background:#D93A2B}.sdot.x{background:#C3C7CC}.sdot.n{background:transparent;border:2px solid #9AA0A6;width:8px;height:8px}
 .paytag{display:inline-flex;align-items:center;gap:4px}
+.drow{padding:8px 0;border-top:1px solid var(--line)}.drow:first-child{border-top:0}
+.dchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.dchip{font-size:13px;padding:4px 10px;border-radius:999px;background:var(--bg,#F4F2EE);border:1px solid var(--line)}
 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
 .tile{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:6px;cursor:pointer;text-align:left}
 .tile:hover{border-color:var(--accent)}
@@ -534,10 +536,10 @@ const H_CITIES=[["ala","Алматы"],["ast","Астана"],["oth","Други
 /* Источники · Роботы · Знания у каждого продукта: [название, ссылка или null = скоро] */
 const H_SYS={
  "":[["Источники","#sources"],["Роботы","#robots"],["Знания",null],["Справочники","#dirs"]],
- afisha:[["Источники","#sources?layer=afisha"],["Роботы","#robots?layer=afisha"],["Знания","afisha/#rules"],["Справочники","afisha/#dirs"]],
- eventer:[["Источники","#sources?layer=eventer"],["Роботы","#robots?layer=eventer"],["Знания",null],["Справочники","#dirs-eventer"]],
+ afisha:[["Источники","#sources?layer=afisha"],["Роботы","#robots?layer=afisha"],["Знания","afisha/#rules"],["Справочники","#dirs"]],
+ eventer:[["Источники","#sources?layer=eventer"],["Роботы","#robots?layer=eventer"],["Знания",null],["Справочники","#dirs"]],
  academy:[["Источники",null],["Роботы",null],["Знания",null],["Справочники",null]],
- atlas:[["Источники","#sources?layer=atlas"],["Роботы","#robots?layer=atlas"],["Знания",null],["Справочники","#oked"]]};
+ atlas:[["Источники","#sources?layer=atlas"],["Роботы","#robots?layer=atlas"],["Знания",null],["Справочники","#dirs?t=oked"]]};
 /* ---------- Источники и Роботы (концепция Кайрата 18.11.2026) ---------- */
 let OPS=null;
 async function loadOps(){const r=await fetch("https://quzgkhzkrhdlyztzbgcc.supabase.co/functions/v1/edb-afisha-admin",{method:"POST",headers:{"content-type":"application/json","x-edb-key":EDB_KEY},body:JSON.stringify({op:"edb_ops",args:{}})});const d=await r.json();if(!r.ok||!d||d.error)throw new Error(d?.error||"Афиша не ответила");OPS=d;return d}
@@ -626,32 +628,59 @@ async function vRobots(m,p){const L=p.layer||"";
  const cnt=k=>list.filter(r=>r.c===k).length;
  const sec=STAGES.map(st=>{const rs=list.filter(r=>r.stage===st);if(!rs.length)return"";return`<section class="panel"><h2 style="margin:0 0 10px">${st} <span class="muted" style="font-weight:400">${rs.length}</span></h2>${rs.map(r=>`<div class="srow">${dot(r.c)}<b>${esc(r.txt)}</b><span class="muted">${esc(r.sched)}</span><span class="muted">${r.last?"был "+ago(r.last):ST_TXT[r.c]}${r.pay?` · <span class="paytag">${dot(r.payC||"n")}${esc(r.pay)}</span>`:""}</span></div>`).join("")}</section>`}).join("");
  m.innerHTML=`<div class="head"><h1>Роботы${L?" · "+esc((H_LAYERS.find(x=>x[0]===L)||[,""])[1]):""}</h1><div class="muted">${dot("g")}работают ${cnt("g")} · ${dot("y")}сбои ${cnt("y")} · ${dot("r")}стоят ${cnt("r")} · ${dot("x")}выключены ${cnt("x")}</div></div>${showAfisha||L===""?moneyBlock():""}${sec}`}
-/* ---------- Справочники (только просмотр) ---------- */
-let DIRS=null;
-async function vDirs(m,kind){
- const back=`<button class="btn" data-h="#home${kind==="eventer"?"?layer=eventer":""}" style="align-self:flex-start">← Назад</button>`;
- if(!DIRS){m.innerHTML=back+`<div class="empty" role="status">Загружаю справочники…</div>`;try{DIRS=await api("dirs")}catch(e){m.innerHTML=back+`<div class="empty">${esc(e.message)}</div>`;return}}
- const box=(t,inner,open)=>`<details class="panel"${open?" open":""}><summary style="cursor:pointer;font-weight:600;font-size:16px">${t}</summary><div style="margin-top:12px">${inner}</div></details>`;
- if(kind==="eventer"){
-  const cats=DIRS.eventer.map(c=>{const roots=c.items.filter(i=>!i.parent);const kids=id=>c.items.filter(i=>i.parent===id);
-   const inner=roots.map(r=>{const k=kids(r.id);return`<div style="margin:0 0 10px"><b>${esc(r.name)}</b>${k.length?`<div class="muted" style="margin-top:3px">${k.map(x=>esc(x.name)).join(" · ")}</div>`:""}</div>`}).join("")||'<div class="muted">Пусто</div>';
-   return box(`${esc(c.name)} <span class="muted" style="font-weight:400">${nf(c.items.length)}</span>`,inner,c.name==="Категории по ролям")}).join("");
-  m.innerHTML=back+`<div class="head"><h1>Справочники Eventer</h1></div>${cats}`;return}
- if(!HOME){try{HOME=(await api("home")).rows}catch{HOME=[]}}
- const role=(parseHash().p.role)||"артист";
- const ROLES_D=[["артист","Артисты"],["специалист","Специалисты"],["площадка","Площадки"],["агентство","Агентства"],["подрядчик","Подрядчики"]];
- const catBook=(DIRS.eventer.find(c=>c.name==="Категории по ролям")||{items:[]}).items;
- const ex=name=>{const r=catBook.find(i=>!i.parent&&i.name===name);return r?catBook.filter(i=>i.parent===r.id).slice(0,4).map(i=>i.name.toLowerCase()).join(", "):""};
- const cnt=(r,c)=>HOME.filter(x=>x[0]===r&&x[1]===c).reduce((a,x)=>a+x[3],0);
- const rows=(DIRS.cats||[]).filter(c=>c.role===role);
- const nocat=HOME.filter(x=>x[0]===role&&x[1]==="Без категории").reduce((a,x)=>a+x[3],0);
- const pers=`<div class="hchips" style="margin-bottom:12px">${ROLES_D.map(([k,t])=>`<button type="button" class="hchip${k===role?" on":""}" aria-pressed="${k===role}" data-h="#dirs?role=${encodeURIComponent(k)}">${t}</button>`).join("")}</div>
- <div class="tablewrap"><table><thead><tr><th>Название в Eventer</th><th>Название в Афише</th><th>Кто это</th><th>Примеры</th><th style="text-align:right">Карточек</th></tr></thead><tbody>
- ${rows.map(c=>`<tr><td><b>${esc(c.category)}</b>${c.ours?'<div class="id">наше дополнение</div>':""}</td><td>${c.afisha_name?esc(c.afisha_name):'<span class="muted">не показываем</span>'}</td><td>${esc(c.who||"")}</td><td class="muted">${esc(ex(c.category)||"—")}</td><td style="text-align:right">${nf(cnt(role,c.category))}</td></tr>`).join("")}
- ${nocat?`<tr><td><b>Без категории</b></td><td></td><td class="muted">Ещё не разнесены по категориям</td><td></td><td style="text-align:right">${nf(nocat)}</td></tr>`:""}</tbody></table></div>`;
- const LAY={core:"Ядро",afisha:"Афиша",eventer:"Eventer",academy:"Академия",atlas:"Атлас"};
- const pass=DIRS.passports.map(p=>box(`Паспорт: ${esc(p.scope)}`,`<div class="tablewrap"><table><thead><tr><th>Что нужно знать</th><th>Слой</th><th>Зачем</th></tr></thead><tbody>${(p.passport||[]).map(f=>`<tr><td><b>${esc(f.label)}</b></td><td>${esc(LAY[f.layer]||f.layer||"")}</td><td class="muted">${esc(f.why||"")}</td></tr>`).join("")}</tbody></table></div>`)).join("");
- m.innerHTML=back+`<div class="head"><h1>Справочники базы</h1></div>${box("Категории участников",pers,true)}${pass}${box("Другие справочники Eventer",`<a href="#dirs-eventer" data-h="#dirs-eventer">Типы событий, цены, сегменты заказчиков и другие</a>`)}${box("ОКЭД и уровни Атласа",`<a href="#oked" data-h="#oked">Открыть справочник ОКЭД</a>`)}`;
+/* ---------- Справочники (только просмотр; плитки по темам — Кайрат 18.11.2026) ---------- */
+let DIRS=null,AFREF=null;
+const DIR_TOPICS=[
+ ["uch","Участники","категории по ролям: артисты, специалисты, площадки, агентства, подрядчики","Eventer · Афиша"],
+ ["venues","Площадки и места","типы мест Афиши и виды площадок Eventer","Афиша · Eventer"],
+ ["contractors","Подрядчики","виды услуг: техника, прокат, кейтеринг, декор, персонал","Eventer"],
+ ["prof","Профессии","Атлас профессий индустрии","Атлас · Академия"],
+ ["events","События","типы, жанры, форматы, роли исполнителей","Афиша · Eventer"],
+ ["leisure","Досуг","направления, активности, настроения, тематики, для кого","Афиша"],
+ ["clients","Заказчики","цели событий и сегменты заказчиков","Eventer"],
+ ["oked","ОКЭД","коды деятельности и уровни Атласа","Атлас"],
+ ["book","Словарь","что есть что: событие, место, источник","Афиша"],
+ ["service","Служебные","роли, стадии, причины архива, типы источников","все"]];
+const afCat=code=>(AFREF?.catalogs||[]).find(c=>c.code===code)||{name:code,items:[]};
+const evCat=name=>(DIRS?.eventer||[]).find(c=>c.name===name)||{name,items:[]};
+function treeHtml(items,opt={}){const roots=items.filter(i=>!i.parent),kids=id=>items.filter(i=>i.parent===id);
+ if(!roots.some(r=>kids(r.id).length))return`<div class="dchips">${items.map(i=>`<span class="dchip">${esc(i.name)}</span>`).join("")}</div>`;
+ return roots.map(r=>{const k=kids(r.id);return`<div class="drow"><b>${esc(r.name)}</b>${k.length?` <span class="muted">${k.length}</span><div class="dchips">${k.map(x=>`<span class="dchip">${esc(x.name)}</span>`).join("")}</div>`:""}</div>`}).join("")}
+function byField(items,f){const g={};items.forEach(i=>{const k=i[f]||"Без группы";(g[k]=g[k]||[]).push(i)});return Object.entries(g).map(([k,v])=>`<div class="drow"><b>${esc(k)}</b> <span class="muted">${v.length}</span><div class="dchips">${v.map(x=>`<span class="dchip">${esc(x.name)}</span>`).join("")}</div></div>`).join("")}
+const dbox=(t,owner,n,inner,open)=>`<details class="panel"${open?" open":""}><summary style="cursor:pointer"><b style="font-size:16px">${t}</b> <span class="muted">${n!=null?nf(n)+" · ":""}${esc(owner)}</span></summary><div style="margin-top:12px">${inner}</div></details>`;
+const evRole=root=>{const c=evCat("Категории по ролям");const r=c.items.find(i=>!i.parent&&i.name===root);return r};
+function evRoleTree(codePrefix){const c=evCat("Категории по ролям");return c.items};
+async function vDirs(m,kind){const p=parseHash().p,t=p.t||"";
+ const back=`<button class="btn" data-h="${kind==="eventer"?"#home?layer=eventer":t?"#dirs":"#home"}" style="align-self:flex-start">← ${t?"Все справочники":"Назад"}</button>`;
+ if(!DIRS||!AFREF){m.innerHTML=back+`<div class="empty" role="status">Загружаю справочники…</div>`;
+  try{if(!DIRS)DIRS=await api("dirs");if(!AFREF){const r=await fetch("https://quzgkhzkrhdlyztzbgcc.supabase.co/functions/v1/edb-afisha-admin",{method:"POST",headers:{"content-type":"application/json","x-edb-key":EDB_KEY},body:JSON.stringify({op:"edb_refs",args:{}})});const d=await r.json();AFREF=d&&!d.error?d:{catalogs:[],book:[]}}}catch(e){m.innerHTML=back+`<div class="empty">${esc(e.message)}</div>`;return}}
+ if(kind==="eventer"){m.innerHTML=back+`<div class="head"><h1>Справочники Eventer</h1></div>`+DIRS.eventer.map(c=>dbox(esc(c.name),"Eventer",c.items.length,treeHtml(c.items),c.name==="Категории по ролям")).join("");return}
+ const cnt=k=>({uch:(DIRS.cats||[]).length,venues:afCat("place_type").items.length,contractors:(()=>{const ev=evCat("Категории по ролям");const roots=ev.items.filter(i=>!i.parent&&(DIRS.cats||[]).some(c=>c.role==="подрядчик"&&c.category===i.name));return ev.items.filter(i=>roots.some(r=>r.id===i.parent)).length})(),prof:(DIRS.professions||[]).length,events:["event_type","event_genre","event_format","performer_role","performance_type"].reduce((a,c)=>a+afCat(c).items.length,0)+evCat("Типы событий").items.length,leisure:["leisure_direction","event_activity","mood","event_topic","for_whom"].reduce((a,c)=>a+afCat(c).items.length,0),clients:evCat("Цель события").items.length+evCat("Сегмент заказчика").items.length+evCat("Сегменты").items.length,oked:(DIRS.oked||[]).length,book:(AFREF.book||[]).length,service:null})[k];
+ if(!t){m.innerHTML=back+`<div class="head"><h1>Справочники</h1></div><div class="tiles" style="grid-template-columns:repeat(auto-fill,minmax(230px,1fr))">${DIR_TOPICS.map(([k,n,d,o])=>`<button type="button" class="tile" data-h="#dirs?t=${k}"><span class="t" style="font-weight:600;font-size:16px">${n}</span>${cnt(k)!=null?`<span class="v" style="font-size:24px;font-weight:700">${nf(cnt(k))}</span>`:""}<span class="s">${esc(d)}</span><span class="s" style="color:var(--accent)">${esc(o)}</span></button>`).join("")}</div>`;return}
+ const T=DIR_TOPICS.find(x=>x[0]===t)||DIR_TOPICS[0];let body="";
+ if(t==="uch"){if(!HOME){try{HOME=(await api("home")).rows}catch{HOME=[]}}
+  const role=p.role||"артист",ROLES_D=[["артист","Артисты"],["специалист","Специалисты"],["площадка","Площадки"],["агентство","Агентства"],["подрядчик","Подрядчики"]];
+  const catBook=evCat("Категории по ролям").items,ex=name=>{const r=catBook.find(i=>!i.parent&&i.name===name);return r?catBook.filter(i=>i.parent===r.id).slice(0,4).map(i=>i.name.toLowerCase()).join(", "):""};
+  const c2=(r,c)=>HOME.filter(x=>x[0]===r&&x[1]===c).reduce((a,x)=>a+x[3],0),rows=(DIRS.cats||[]).filter(c=>c.role===role),nocat=c2(role,"Без категории");
+  body=`<div class="hchips" style="margin-bottom:12px">${ROLES_D.map(([k,n])=>`<button type="button" class="hchip${k===role?" on":""}" aria-pressed="${k===role}" data-h="#dirs?t=uch&role=${encodeURIComponent(k)}">${n}</button>`).join("")}</div>
+  <div class="tablewrap"><table><thead><tr><th>Название в Eventer</th><th>Название в Афише</th><th>Кто это</th><th>Примеры</th><th style="text-align:right">Карточек</th></tr></thead><tbody>
+  ${rows.map(c=>`<tr><td><b>${esc(c.category)}</b>${c.ours?'<div class="id">наше дополнение</div>':""}</td><td>${c.afisha_name?esc(c.afisha_name):'<span class="muted">не показываем</span>'}</td><td>${esc(c.who||"")}</td><td class="muted">${esc(ex(c.category)||"—")}</td><td style="text-align:right">${nf(c2(role,c.category))}</td></tr>`).join("")}
+  ${nocat?`<tr><td><b>Без категории</b></td><td></td><td class="muted">Ещё не разнесены по категориям</td><td></td><td style="text-align:right">${nf(nocat)}</td></tr>`:""}</tbody></table></div>
+  ${(DIRS.passports||[]).map(pp=>dbox(`Паспорт карточки: ${esc(pp.scope)}`,"что нужно знать об участнике",(pp.passport||[]).length,`<div class="tablewrap"><table><thead><tr><th>Что нужно знать</th><th>Слой</th><th>Зачем</th></tr></thead><tbody>${(pp.passport||[]).map(f=>`<tr><td><b>${esc(f.label)}</b></td><td>${esc({core:"Ядро",afisha:"Афиша",eventer:"Eventer",academy:"Академия",atlas:"Атлас"}[f.layer]||f.layer||"")}</td><td class="muted">${esc(f.why||"")}</td></tr>`).join("")}</tbody></table></div>`)).join("")}`}
+ else if(t==="venues"){const pt=afCat("place_type"),ev=evCat("Категории по ролям");const roots=ev.items.filter(i=>!i.parent&&/площадк/i.test(i.name));const sub=ev.items.filter(i=>roots.some(r=>r.id===i.parent));
+  body=dbox("Типы мест Афиши","Афиша",pt.items.length,pt.items.some(i=>i.parent)?treeHtml(pt.items):byField(pt.items,"cat"),true)+dbox("Виды площадок Eventer","Eventer",sub.length,treeHtml([...roots,...sub]),true)+`<p class="note2">Это два справочника об одном и том же разными словами. Следующий шаг — свести их в один, с названием для Eventer и для Афиши.</p>`}
+ else if(t==="contractors"){const ev=evCat("Категории по ролям");const roots=ev.items.filter(i=>!i.parent&&(DIRS.cats||[]).some(c=>c.role==="подрядчик"&&c.category===i.name));const sub=ev.items.filter(i=>roots.some(r=>r.id===i.parent));
+  body=dbox("Виды услуг подрядчиков","Eventer",sub.length,treeHtml([...roots,...sub]),true)}
+ else if(t==="prof"){const P=DIRS.professions||[];const blocks=[...new Set(P.map(x=>x.block))];
+  body=`<p class="note2">Атлас профессий v1.1 Института (10.10.2026), сверка по O*NET, Careers.Broadway, ScreenSkills, PLASA. Курсивом — форматы выступлений, а не профессии.</p>`+blocks.map(b=>{const L=P.filter(x=>x.block===b);const g=[...new Set(L.map(x=>x.grp))];return dbox(esc(b),"Атлас",L.length,g.map(gr=>{const it=L.filter(x=>x.grp===gr);return`<div class="drow"><b>${esc(gr)}</b> <span class="muted">${it.length}</span><div class="dchips">${it.map(x=>`<span class="dchip"${x.format?' style="font-style:italic"':""} title="${esc(x.intl||"")}">${esc(x.name)}${x.intl?` <span class="muted">${esc(x.intl)}</span>`:""}</span>`).join("")}</div></div>`}).join(""),b!=="Сцена и техника")}).join("")}
+ else if(t==="events"){body=["event_type","event_genre","event_format","performer_role","performance_type","language"].map(c=>{const x=afCat(c);return dbox(esc(x.name),"Афиша",x.items.length,treeHtml(x.items))}).join("")+dbox("Типы событий Eventer","Eventer",evCat("Типы событий").items.length,treeHtml(evCat("Типы событий").items))}
+ else if(t==="leisure"){body=dbox("Категории досуга","Афиша",(AFREF.leisure||[]).length,`<div class="dchips">${(AFREF.leisure||[]).map(n=>`<span class="dchip">${esc(n)}</span>`).join("")}</div>`,true)+["leisure_direction","event_activity","mood","event_topic","for_whom"].map(c=>{const x=afCat(c);return dbox(esc(x.name),"Афиша",x.items.length,x.items.some(i=>i.parent)?treeHtml(x.items):byField(x.items,"cat"))}).join("")}
+ else if(t==="clients"){body=["Цель события","Сегмент заказчика","Сегменты"].map(n=>dbox(esc(n),"Eventer",evCat(n).items.length,treeHtml(evCat(n).items),true)).join("")}
+ else if(t==="oked"){const O=DIRS.oked||[];const L={"1":"1 — прямые участники","2":"2 — обслуживающие","3":"3 — затрагиваемые"};
+  body=`<div class="tablewrap"><table><thead><tr><th>Код</th><th>Деятельность</th><th>Группа</th><th>Уровень Атласа</th><th>Берём</th></tr></thead><tbody>${O.map(o=>`<tr><td>${esc(o.code)}</td><td>${esc(o.name)}</td><td class="muted">${esc(o.grp||"")}</td><td>${esc(L[o.level]||o.level||"вне Атласа")}</td><td>${o.take===false||o.take==="нет"?"нет":"да"}</td></tr>`).join("")}</tbody></table></div>`}
+ else if(t==="book"){const B=AFREF.book||[];const g=[...new Set(B.map(x=>x.grp))];body=g.map(gr=>dbox(esc(gr||"Прочее"),"Афиша",B.filter(x=>x.grp===gr).length,B.filter(x=>x.grp===gr).map(x=>`<div class="drow"><b>${esc(x.title)}</b><div style="margin-top:4px">${esc(x.body||"")}</div>${(x.yes||[]).length?`<div class="muted" style="margin-top:4px">Да: ${x.yes.map(esc).join(" · ")}</div>`:""}${(x.no||[]).length?`<div class="muted">Нет: ${x.no.map(esc).join(" · ")}</div>`:""}</div>`).join(""),true)).join("")}
+ else if(t==="service"){body=["Роли","Путь данных","Единица цены","Причины архива","Группы источников","Теги полок площадок"].map(n=>dbox(esc(n),"Eventer",evCat(n).items.length,treeHtml(evCat(n).items))).join("")+["source_account_type","source_group","source_channel","pipeline_stage"].map(c=>{const x=afCat(c);return dbox(esc(x.name),"Афиша",x.items.length,treeHtml(x.items))}).join("")}
+ m.innerHTML=back+`<div class="head"><h1>${esc(T[1])}</h1><div class="muted">${esc(T[3])}</div></div>${body}`;
 }
 let HOME=null,EVH=null,EVH_LOADING=false;
 async function loadEvH(){if(EVH_LOADING)return;EVH_LOADING=true;try{const r=await fetch("https://quzgkhzkrhdlyztzbgcc.supabase.co/functions/v1/edb-afisha-admin",{method:"POST",headers:{"content-type":"application/json","x-edb-key":EDB_KEY},body:JSON.stringify({op:"edb_events_home",args:{}})});const d=await r.json();if(r.ok&&d&&d.rows){EVH=d.rows;const q=parseHash();if(q.view==="home")vHome($("main"),q.p)}}catch{}finally{EVH_LOADING=false}}
