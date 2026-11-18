@@ -530,14 +530,18 @@ const H_SYS={
  eventer:[["Источники",toHash("list",{product:"eventer"})],["Роботы","#review"],["Знания",null]],
  academy:[["Источники",null],["Роботы",null],["Знания",null]],
  atlas:[["Источники","#members"],["Роботы",null],["Знания","#oked"]]};
-let HOME=null;
+let HOME=null,EVH=null,EVH_LOADING=false;
+async function loadEvH(){if(EVH_LOADING)return;EVH_LOADING=true;try{const r=await fetch("https://quzgkhzkrhdlyztzbgcc.supabase.co/functions/v1/edb-afisha-admin",{method:"POST",headers:{"content-type":"application/json","x-edb-key":EDB_KEY},body:JSON.stringify({op:"edb_events_home",args:{}})});const d=await r.json();if(r.ok&&d&&d.rows){EVH=d.rows;const q=parseHash();if(q.view==="home")vHome($("main"),q.p)}}catch{}finally{EVH_LOADING=false}}
 async function vHome(m,p={}){
  if(!HOME){m.innerHTML=`<div class="empty" role="status">Загружаю базу…</div>`;try{HOME=(await api("home")).rows}catch(e){m.innerHTML=`<div class="empty">${esc(e.message)}</div>`;return}}
- const L=p.layer||"",role=p.role||"площадка",city=p.city||"";
+ const L=p.layer||"",evOn=L===""||L==="afisha",role=(p.role==="события"&&!evOn)?"площадка":(p.role||"площадка"),city=p.city||"",st=p.st||"";
+ if(evOn&&!EVH)loadEvH();
  const v=r=>L==="afisha"?r[4]:L==="eventer"?r[5]:L==="atlas"?r[6]+r[7]+r[8]:L==="academy"?0:r[3];
  const sum=f=>HOME.filter(f).reduce((a,r)=>a+v(r),0);
  const inCity=r=>!city||r[2]===city;
- const h=o=>toHash("home",{layer:L,role,city,...o});
+ const h=o=>toHash("home",{layer:L,role,city,st,...o});
+ const EV=EVH||[],evCol=st==="live"?2:st==="vitr"?3:st==="arch"?4:1,evSum=f=>EV.filter(f).reduce((a,r)=>a+r[evCol],0);
+ const evTile=evOn?`<button type="button" class="tile hrole${role==="события"?" on":""}" aria-pressed="${role==="события"}" data-h="${esc(h({role:"события",city:"",st:""}))}"><span class="t" style="font-weight:600">События</span><span class="v">${EVH?nf(EV.reduce((a,r)=>a+r[1],0)):"…"}</span></button>`:"";
  const chip=(on,lbl,href,extra="")=>`<button type="button" class="hchip${on?" on":""}" aria-pressed="${on}" data-h="${esc(href)}">${esc(lbl)}${extra}</button>`;
  const total=L==="academy"?null:sum(inCity);
  const atlasTop=L==="atlas"?`<div class="hatlas"><div><span class="v">${nf(HOME.filter(inCity).reduce((a,r)=>a+r[6]+r[7],0))}</span><span class="t">Индустрия событий · уровни 1–2</span></div><div><span class="v">${nf(HOME.filter(inCity).reduce((a,r)=>a+r[6]+r[7]+r[8],0))}</span><span class="t">Экономический эффект · уровни 1–3</span></div></div>`:"";
@@ -551,9 +555,10 @@ async function vHome(m,p={}){
  <form class="row" id="qf" style="flex:1;justify-content:flex-end"><input id="q" aria-label="Поиск" placeholder="Поиск: название, Instagram, телефон или БИН" style="flex:1;max-width:420px;min-width:220px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;background:var(--surface)"><button class="btn pri">Найти</button></form></div>
  <div class="hchips">${H_LAYERS.map(([k,t])=>chip(L===k,t,h({layer:k}))).join("")}</div>
  ${atlasTop}
- <div class="tiles hroles">${roles}</div>
- <section class="panel" style="display:flex;flex-direction:column;gap:16px"><div class="head" style="margin:0"><h2 style="margin:0">${esc((H_ROLES.find(x=>x[0]===role)||[,""])[1])}</h2><div class="hchips">${cities}</div></div>
- <div class="tiles hcats">${[...new Set([...H_CATS[role],...HOME.filter(r=>r[0]===role).map(r=>r[1]).filter(c=>c!=="Без категории"),"Без категории"])].map(catTile).join("")||'<div class="empty">Категорий пока нет</div>'}</div></section>`;
+ <div class="tiles hroles">${evTile}${roles}</div>
+ ${role==="события"?`<section class="panel" style="display:flex;flex-direction:column;gap:16px"><div class="head" style="margin:0"><h2 style="margin:0">События</h2><div class="hchips">${chip(false,"Алматы",h({}),` <span class="hn">${nf(EV.reduce((a,r)=>a+r[1],0))}</span>`)}${[["live","Идут"],["vitr","На витрине"],["arch","Архив"]].map(([k,t])=>chip(st===k,t,h({st:st===k?"":k}),` <span class="hn">${nf(EV.reduce((a,r)=>a+r[k==="live"?2:k==="vitr"?3:4],0))}</span>`)).join("")}</div></div>
+ <div class="tiles hcats">${EVH?EV.filter(r=>r[evCol]||r[0]!=="Без категории").map(r=>`<a class="tile hcat${!r[evCol]?" none":r[0]==="Без категории"?" nocat":""}" href="afisha/#events" style="color:inherit;text-decoration:none"><span class="t" style="font-weight:600">${esc(r[0])}</span><span class="v" style="font-size:20px">${r[evCol]?nf(r[evCol]):"—"}</span></a>`).join(""):'<div class="empty" role="status">Загружаю события…</div>'}</div></section>`:`<section class="panel" style="display:flex;flex-direction:column;gap:16px"><div class="head" style="margin:0"><h2 style="margin:0">${esc((H_ROLES.find(x=>x[0]===role)||[,""])[1])}</h2><div class="hchips">${cities}</div></div>
+ <div class="tiles hcats">${[...new Set([...H_CATS[role],...HOME.filter(r=>r[0]===role).map(r=>r[1]).filter(c=>c!=="Без категории"),"Без категории"])].map(catTile).join("")||'<div class="empty">Категорий пока нет</div>'}</div></section>`}`;
  $("qf").onsubmit=e=>{e.preventDefault();go(toHash("list",{q:$("q").value.trim()}))};
 }
 
