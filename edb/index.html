@@ -300,7 +300,7 @@ button.brand{background:none;border:0;cursor:pointer;padding:6px 0;margin:0;font
 .evwhen{margin-top:8px;font-size:17px;color:var(--ink)}
 .pk-toast{position:sticky;top:8px;z-index:5;background:var(--surface);border:1px solid var(--accent);border-radius:12px;padding:12px 14px;margin-bottom:14px;display:flex;flex-direction:column;gap:8px;box-shadow:0 6px 20px rgba(0,0,0,.12)}
 .pk-err{background:var(--accent-soft);color:var(--accent-ink);padding:10px 14px;border-radius:10px;margin-bottom:12px}
-.tl{background:none;border:0;cursor:pointer;color:var(--nav-ink);padding:9px 12px;border-radius:10px;font-weight:500;min-height:40px}
+.tl{background:none;border:0;cursor:pointer;color:var(--nav-ink);padding:9px 12px;border-radius:10px;font-weight:500;min-height:40px;font:inherit;text-decoration:none;display:inline-flex;align-items:center}
 .tl:hover{color:#fff}
 .tl.on{background:var(--nav-active);color:#fff;font-weight:600}
 .tl:focus-visible,button.brand:focus-visible{outline:2px solid #E86FA3;outline-offset:2px}
@@ -449,7 +449,9 @@ window.addEventListener("hashchange",route);
 document.addEventListener("click",e=>{const t=e.target.closest("[data-h]");if(t){e.preventDefault();location.hash=t.dataset.h}});
 
 function nav(view){const on=v=>view===v?" on":"";
- return `<button class="brand" data-h="#home" aria-label="На главную">Eventer Data Base</button>`}
+ const L=view==="home"?(parseHash().p.layer||""):"";
+ const sys=(typeof H_SYS!=="undefined"?(H_SYS[L]||H_SYS[""]):[]).map(([t,href])=>href?(href[0]==="#"?`<button class="tl" data-h="${esc(href)}">${t}</button>`:`<a class="tl" href="${esc(href)}">${t}</a>`):`<span class="tl" aria-disabled="true" style="opacity:.45">${t}</span>`).join("");
+ return `<button class="brand" data-h="#home" aria-label="На главную">Eventer Data Base</button><span class="tlinks">${sys}</span>`}
 const PRODUCTS=[["afisha","Афиша"],["eventer","Eventer"],["atlas","Atlas"],["academy","Академия"]];
 function route(){if(!READY)return;const {view,p}=parseHash();$("nav").innerHTML=nav(["atlas","oked"].includes(view)?"p-atlas":view);
  const m=$("main");window.scrollTo(0,0);
@@ -545,15 +547,13 @@ async function vHome(m,p={}){
  const catTile=name=>{const n=sum(r=>r[0]===role&&r[1]===name&&inCity(r));const no=name==="Без категории";
   if(no&&!n)return"";
   return`<button type="button" class="tile hcat${!n?" none":no?" nocat":""}" data-h="${esc(toHash("list",{role,city:cityName,product:L==="afisha"||L==="eventer"?L:""}))}"><span class="t" style="font-weight:600">${esc(name)}</span><span class="v" style="font-size:20px">${n?nf(n):"—"}</span></button>`};
- const sys=(H_SYS[L]||H_SYS[""]).map(([t,href])=>href?(href[0]==="#"?`<button type="button" class="tile hsys" data-h="${esc(href)}"><span class="t" style="font-weight:600">${esc(t)}</span></button>`:`<a class="tile hsys" href="${esc(href)}" style="color:inherit;text-decoration:none"><span class="t" style="font-weight:600">${esc(t)}</span></a>`):`<div class="tile hsys none" aria-disabled="true"><span class="t" style="font-weight:600">${esc(t)}</span><span class="s">скоро</span></div>`).join("");
  m.innerHTML=`<div class="head" style="align-items:baseline"><div class="htotal" role="button" tabindex="0" data-h="#members">Всего карточек <b>${total==null?"—":nf(total)}</b></div>
  <form class="row" id="qf" style="flex:1;justify-content:flex-end"><input id="q" aria-label="Поиск" placeholder="Поиск: название, Instagram, телефон или БИН" style="flex:1;max-width:420px;min-width:220px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;background:var(--surface)"><button class="btn pri">Найти</button></form></div>
  <div class="hchips">${H_LAYERS.map(([k,t])=>chip(L===k,t,h({layer:k}))).join("")}</div>
  ${atlasTop}
  <div class="tiles hroles">${roles}</div>
  <section class="panel" style="display:flex;flex-direction:column;gap:16px"><div class="head" style="margin:0"><h2 style="margin:0">${esc((H_ROLES.find(x=>x[0]===role)||[,""])[1])}</h2><div class="hchips">${cities}</div></div>
- <div class="tiles hcats">${[...new Set([...H_CATS[role],...HOME.filter(r=>r[0]===role).map(r=>r[1]).filter(c=>c!=="Без категории"),"Без категории"])].map(catTile).join("")||'<div class="empty">Категорий пока нет</div>'}</div></section>
- <div class="tiles hsyss">${sys}</div>`;
+ <div class="tiles hcats">${[...new Set([...H_CATS[role],...HOME.filter(r=>r[0]===role).map(r=>r[1]).filter(c=>c!=="Без категории"),"Без категории"])].map(catTile).join("")||'<div class="empty">Категорий пока нет</div>'}</div></section>`;
  $("qf").onsubmit=e=>{e.preventDefault();go(toHash("list",{q:$("q").value.trim()}))};
 }
 
