@@ -1130,12 +1130,14 @@ function mdToHtml(md){const lines=String(md||"").split(/\n/);let h="",list=null,
 function docView(id){const d=DC.find(x=>x.id===id);if(!d)return `<button class="back" data-go="docs">← Инструкции</button><div class="empty">Документ загружается…</div>`;
  return `<button class="back" data-go="docs">← Инструкции</button><div class="row" style="justify-content:space-between"><div class="row"><span class="st ${d.status==="Действует"?"s4":"s3"}">${esc(d.status)}</span><span class="muted">${esc(d.step)} · версия ${esc(d.version)}</span></div>${d.gdoc?`<a href="${esc(d.gdoc)}" target="_blank" rel="noopener">Открыть в Google Docs →</a>`:""}</div><article class="panel md">${mdToHtml(d.md)}</article>`}
 function docs(){
-  const tone={"Действует":"s4","Обновить до 15 категорий":"s3","Нет документа":"s3"};
-  return `<div class="head"><div><div class="lbl">Знания</div><h1>Инструкции</h1><div class="sub">Путь записи от источника до витрины и документы для каждого шага.</div></div></div>
-  <div class="steps">${[["Источники","Ticketon, Sxodim, Kino.kz, сайты площадок, Instagram"],["Робот","Собирает факты и размечает по справочникам"],["AI","Сверяет с первоисточником, ищет дубли и противоречия"],["Человек","Решает только то, в чём AI не уверен"],["База","Запись доступна каталогу и ассистенту"],["Витрина","Редактор отбирает лучшее в подборки"]].map(([t,d],i)=>`<div class="step"><span class="lbl">Шаг ${i+1}</span><b>${t}</b><span class="muted" style="font-size:13.5px">${d}</span></div>`).join("")}</div>
-  <div class="tiles"><div class="tile" style="cursor:default;background:var(--ok-bg);border-color:transparent"><b>0,8 и выше</b><span class="s">AI принимает сам</span></div><div class="tile" style="cursor:default;background:var(--info-bg);border-color:transparent"><b>0,5–0,8</b><span class="s">AI исправляет и принимает</span></div><div class="tile" style="cursor:default;background:var(--warn-bg);border-color:transparent"><b>Ниже 0,5 или противоречие</b><span class="s">Решает человек</span></div></div>
-  <div class="lbl">Документы · открываются здесь, копия в Google Docs</div>
-  <div class="doccards">${(DC.length?DC.slice().sort((a,b)=>(a.order||0)-(b.order||0)):[]).map(d=>`<button class="doccard" data-go="doc" data-arg="${d.id}"><span class="st ${tone[d.status]||"s1"}" style="align-self:flex-start">${esc(d.status)}</span><b>${esc(d.title)}</b><span class="muted" style="font-size:13px">${esc(d.step)} · версия ${esc(d.version)}</span></button>`).join("")||`<div class="empty">Документы загружаются…</div>`}<div class="doccard" style="cursor:default"><span class="st s3" style="align-self:flex-start">Нет документа</span><b>Правила AI-проверки кандидата</b><span class="muted" style="font-size:13px">AI-проверка · нужно написать</span></div></div>`;
+  /* Реестр инструкций (решение Кайрата 19.11.2026): по пути данных, номер + «Как…», по клику — документ */
+  const ORDER=["Сбор","Разметка","Витрина","Актуализация","Ассистент"];
+  const list=DC.slice().sort((a,b)=>(a.order||0)-(b.order||0));
+  const steps=[...ORDER.filter(g=>list.some(d=>d.step===g)),...[...new Set(list.map(d=>d.step))].filter(g=>!ORDER.includes(g))];
+  let no=0;
+  const row=d=>`<button class="rg-row" data-go="doc" data-arg="${esc(d.id)}"><span class="rg-n">${++no}</span><span class="rg-t">${esc(d.title)}</span>${d.status!=="Действует"?`<span class="pill warn">${esc(d.status)}</span>`:""}</button>`;
+  return `<div class="head"><div><div class="lbl">Знания</div><h1>Инструкции</h1><div class="sub">Как действовать на каждом шаге — от источника до витрины. Правила, по которым решаем спорное, — во вкладке «Правила».</div></div></div>`+
+  (list.length?`<div class="rg">${steps.map(g=>{const x=list.filter(d=>d.step===g);return `<section class="rg-g"><div class="lbl">${esc(g)} · ${x.length}</div>${x.map(row).join("")}</section>`}).join("")}</div>`:`<div class="empty">Инструкции загружаются…</div>`);
 }
 
 
