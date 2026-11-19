@@ -108,6 +108,16 @@ main{flex:1;min-width:0;padding-block:28px 60px;padding-inline:clamp(16px,3.5vw,
 .layers{display:flex;flex-direction:column;gap:14px}
 .layer{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
 .bks{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:12px}
+.bks.one{grid-template-columns:minmax(0,760px)}
+.rg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 28px;align-items:start}
+@media (max-width:760px){.rg{grid-template-columns:1fr}}
+.rg-g{display:flex;flex-direction:column;gap:2px;min-width:0}
+.rg-g .lbl{margin-bottom:4px}
+.rg-row{display:flex;align-items:baseline;gap:10px;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:10px 4px;cursor:pointer;color:var(--ink);font:inherit;min-height:44px}
+.rg-row:hover .rg-t{color:var(--accent);text-decoration:underline}
+.rg-row.draft .rg-t{color:var(--ink3)}
+.rg-n{flex:0 0 2.2em;color:var(--ink3);font-variant-numeric:tabular-nums;text-align:right}
+.rg-t{flex:1;min-width:0}
 .bk{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
 .bk.draft{border-style:dashed;background:var(--surface2)}
 .bk h3{font-size:17px;font-weight:700}
@@ -1025,7 +1035,7 @@ function queue(){
   <div class="tablewrap"><table><thead><tr><th>ID</th><th>Запись</th><th>Что сделал робот</th><th>Что сказал AI</th><th></th></tr></thead><tbody>${L.map(e=>`<tr class="click" data-go="event" data-arg="${e.id}"><td class="id">${e.id}</td><td><div class="tt">${esc(e.title)}</div><div class="id">${esc(e.source?e.source.name:"")} · ${fmtDT(e.start)}</div></td><td style="max-width:260px">${esc(e.robot||"")}</td><td style="max-width:360px">${e.stage_reason?`<div style="color:var(--warn)">${esc(e.stage_reason)}</div>`:""}${(e.ai&&e.ai.fixed||[]).slice(0,3).map(x=>`<div class="muted" style="font-size:13px">✓ ${esc(x)}</div>`).join("")}</td><td><span class="btn" style="white-space:nowrap">${act}</span></td></tr>`).join("")||`<tr><td colspan="5"><div class="empty">На этой стадии записей нет.</div></td></tr>`}</tbody></table></div>`;
 }
 
-let BK=null, BKerr=null, BKbusy=false, BKedit=null, BKmsg="", BKsaving=false;
+let BK=null, BKerr=null, BKbusy=false, BKedit=null, BKopen=null, BKmsg="", BKsaving=false;
 async function loadBook(){
  if(BKbusy||BK)return;BKbusy=true;
  try{BK=await apiCall("reference_book_json");BKerr=null}catch(e){BKerr=e}finally{BKbusy=false;if(S.view==="dirs"||S.view==="rules")render()}
@@ -1051,7 +1061,13 @@ function bookBody(kind){
   const card=r=>BKedit&&BKedit.id===r.id&&BKedit.kind===kind?form(r):`<article class="bk${r.status==="draft"?" draft":""}"><div class="row" style="justify-content:space-between;align-items:flex-start"><h3>${esc(r.title)}</h3>${pill(r)}</div><p>${esc(r.body)}</p>${kind==="terms"?`<div class="exs">${ex("Это",r.yes_examples,"yes")}${ex("Это не",r.no_examples,"no")}</div>`:ex("Пример",r.yes_examples,"yes")}${r.for_robot?`<div class="note2">Робот применяет это правило сам.</div>`:""}<div><button class="lnk" data-bkedit="${esc(r.id)}">Изменить</button></div></article>`;
   const intro=kind==="terms"?"Понятия — что есть что. Одни и те же определения для человека и для Робота Афиши. Черновики помечены «обсуждается» и пока не действуют.":"Правила — как решает робот и человек. За каждым правилом стоит решение, номер указан. Инструкции для людей пишутся от этих правил и не могут им противоречить.";
   const adding=BKedit&&BKedit.id===null&&BKedit.kind===kind;
-  return `<div class="note">${intro}</div><div>${adding?"":`<button class="btn pri" data-bkadd="1">${kind==="terms"?"Добавить понятие":"Добавить правило"}</button>`}</div>${adding?`<div class="bks">${form({})}</div>`:""}`+groups.map(([g,rs])=>`<div class="lbl">${esc(g)} · ${rs.length}</div><div class="bks">${rs.map(card).join("")}</div>`).join("");
+  /* Реестр (решение Кайрата 19.11.2026): номер + название, по клику — карточка */
+  let no=0;const numbered=groups.map(([g,rs])=>[g,rs.map(r=>({r,n:++no}))]);
+  const openId=BKedit&&BKedit.kind===kind&&BKedit.id?BKedit.id:(BKopen&&BKopen.kind===kind?BKopen.id:null);
+  const openRow=openId?numbered.flatMap(([g,x])=>x.map(o=>Object.assign({g},o))).find(o=>o.r.id===openId):null;
+  if(openRow)return `<div><button class="back" data-bkclose="1">← ${kind==="terms"?"Все термины":"Все правила"}</button></div><div class="lbl">${esc(openRow.g)} · №${openRow.n}</div><div class="bks one">${card(openRow.r)}</div>`;
+  const row=({r,n})=>`<button class="rg-row${r.status==="draft"?" draft":""}" data-bkopen="${esc(r.id)}"><span class="rg-n">${n}</span><span class="rg-t">${esc(r.title)}</span>${r.status==="draft"?`<span class="pill warn">обсуждается</span>`:""}</button>`;
+  return `<div class="note">${intro}</div><div>${adding?"":`<button class="btn pri" data-bkadd="1">${kind==="terms"?"Добавить понятие":"Добавить правило"}</button>`}</div>${adding?`<div class="bks one">${form({})}</div>`:""}<div class="rg">`+numbered.map(([g,x])=>`<section class="rg-g"><div class="lbl">${esc(g)} · ${x.length}</div>${x.map(row).join("")}</section>`).join("")+`</div>`;
 }
 function rulesView(){
   const nT=BK?BK.terms.length:"…",nR=BK?BK.rules.length:"…";const c=S.dir==="terms"?"terms":"rules";
@@ -1296,6 +1312,8 @@ document.addEventListener("input",ev=>{if(ev.target.id==="src_in"){S.srDraft=ev.
 document.addEventListener("change",ev=>{if(ev.target.id==="f_cat"){const d=$("#f_dir");if(d){d.innerHTML=`<option value="">—</option>`+(DIRS[ev.target.value]||[]).map(o=>`<option>${o}</option>`).join("")}}if(ev.target.id==="f_type"){const g=$("#f_genre");if(g){g.innerHTML=`<option value="">—</option>`+(GENRES[ev.target.value]||[]).map(o=>`<option>${o}</option>`).join("")}}});
 document.addEventListener("click",ev=>{if(ev.target.closest("[data-refresh]")){ev.preventDefault();loadStats()}if(ev.target.closest("[data-bookretry]")){ev.preventDefault();BKerr=null;loadBook();render()}
   const kindNow=S.dir==="terms"?"terms":"rules";let t;
+  if(t=ev.target.closest("[data-bkopen]")){BKopen={id:t.dataset.bkopen,kind:kindNow};BKedit=null;BKmsg="";render();window.scrollTo(0,0);return}
+  if(ev.target.closest("[data-bkclose]")){BKopen=null;BKedit=null;BKmsg="";render();return}
   if(t=ev.target.closest("[data-bkedit]")){BKedit={id:t.dataset.bkedit,kind:kindNow};BKmsg="";render();return}
   if(ev.target.closest("[data-bkadd]")){BKedit={id:null,kind:kindNow};BKmsg="";render();return}
   if(ev.target.closest("[data-bkcancel]")){BKedit=null;BKmsg="";render();return}
