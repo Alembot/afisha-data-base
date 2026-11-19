@@ -107,17 +107,23 @@ main{flex:1;min-width:0;padding-block:28px 60px;padding-inline:clamp(16px,3.5vw,
 .step.warn{background:var(--warn-bg)}.step.warn .v{color:var(--warn)}
 .layers{display:flex;flex-direction:column;gap:14px}
 .layer{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
-.sp{display:grid;grid-template-columns:250px minmax(0,1fr);gap:28px;align-items:start}
-.sp-nav{position:sticky;top:12px;display:flex;flex-direction:column;gap:14px;max-height:calc(100vh - 24px);overflow:auto;padding-right:6px}
+.sp{display:grid;grid-template-columns:230px minmax(0,1fr);gap:24px;align-items:start;margin-top:4px}
+.sp-later{padding:8px 10px 0;font-size:12px;color:var(--ink3);line-height:1.4}
+.sp-note{font-size:13px;color:var(--ink2,var(--ink3));margin:-4px 0 2px}
+.sp-body table{min-width:0!important}
+.sp-body th{padding:6px 10px;font-size:11px}
+.sp-body td{padding:6px 10px;font-size:13.5px;line-height:1.3;vertical-align:top}
+.sp-body .tablewrap{margin:0}
+.sp-nav{position:sticky;top:12px;display:flex;flex-direction:column;gap:8px;max-height:calc(100vh - 24px);overflow:auto;padding-right:6px}
 .sp-g{display:flex;flex-direction:column;gap:2px}
 .sp-g .lbl{padding:0 10px;margin-bottom:2px}
-.sp-i{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;text-align:left;background:none;border:0;border-radius:10px;padding:9px 10px;min-height:40px;color:var(--ink);font:inherit;cursor:pointer}
+.sp-i{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;text-align:left;background:none;border:0;border-radius:8px;padding:5px 10px;min-height:30px;font-size:14px;color:var(--ink);font:inherit;cursor:pointer}
 .sp-i:hover{background:var(--surface2)}
 .sp-i.on{background:var(--accent);color:#fff}
 .sp-i.on .sp-n{color:#fff;opacity:.85}
 .sp-n{color:var(--ink3);font-size:13px;font-variant-numeric:tabular-nums}
-.sp-body{min-width:0;display:flex;flex-direction:column;gap:12px}
-.sp-h{margin:0;font-size:22px}
+.sp-body{min-width:0;display:flex;flex-direction:column;gap:8px}
+.sp-h{margin:0;font-size:19px}
 .sp-back{display:none}
 @media (max-width:760px){.sp{grid-template-columns:1fr}.sp .sp-body{display:none}.sp.open .sp-nav{display:none}.sp.open .sp-body{display:flex}.sp-back{display:inline-flex}.sp-nav{position:static;max-height:none}}
 .bks{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:12px}
@@ -1109,7 +1115,7 @@ function dirs(){
   if(c==="filters")body=`<div class="note">Кнопка «Фильтры» на каждом экране витрины. Общие фильтры одинаковы для всех кнопок мест, свои — только там, где они имеют смысл: средний чек у ресторанов есть, у арен нет. Чип «Корты» в строке «Спорта» объединяет теннис, падел и сквош. Йога, пилатес и стретчинг относятся к «Велнесу».</div><div class="lbl">Общие для всех кнопок · ${COMMON_F.length}</div>`+tbl(["№","Фильтр","Значения"],COMMON_F.map((r,i)=>`<tr><td class="id">${i+1}</td><td class="tt">${r[0]}</td><td class="muted">${r[1]}</td></tr>`).join(""))+`<div class="lbl">Свои у кнопки · ${BTN_F.length}</div>`+tbl(["№","Кнопка","Фильтры"],BTN_F.map((r,i)=>`<tr><td class="id">${i+1}</td><td class="tt">${r[0]}</td><td class="muted">${r[1]}</td></tr>`).join(""))+`<div class="lbl">Вид спорта — полный список · ${SPORT_KINDS.length}</div><div class="blocks"><div class="blk"><div class="items">${SPORT_KINDS.map(x=>`<span class="it">${x}</span>`).join("")}</div></div></div>`;
   if(c==="cuis")body=`<div class="note">Кухня — признак места, не тип. На экране «Рестораны» строка устроена так: «Фильтры» · «Все» · 12 кухонь. Остальные кухни — внутри кнопки «Фильтры». «Азия», «Европейская» и «Ближний Восток» объединяют несколько кухонь.</div><div class="lbl">Строка на экране ресторанов · ${CUISINE_ROW.length}</div>`+tbl(["№","Чип","Что внутри"],CUISINE_ROW.map((r,i)=>`<tr><td class="id">${i+1}</td><td class="tt">${r[0]}</td><td class="muted">${r[1]}</td></tr>`).join(""))+`<div class="lbl">Внутри «Фильтров» · ${CUISINE_MORE.length}</div><div class="blocks"><div class="blk"><div class="items">${CUISINE_MORE.map(x=>`<span class="it">${x}</span>`).join("")}</div></div></div>`;
   if(c==="pattrs")body=`<div class="note">Тип места отвечает на вопрос «что это физически». Кухня и особенности — признаки в карточке, не типы. По признакам собираются автоматические подборки на экранах витрины. Поля появятся в карточке места на этапе сбора мест.</div>`+tbl(["Признак","Значение","Для чего"],PATTRS.map(r=>`<tr><td class="tt">${r[0]}</td><td>${r[1]}</td><td class="muted">${r[2]}</td></tr>`).join(""));
-  if(c==="cats")body=`<div class="note">Категория отвечает на вопрос «зачем человек идёт». У карточки одна категория. От кнопок витрины не зависит: кнопка — это фильтр по категории и типу. Решение 19.11.2026.</div>`+tbl(["№","Категория","Что это","Направлений","Событий","Мест"],CATS.map((k,i)=>`<tr class="click" data-go="category" data-arg="${esc(k)}"><td class="id">${i+1}</td><td class="tt">${k}</td><td class="muted">${esc(CAT_DESC[k]||"")}</td><td>${(DIRS[k]||[]).length}</td><td>${a.filter(e=>e.category===k).length}</td><td>${PL.filter(p=>p.category===k).length}</td></tr>`).join(""));
+  if(c==="cats"){const hasN=a.length||PL.length;body=`<div class="sp-note">Отвечает на вопрос «зачем человек идёт». Одна на карточку. Кнопки витрины — фильтры поверх.</div>`+tbl(["№","Категория","Что это","Направлений"].concat(hasN?["Событий","Мест"]:[]),CATS.map((k,i)=>`<tr class="click" data-go="category" data-arg="${esc(k)}"><td class="id">${i+1}</td><td class="tt">${k}</td><td class="muted">${esc(CAT_DESC[k]||"")}</td><td>${(DIRS[k]||[]).length}</td>${hasN?`<td>${a.filter(e=>e.category===k).length}</td><td>${PL.filter(p=>p.category===k).length}</td>`:""}</tr>`).join(""))}
   const blocks=(groups,cnt)=>`<div class="blocks">${groups.map(([g,items])=>`<div class="blk"><h3>${esc(g)}<span>${items.length}</span></h3><div class="items">${items.map(x=>{const n=cnt(g,x);return `<span class="it">${esc(x)}${n?`<b>${n}</b>`:""}</span>`}).join("")}</div></div>`).join("")}</div>`;
   if(c==="dirs")body=blocks(CATS.map(k=>[k,DIRS[k]||[]]),(g,x)=>a.filter(e=>e.category===g&&e.direction===x).length);
   if(c==="genres")body=rtGenres();
@@ -1130,9 +1136,9 @@ function dirs(){
   /* Два экрана в одном (решение Кайрата 19.11.2026): слева список справочников, справа реестр выбранного */
   const cur=GROUPS.flatMap(g=>g[1]).find(x=>x&&x[0]===c)||L("cats");
   const item=([k,t,n])=>`<button class="sp-i${c===k?" on":""}" data-dir="${k}" data-spopen="1"><span>${esc(t)}</span><span class="sp-n">${n}</span></button>`;
-  const nav=`<nav class="sp-nav">${GROUPS.map(([g,items])=>`<div class="sp-g"><div class="lbl">${esc(g)}</div>${items.filter(Boolean).map(item).join("")}</div>`).join("")}</nav>`;
-  return `<div class="head"><div><div class="lbl">Знания</div><h1>Справочники</h1><div class="sub">Списки вариантов, из которых выбирают в карточках. Правила и термины — в разделе «Правила».</div></div></div>
-  <div class="sp${S.spOpen?" open":""}">${nav}<section class="sp-body"><button class="back sp-back" data-spclose="1">← Справочники</button><h2 class="sp-h">${esc(cur[1])}</h2>${body}</section></div>`;
+  const isPlan=x=>x&&x[2]==="скоро";const later=GROUPS.flatMap(g=>g[1]).filter(isPlan).map(x=>x[1]);
+  const nav=`<nav class="sp-nav">${GROUPS.map(([g,items])=>{const ok=items.filter(x=>x&&!isPlan(x));return ok.length?`<div class="sp-g"><div class="lbl">${esc(g)}</div>${ok.map(item).join("")}</div>`:""}).join("")}${later.length?`<div class="sp-later">Скоро: ${later.map(esc).join(", ")}</div>`:""}</nav>`;
+  return `<div class="sp${S.spOpen?" open":""}">${nav}<section class="sp-body"><button class="back sp-back" data-spclose="1">← Справочники</button><h2 class="sp-h">${esc(cur[1])}</h2>${body}</section></div>`;
 }
 function mdToHtml(md){const lines=String(md||"").split(/\n/);let h="",list=null,tbl=null;const inl=t=>esc(t).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/\*(.+?)\*/g,"<i>$1</i>").replace(/(https?:\/\/[^\s)]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>');
  const close=()=>{if(list){h+=`</${list}>`;list=null}if(tbl){h+="</tbody></table></div>";tbl=null}};
