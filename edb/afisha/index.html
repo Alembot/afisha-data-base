@@ -107,6 +107,19 @@ main{flex:1;min-width:0;padding-block:28px 60px;padding-inline:clamp(16px,3.5vw,
 .step.warn{background:var(--warn-bg)}.step.warn .v{color:var(--warn)}
 .layers{display:flex;flex-direction:column;gap:14px}
 .layer{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.sp{display:grid;grid-template-columns:250px minmax(0,1fr);gap:28px;align-items:start}
+.sp-nav{position:sticky;top:12px;display:flex;flex-direction:column;gap:14px;max-height:calc(100vh - 24px);overflow:auto;padding-right:6px}
+.sp-g{display:flex;flex-direction:column;gap:2px}
+.sp-g .lbl{padding:0 10px;margin-bottom:2px}
+.sp-i{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;text-align:left;background:none;border:0;border-radius:10px;padding:9px 10px;min-height:40px;color:var(--ink);font:inherit;cursor:pointer}
+.sp-i:hover{background:var(--surface2)}
+.sp-i.on{background:var(--accent);color:#fff}
+.sp-i.on .sp-n{color:#fff;opacity:.85}
+.sp-n{color:var(--ink3);font-size:13px;font-variant-numeric:tabular-nums}
+.sp-body{min-width:0;display:flex;flex-direction:column;gap:12px}
+.sp-h{margin:0;font-size:22px}
+.sp-back{display:none}
+@media (max-width:760px){.sp{grid-template-columns:1fr}.sp .sp-body{display:none}.sp.open .sp-nav{display:none}.sp.open .sp-body{display:flex}.sp-back{display:inline-flex}.sp-nav{position:static;max-height:none}}
 .bks{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:12px}
 .bks.one{grid-template-columns:minmax(0,760px)}
 .rg{columns:2;column-gap:32px;margin-top:6px}
@@ -1075,6 +1088,7 @@ function rulesView(){
   return `<div class="head"><div><div class="lbl">Знания</div><h1>Правила</h1><div class="sub">Правила — как поступаем в спорных случаях: по ним работают робот и редактор. Термины — что мы называем каждым словом. Пошаговые «как сделать» — в «Инструкциях».</div></div></div>
   <div class="layers"><div class="layer"><div class="seg">${tab(["rules","Правила",nR])}${tab(["terms","Термины",nT])}</div></div></div>${bookBody(c)}`;
 }
+const CAT_DESC={"Культура":"Смотреть и слушать искусство: театр, концерты, кино, выставки, музеи","Развлечения":"Посмеяться и поиграть: стендап, квесты, боулинг, аттракционы","Спорт":"Смотреть соревнования или тренироваться: матчи, турниры, фитнес","Активный отдых":"Сделать самому, с драйвом: горы, вода, полёты, скорость","Экскурсии и путешествия":"Узнать город и края: экскурсии, туры, гиды","Развитие и мастер-классы":"Научиться: лекции, мастер-классы, курсы","Велнес":"Восстановиться: спа, бани, йога, салоны","Рестораны и кафе":"Поесть","Бары и ночная жизнь":"Выпить и потанцевать","Детям":"Только детское; семейное — в своих категориях с меткой «С детьми»","Занимательный шопинг":"Покупка как впечатление: маркеты, винтаж, винил","Клубы по интересам и хобби":"Регулярное сообщество по интересу: клубы, кружки","Хобби":"Регулярное сообщество по интересу: клубы, кружки","Загородный отдых":"Уехать из города: базы, глэмпинг","Досуг дома":"Онлайн, наборы, трансляции"};
 function dirs(){
   const lists=[["show","Витрина",SHOW_PL.length+SHOW_EV.length],["cats","Категории досуга",CATS.length],["dirs","Направления",Object.values(DIRS).flat().length],["types","Типы событий",RT?RT.length:TYPES.length],["genres","Жанры",RT?RT.reduce((s,t)=>s+t.genres.length,0):Object.values(GENRES).flat().length],["moods","Настроения",MOODS.length],["fw","Для кого",FW.length],["aud","Аудитории",SEGMENTS.length],["ptypes","Типы мест",PTYPE_LIST.length],["shelves","Подборки",Object.values(SHELVES).flat().length],["feeds","Ленты",FEEDS.length],["filters","Фильтры",COMMON_F.length+BTN_F.length],["cuis","Кухни",CUISINE_ROW.length+CUISINE_MORE.length],["pattrs","Признаки мест",PATTRS.length],["stages","Стадии конвейера",4]];
   const secs=lists;const nT=BK?BK.terms.length:"…",nR=BK?BK.rules.length:"…";
@@ -1095,7 +1109,7 @@ function dirs(){
   if(c==="filters")body=`<div class="note">Кнопка «Фильтры» на каждом экране витрины. Общие фильтры одинаковы для всех кнопок мест, свои — только там, где они имеют смысл: средний чек у ресторанов есть, у арен нет. Чип «Корты» в строке «Спорта» объединяет теннис, падел и сквош. Йога, пилатес и стретчинг относятся к «Велнесу».</div><div class="lbl">Общие для всех кнопок · ${COMMON_F.length}</div>`+tbl(["№","Фильтр","Значения"],COMMON_F.map((r,i)=>`<tr><td class="id">${i+1}</td><td class="tt">${r[0]}</td><td class="muted">${r[1]}</td></tr>`).join(""))+`<div class="lbl">Свои у кнопки · ${BTN_F.length}</div>`+tbl(["№","Кнопка","Фильтры"],BTN_F.map((r,i)=>`<tr><td class="id">${i+1}</td><td class="tt">${r[0]}</td><td class="muted">${r[1]}</td></tr>`).join(""))+`<div class="lbl">Вид спорта — полный список · ${SPORT_KINDS.length}</div><div class="blocks"><div class="blk"><div class="items">${SPORT_KINDS.map(x=>`<span class="it">${x}</span>`).join("")}</div></div></div>`;
   if(c==="cuis")body=`<div class="note">Кухня — признак места, не тип. На экране «Рестораны» строка устроена так: «Фильтры» · «Все» · 12 кухонь. Остальные кухни — внутри кнопки «Фильтры». «Азия», «Европейская» и «Ближний Восток» объединяют несколько кухонь.</div><div class="lbl">Строка на экране ресторанов · ${CUISINE_ROW.length}</div>`+tbl(["№","Чип","Что внутри"],CUISINE_ROW.map((r,i)=>`<tr><td class="id">${i+1}</td><td class="tt">${r[0]}</td><td class="muted">${r[1]}</td></tr>`).join(""))+`<div class="lbl">Внутри «Фильтров» · ${CUISINE_MORE.length}</div><div class="blocks"><div class="blk"><div class="items">${CUISINE_MORE.map(x=>`<span class="it">${x}</span>`).join("")}</div></div></div>`;
   if(c==="pattrs")body=`<div class="note">Тип места отвечает на вопрос «что это физически». Кухня и особенности — признаки в карточке, не типы. По признакам собираются автоматические подборки на экранах витрины. Поля появятся в карточке места на этапе сбора мест.</div>`+tbl(["Признак","Значение","Для чего"],PATTRS.map(r=>`<tr><td class="tt">${r[0]}</td><td>${r[1]}</td><td class="muted">${r[2]}</td></tr>`).join(""));
-  if(c==="cats")body=tbl(["Категория","Направлений","Событий","Мест"],CATS.map(k=>`<tr class="click" data-go="category" data-arg="${esc(k)}"><td class="tt">${k}</td><td>${(DIRS[k]||[]).length}</td><td>${a.filter(e=>e.category===k).length}</td><td>${PL.filter(p=>p.category===k).length}</td></tr>`).join(""));
+  if(c==="cats")body=`<div class="note">Категория отвечает на вопрос «зачем человек идёт». У карточки одна категория. От кнопок витрины не зависит: кнопка — это фильтр по категории и типу. Решение 19.11.2026.</div>`+tbl(["№","Категория","Что это","Направлений","Событий","Мест"],CATS.map((k,i)=>`<tr class="click" data-go="category" data-arg="${esc(k)}"><td class="id">${i+1}</td><td class="tt">${k}</td><td class="muted">${esc(CAT_DESC[k]||"")}</td><td>${(DIRS[k]||[]).length}</td><td>${a.filter(e=>e.category===k).length}</td><td>${PL.filter(p=>p.category===k).length}</td></tr>`).join(""));
   const blocks=(groups,cnt)=>`<div class="blocks">${groups.map(([g,items])=>`<div class="blk"><h3>${esc(g)}<span>${items.length}</span></h3><div class="items">${items.map(x=>{const n=cnt(g,x);return `<span class="it">${esc(x)}${n?`<b>${n}</b>`:""}</span>`}).join("")}</div></div>`).join("")}</div>`;
   if(c==="dirs")body=blocks(CATS.map(k=>[k,DIRS[k]||[]]),(g,x)=>a.filter(e=>e.category===g&&e.direction===x).length);
   if(c==="genres")body=rtGenres();
@@ -1113,8 +1127,12 @@ function dirs(){
   const GROUPS=[["Общие",[L("cats"),L("dirs"),L("moods"),L("fw"),L("aud"),plan("p_city","Города"),plan("p_geo","Ориентиры Алматы")]],["События",[L("types"),L("genres")]],["Места",[L("ptypes"),plan("p_spec","Специализации"),L("pattrs"),L("cuis")]],["Организаторы",[plan("p_org","Типы организаторов")]],["Перформеры",[plan("p_perf","Типы и роли")]],["Журнал",[plan("p_jr","Рубрики и теги")]],["Витрина",[L("show"),L("shelves"),L("feeds"),L("filters")]],["Источники",[L("stages")]],["Спецпроекты",[plan("p_sp","Типы проектов")]],["Afisha Club",[plan("p_club","Уровни и предложения")]]];
   const PLAN={p_city:"Города, где работает Афиша. Сейчас — Алматы; справочник нужен, чтобы подключать новые города без переделки базы.",p_geo:"Как алматинцы объясняют, где место: «выше/ниже» (в сторону гор или степи), улицы-линии (Аль-Фараби, Тимирязева, Сатпаева, Абая, Толе би, Райымбека; вдоль — Саина, Розыбакиева, Байзакова, Назарбаева, Достык), «квадраты» и известные точки (Арбат, Зелёный базар, Медеу, Кок-Тобе). Робот сам считает ориентир по координатам места.",p_spec:"Специализации по типам мест — 5–15 вариантов на тип, в карточке выпадающим списком; «Другое» — на согласование Редактору витрины. Черновик готовится по 404 нынешним значениям.",p_org:"Не дублируем: типы организаторов ведёт Eventer (общая база: ядро субъекта + профили Афиши, Eventer и Атласа, решение 21.10.2026; категории — по eventcatalog.ru). Афиша берёт справочник оттуда.",p_perf:"Не дублируем: профили и типы артистов ведёт Eventer. Роли перформера в событии (68) остаются у Афиши.",p_jr:"Рубрики и теги статей Журнала.",p_sp:"Типы спецпроектов Афиши («Культурная зима», «Настоящий алматинец»…).",p_club:"Уровни участников Afisha Club и виды предложений партнёров."};
   if(PLAN[c])body=`<div class="blk"><h3>${esc((GROUPS.flatMap(g=>g[1]).find(x=>x&&x[0]===c)||[])[1]||"")}</h3><p style="max-width:720px">${esc(PLAN[c])}</p><div class="note2">Справочник появится следующим шагом.</div></div>`;
+  /* Два экрана в одном (решение Кайрата 19.11.2026): слева список справочников, справа реестр выбранного */
+  const cur=GROUPS.flatMap(g=>g[1]).find(x=>x&&x[0]===c)||L("cats");
+  const item=([k,t,n])=>`<button class="sp-i${c===k?" on":""}" data-dir="${k}" data-spopen="1"><span>${esc(t)}</span><span class="sp-n">${n}</span></button>`;
+  const nav=`<nav class="sp-nav">${GROUPS.map(([g,items])=>`<div class="sp-g"><div class="lbl">${esc(g)}</div>${items.filter(Boolean).map(item).join("")}</div>`).join("")}</nav>`;
   return `<div class="head"><div><div class="lbl">Знания</div><h1>Справочники</h1><div class="sub">Списки вариантов, из которых выбирают в карточках. Правила и термины — в разделе «Правила».</div></div></div>
-  <div class="layers">${GROUPS.map(([g,items])=>`<div class="layer"><div class="lbl">${esc(g)}</div><div class="seg">${items.filter(Boolean).map(tab).join("")}</div></div>`).join("")}</div>${body}`;
+  <div class="sp${S.spOpen?" open":""}">${nav}<section class="sp-body"><button class="back sp-back" data-spclose="1">← Справочники</button><h2 class="sp-h">${esc(cur[1])}</h2>${body}</section></div>`;
 }
 function mdToHtml(md){const lines=String(md||"").split(/\n/);let h="",list=null,tbl=null;const inl=t=>esc(t).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/\*(.+?)\*/g,"<i>$1</i>").replace(/(https?:\/\/[^\s)]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>');
  const close=()=>{if(list){h+=`</${list}>`;list=null}if(tbl){h+="</tbody></table></div>";tbl=null}};
@@ -1285,6 +1303,7 @@ function sources(){
 async function saveEvent(id,extra){go("evcard",id);toast("Правки сохраняются в рабочей карточке события.")}
 
 document.addEventListener("click",ev=>{
+  if(ev.target.closest("[data-spclose]")){S.spOpen=false;render();window.scrollTo(0,0);return}
   const t=ev.target.closest("[data-psave],[data-srcadd],[data-srcst],[data-srcdel],[data-srt],[data-srmore],[data-go],[data-ev],[data-pl],[data-f],[data-clear],[data-pclear],[data-qtab],[data-dir],[data-cattab],[data-save],[data-stage],[data-archive],[data-mood],[data-fw],[data-toast]");
   if(!t)return;
   if(t.dataset.toast){toast(t.dataset.toast);return}
@@ -1307,7 +1326,7 @@ document.addEventListener("click",ev=>{
   if(t.dataset.pclear){S.plF=Object.assign({},S.plF,{[t.dataset.pclear]:null});render();return}
   if(t.dataset.qtab){S.qtab=Number(t.dataset.qtab);render();return}
   if(t.dataset.cattab){S.catTab=t.dataset.cattab;render();return}
-  if(t.dataset.dir&&!t.dataset.go){S.dir=t.dataset.dir;render();return}
+  if(t.dataset.dir&&!t.dataset.go){S.dir=t.dataset.dir;if(t.dataset.spopen){S.spOpen=true;window.scrollTo(0,0)}render();return}
   if(t.dataset.go){window.__moodOrder=null;const patch=t.dataset.patch?JSON.parse(t.dataset.patch):null;if(t.dataset.dir)S.dir=t.dataset.dir;go(t.dataset.go,t.dataset.arg,patch)}
 });
 document.addEventListener("input",ev=>{if(ev.target.id==="src_in"){S.srDraft=ev.target.value;return}if(ev.target.id==="q"){S.q=ev.target.value;const pos=ev.target.selectionStart;render();const q=$("#q");q.focus();q.setSelectionRange(pos,pos)}});
