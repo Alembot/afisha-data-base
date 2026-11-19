@@ -1067,7 +1067,7 @@ function bookBody(kind){
   const openRow=openId?numbered.flatMap(([g,x])=>x.map(o=>Object.assign({g},o))).find(o=>o.r.id===openId):null;
   if(openRow)return `<div><button class="back" data-bkclose="1">← ${kind==="terms"?"Все термины":"Все правила"}</button></div><div class="lbl">${esc(openRow.g)} · №${openRow.n}</div><div class="bks one">${card(openRow.r)}</div>`;
   const row=({r,n})=>`<button class="rg-row${r.status==="draft"?" draft":""}" data-bkopen="${esc(r.id)}"><span class="rg-n">${n}</span><span class="rg-t">${esc(r.title)}</span>${r.status==="draft"?`<span class="pill warn">обсуждается</span>`:""}</button>`;
-  return `<div class="note">${intro}</div><div>${adding?"":`<button class="btn pri" data-bkadd="1">${kind==="terms"?"Добавить понятие":"Добавить правило"}</button>`}</div>${adding?`<div class="bks one">${form({})}</div>`:""}<div class="rg">`+numbered.map(([g,x])=>`<section class="rg-g"><div class="lbl">${esc(g)} · ${x.length}</div>${x.map(row).join("")}</section>`).join("")+`</div>`;
+  return `<div class="note">${intro}</div><div>${adding?"":`<button class="btn pri" data-bkadd="1">${kind==="terms"?"Добавить понятие":"Добавить правило"}</button>`}</div>${adding?`<div class="bks one">${form({})}</div>`:""}<div class="rg">`+numbered.map(([g,x])=>`<section class="rg-g"><div class="lbl">${esc(g)}</div>${x.map(row).join("")}</section>`).join("")+`</div>`;
 }
 function rulesView(){
   const nT=BK?BK.terms.length:"…",nR=BK?BK.rules.length:"…";const c=S.dir==="terms"?"terms":"rules";
@@ -1137,7 +1137,7 @@ function docs(){
   let no=0;
   const row=d=>`<button class="rg-row" data-go="doc" data-arg="${esc(d.id)}"><span class="rg-n">${++no}</span><span class="rg-t">${esc(d.title)}</span>${d.status!=="Действует"?`<span class="pill warn">${esc(d.status)}</span>`:""}</button>`;
   return `<div class="head"><div><div class="lbl">Знания</div><h1>Инструкции</h1><div class="sub">Как действовать на каждом шаге — от источника до витрины. Правила, по которым решаем спорное, — во вкладке «Правила».</div></div></div>`+
-  (list.length?`<div class="rg">${steps.map(g=>{const x=list.filter(d=>d.step===g);return `<section class="rg-g"><div class="lbl">${esc(g)} · ${x.length}</div>${x.map(row).join("")}</section>`}).join("")}</div>`:`<div class="empty">Инструкции загружаются…</div>`);
+  (list.length?`<div class="rg">${steps.map(g=>{const x=list.filter(d=>d.step===g);return `<section class="rg-g"><div class="lbl">${esc(g)}</div>${x.map(row).join("")}</section>`}).join("")}</div>`:`<div class="empty">Инструкции загружаются…</div>`);
 }
 
 
