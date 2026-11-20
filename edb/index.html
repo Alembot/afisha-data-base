@@ -699,7 +699,7 @@ async function vHome(m,p={}){
  const chip=(on,lbl,href,extra="")=>`<button type="button" class="hchip${on?" on":""}" aria-pressed="${on}" data-h="${esc(href)}">${esc(lbl)}${extra}</button>`;
  const total=L==="academy"?null:sum(inCity);
  const atlasTop=L==="atlas"?`<div class="hatlas"><div><span class="v">${nf(HOME.filter(inCity).reduce((a,r)=>a+r[6]+r[7],0))}</span><span class="t">Индустрия событий · уровни 1–2</span></div><div><span class="v">${nf(HOME.filter(inCity).reduce((a,r)=>a+r[6]+r[7]+r[8],0))}</span><span class="t">Экономический эффект · уровни 1–3</span></div></div>`:"";
- const roles=H_ROLES.map(([k,t])=>`<button type="button" class="tile hrole${k===role?" on":""}" aria-pressed="${k===role}" data-h="${esc(h({role:k}))}"><span class="t" style="font-weight:600">${esc(t)}</span><span class="v">${L==="academy"?"—":nf(sum(r=>r[0]===k&&inCity(r)))}</span></button>`).join("");
+ const roles=(L==="afisha"?[["площадка","Площадки"],["агентство","Организаторы"],["артист","Артисты"],["специалист","Специалисты"]]:H_ROLES).map(([k,t])=>`<button type="button" class="tile hrole${k===role?" on":""}" aria-pressed="${k===role}" data-h="${esc(h({role:k}))}"><span class="t" style="font-weight:600">${esc(t)}</span><span class="v">${L==="academy"?"—":nf(sum(r=>r[0]===k&&inCity(r)))}</span></button>`).join("");
  const cities=H_CITIES.map(([k,t])=>chip(city===k,t,h({city:city===k?"":k}),` <span class="hn">${nf(sum(r=>r[0]===role&&r[2]===k))}</span>`)).join("");
  const cityName={ala:"Алматы",ast:"Астана"}[city]||"";
  const catTile=name=>{const n=sum(r=>r[0]===role&&r[1]===name&&inCity(r));const no=name==="Без категории";
